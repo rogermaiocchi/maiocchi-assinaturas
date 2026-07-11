@@ -23,6 +23,8 @@ npm run lint
 
 O projeto gera uma exportação estática do Next.js e a serve com Nginx sem privilégios. O `compose.yml` conecta o container somente à rede externa do Traefik. As rotas TLS ficam em `deploy/traefik-assinatura.yml`.
 
+O compose reproduzível do motor documental fica em `deploy/docuseal.yml`; valores sensíveis permanecem exclusivamente no `.env` da VPS.
+
 Variáveis públicas de build:
 
 - `NEXT_PUBLIC_DOCUMENTS_URL`: origem do DocuSeal para links de documentos.

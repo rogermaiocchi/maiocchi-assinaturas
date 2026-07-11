@@ -1,0 +1,62 @@
+services:
+  docuseal:
+    image: maiocchi/docuseal:3.0.1-maiocchi.1
+    container_name: docuseal
+    restart: unless-stopped
+    mem_limit: 1g
+    depends_on:
+      docuseal-db:
+        condition: service_healthy
+    environment:
+      HOST: assinatura.maiocchi.adv.br
+      APP_URL: https://assinatura.maiocchi.adv.br
+      EMAIL_HOST: assinatura.maiocchi.adv.br
+      FORCE_SSL: "true"
+      DEFAULT_LOCALE: pt
+      DATABASE_URL: "postgresql://docuseal:${DB_PASS}@docuseal-db:5432/docuseal"
+      SECRET_KEY_BASE: "${SECRET_KEY_BASE}"
+      CERTIFICATE_AUTH_ENABLED: "${CERTIFICATE_AUTH_ENABLED:-false}"
+      CERTIFICATE_AUTH_HOST: certificado.assinatura.maiocchi.adv.br
+      CERTIFICATE_AUTH_APP_HOST: assinatura.maiocchi.adv.br
+      MAIOCCHI_HOME_URL: https://assinatura.maiocchi.adv.br
+      MAIOCCHI_SOURCE_URL: https://assinatura.maiocchi.adv.br/codigo-fonte/
+      MAIOCCHI_LICENSE_URL: https://assinatura.maiocchi.adv.br/legal/LICENSE.txt
+    volumes:
+      - "${DOCUSEAL_DATA_DIR:-./data}:/data"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks: [traefik-net, docuseal-internal]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/up"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  docuseal-db:
+    image: postgres:16
+    container_name: docuseal-db
+    restart: unless-stopped
+    mem_limit: 512m
+    environment:
+      POSTGRES_DB: docuseal
+      POSTGRES_USER: docuseal
+      POSTGRES_PASSWORD: "${DB_PASS}"
+    volumes:
+      - "${DOCUSEAL_PGDATA_DIR:-./pgdata}:/var/lib/postgresql/data"
+    networks: [docuseal-internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U docuseal -d docuseal"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+networks:
+  traefik-net:
+    external: true
+    name: traefik-net
+  docuseal-internal:
+    driver: bridge

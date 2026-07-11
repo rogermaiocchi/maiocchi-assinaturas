@@ -135,10 +135,11 @@ test("publica identidade de navegador Maiocchi", async () => {
 });
 
 test("padroniza páginas inexistentes e redirecionamentos internos", async () => {
-  const [notFound, nginx, traefik] = await Promise.all([
+  const [notFound, nginx, traefik, docuseal] = await Promise.all([
     readFile(new URL("404.html", outputRoot), "utf8"),
     readFile(new URL("../nginx.conf", import.meta.url), "utf8"),
     readFile(new URL("../deploy/traefik-assinatura.yml", import.meta.url), "utf8"),
+    readFile(new URL("../deploy/docuseal.yml", import.meta.url), "utf8"),
   ]);
   assert.match(notFound, /Esta página não foi encontrada/i);
   assert.match(notFound, /Maiocchi Advogado/i);
@@ -148,4 +149,7 @@ test("padroniza páginas inexistentes e redirecionamentos internos", async () =>
   assert.match(traefik, /docuseal-main-paths:/i);
   assert.match(traefik, /documents-to-main:/i);
   assert.match(traefik, /replacement: 'https:\/\/assinatura\.maiocchi\.adv\.br\/\$\{1\}'/i);
+  assert.match(docuseal, /APP_URL: https:\/\/assinatura\.maiocchi\.adv\.br/i);
+  assert.match(docuseal, /CERTIFICATE_AUTH_APP_HOST: assinatura\.maiocchi\.adv\.br/i);
+  assert.doesNotMatch(docuseal, /documentos\.assinatura\.maiocchi\.adv\.br/i);
 });
