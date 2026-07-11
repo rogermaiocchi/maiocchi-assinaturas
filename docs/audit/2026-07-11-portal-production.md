@@ -2,8 +2,8 @@
 
 ## Artefato
 
-- Commit assinado: `f6e05bb`.
-- Imagem: `maiocchi/assinatura-portal:1.2.0`.
+- Commits assinados: `f6e05bb` e `a6fab52`.
+- Imagem: `maiocchi/assinatura-portal:1.2.1`.
 - Backup anterior: `20260711T184109Z`, com hashes verificados.
 - Rollback: validação seca aprovada antes da publicação.
 
@@ -19,6 +19,7 @@
 - Arquivo-fonte correspondente AGPL disponível publicamente.
 - CSP, HSTS, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` e `Permissions-Policy` presentes.
 - Container saudável, raiz somente leitura, todas as capabilities removidas e `no-new-privileges` ativo.
+- Cadeia GOV.BR indicada pela fonte oficial publicada com SHA-256 `dbf22f7c15ace9c37e6b4141271695a17dc445b5a04c003ced94322ad905879f` e validação de três níveis aprovada.
 
 ## Escopo não concluído
 
