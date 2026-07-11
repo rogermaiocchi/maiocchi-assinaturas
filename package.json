@@ -9,7 +9,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "npx serve out",
-    "test": "npm run build && node --test tests/*.test.mjs",
+    "test": "npm run build && node --test tests/*.test.mjs services/pki-bridge/test/*.test.mjs",
+    "test:pki": "node --test services/pki-bridge/test/*.test.mjs",
     "lint": "eslint . --ignore-pattern out --ignore-pattern .next"
   },
   "dependencies": {

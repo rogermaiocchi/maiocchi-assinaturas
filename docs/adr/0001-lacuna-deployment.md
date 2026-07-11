@@ -16,6 +16,8 @@ Adotar **REST PKI Core on-premises + Web PKI**, mediante contrato e licença emi
 
 O `pki-bridge` será um serviço independente e consumirá a API oficial. O código será escrito a partir da documentação e do contrato de API. Nenhum arquivo de `PkiSuiteSamples` será copiado sem autorização expressa.
 
+As chamadas serão feitas com `fetch` nativo do Node 22. O cliente oficial `restpki-core-client@1.0.2` não será usado enquanto mantiver a dependência descontinuada `request`: a auditoria de 11 de julho de 2026 encontrou seis vulnerabilidades transitivas, duas críticas. Os endpoints e modelos usados pelo bridge derivam do OpenAPI oficial 4.3.1.
+
 O primeiro perfil de produção será definido com a Lacuna. A meta é PAdES com validação ICP-Brasil, revogação e carimbo de tempo/LTV quando contemplados pela política contratada. A interface não prometerá nível PAdES antes de o perfil ser comprovado em um PDF real.
 
 ## Alternativas rejeitadas
@@ -27,6 +29,10 @@ Reduz operação, mas transfere o PDF a terceiro e depende de acordo de tratamen
 ### Incorporar os exemplos Node.js
 
 Rejeitado. O projeto contém material de demonstração, dependências antigas, credenciais de teste e licença de código não identificada.
+
+### Usar o cliente Node gerado sem revisão
+
+Rejeitado no estado auditado. Embora o pacote exponha os métodos necessários, sua árvore de produção inclui vulnerabilidades críticas. Uma futura versão pode ser reconsiderada após `npm audit`, revisão do changelog e teste de compatibilidade.
 
 ### Implementar criptografia PDF manualmente
 

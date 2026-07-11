@@ -67,11 +67,11 @@ Trilha append-only com evento, ator, workflow, versão anterior/nova, correlaç�
 
 `POST /internal/docuseal/events`
 
-- valida HMAC antes do parse de negócio;
-- exige UUID do evento;
+- valida `X-Docuseal-Signature` antes do parse de negócio, no formato `timestamp.HMAC-SHA256` do fork;
+- rejeita timestamps fora da janela de cinco minutos;
 - aceita somente tipos permitidos;
-- aplica idempotência;
-- busca o PDF pela API do DocuSeal;
+- aplica idempotência pelo SHA-256 do corpo bruto;
+- aceita URLs de PDF somente no origin HTTPS configurado do DocuSeal e baixa o arquivo antes que o link expire;
 - calcula hash antes de criar o workflow.
 
 ### Assinatura
@@ -120,3 +120,5 @@ A interface interna separa o domínio do cliente do contrato da Lacuna:
 - `health`.
 
 O provider `disabled` é o único permitido sem licença. Ele retorna indisponibilidade explícita e nunca produz PDF marcado como assinado. Providers de teste são compilados somente para testes automatizados.
+
+O adapter REST usa `POST /api/signature`, `POST /api/signature/completion` e `PUT /api/signature-inspection`. URLs temporárias de resultado nunca são persistidas e só podem ser baixadas do mesmo host HTTPS do endpoint REST PKI Core.
