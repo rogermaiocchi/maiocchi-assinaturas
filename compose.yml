@@ -1,0 +1,23 @@
+services:
+  portal:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: maiocchi/assinatura-portal:1.1.1
+    container_name: assinatura-portal
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    mem_limit: 128m
+    networks:
+      - traefik-net
+
+networks:
+  traefik-net:
+    external: true
+    name: traefik-net

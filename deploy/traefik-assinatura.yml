@@ -1,0 +1,106 @@
+http:
+  middlewares:
+    assinatura-security:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        contentTypeNosniff: true
+        frameDeny: true
+        referrerPolicy: strict-origin-when-cross-origin
+        customResponseHeaders:
+          Permissions-Policy: "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+
+    certificado-strip-headers:
+      headers:
+        customRequestHeaders:
+          X-Forwarded-Tls-Client-Cert: ""
+          X-Forwarded-Tls-Client-Cert-Info: ""
+
+    certificado-pass-client:
+      passTLSClientCert:
+        pem: true
+
+    certificado-rate-limit:
+      rateLimit:
+        average: 5
+        burst: 10
+
+    certificado-no-store:
+      headers:
+        frameDeny: true
+        contentTypeNosniff: true
+        referrerPolicy: no-referrer
+        customResponseHeaders:
+          Cache-Control: "no-store"
+          Permissions-Policy: "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+
+  routers:
+    assinatura-portal:
+      entryPoints: [websecure]
+      priority: 100
+      rule: Host(`assinatura.maiocchi.adv.br`)
+      service: assinatura-portal-svc
+      middlewares: [assinatura-security]
+      tls:
+        certResolver: le
+
+    maiocchi-documents:
+      entryPoints: [websecure]
+      priority: 10
+      rule: Host(`documentos.assinatura.maiocchi.adv.br`)
+      service: docuseal-svc
+      middlewares: [assinatura-security]
+      tls:
+        certResolver: le
+
+    maiocchi-certificate-auth:
+      entryPoints: [websecure]
+      priority: 100
+      rule: >-
+        Host(`certificado.assinatura.maiocchi.adv.br`) &&
+        (Path(`/certificate_auth/login/present`) ||
+        Path(`/certificate_auth/enrollment/present`) ||
+        PathPrefix(`/packs/`) ||
+        PathPrefix(`/legal/`) ||
+        PathPrefix(`/favicon`) ||
+        PathPrefix(`/apple-`) ||
+        PathPrefix(`/pwa-`) ||
+        Path(`/service-worker.js`))
+      service: docuseal-svc
+      middlewares:
+        - certificado-strip-headers
+        - certificado-pass-client
+        - certificado-rate-limit
+        - certificado-no-store
+      tls:
+        certResolver: le
+        options: maiocchi-icp-client-auth@file
+
+  services:
+    assinatura-portal-svc:
+      loadBalancer:
+        healthCheck:
+          path: /healthz
+          interval: 30s
+          timeout: 5s
+        servers:
+          - url: http://assinatura-portal:8080
+
+    docuseal-svc:
+      loadBalancer:
+        healthCheck:
+          path: /up
+          interval: 30s
+          timeout: 5s
+        servers:
+          - url: http://docuseal:3000
+
+tls:
+  options:
+    maiocchi-icp-client-auth:
+      minVersion: VersionTLS12
+      sniStrict: true
+      clientAuth:
+        caFiles:
+          - /etc/traefik/dynamic/icp-trust/icp-client-roots.crt
+        clientAuthType: VerifyClientCertIfGiven
