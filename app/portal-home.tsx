@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import Link from "next/link";
-import { Brand } from "./brand";
+import { SiteFooter, SiteHeader } from "./site-chrome";
 
 const documentsBase = process.env.NEXT_PUBLIC_DOCUMENTS_URL || "https://documentos.assinatura.maiocchi.adv.br";
 const lawyersBase = process.env.NEXT_PUBLIC_LAWYERS_URL || `${documentsBase}/sign_in`;
@@ -48,17 +48,7 @@ export function PortalHome() {
 
   return (
     <main>
-      <header className="site-header">
-        <div className="shell header-inner">
-          <Brand />
-          <nav aria-label="Navegação principal">
-            <a href="#como-funciona">Como funciona</a>
-            <a href="#seguranca">Segurança</a>
-            <Link href="/ajuda/">Ajuda</Link>
-          </nav>
-          <a className="button button--dark button--small" href={lawyersBase}>Área dos advogados</a>
-        </div>
-      </header>
+      <SiteHeader />
 
       <section className="hero">
         <div className="shell hero-grid">
@@ -66,8 +56,8 @@ export function PortalHome() {
             <p className="eyebrow"><span className="status-dot" /> Portal seguro de documentos</p>
             <h1>Assine com clareza.<br />Acompanhe com confiança.</h1>
             <p className="hero-lead">
-              Um ambiente único para advogados enviarem documentos e clientes assinarem de qualquer dispositivo,
-              com registro de cada etapa.
+              O ambiente do Maiocchi Advogado para preparar, acompanhar e assinar documentos, com modalidade
+              identificada e registro de cada etapa.
             </p>
             <div className="hero-actions">
               <a className="button button--yellow" href="#acessar-documento">Acessar meu documento</a>
@@ -107,7 +97,7 @@ export function PortalHome() {
             </form>
             <div className="access-card__footer">
               <span>Não recebeu o código?</span>
-              <a href="mailto:admin@maiocchi.adv.br?subject=Acesso%20ao%20portal%20de%20assinaturas">Falar com o escritório</a>
+              <a href="mailto:roger@maiocchi.adv.br?subject=Acesso%20ao%20portal%20de%20assinaturas">Falar com o escritório</a>
             </div>
           </aside>
         </div>
@@ -176,17 +166,24 @@ export function PortalHome() {
             <article>
               <span className="mode-tag">ELETRÔNICA</span>
               <h3>Assinatura com trilha de eventos</h3>
-              <p>Indicada para fluxos em que o vínculo entre documento, signatário e evidências eletrônicas atende ao caso concreto.</p>
+              <p>O acesso por link e as evidências do DocuSeal são tratados como assinatura simples por padrão. A modalidade adequada depende do documento e do caso concreto.</p>
+              <Link className="inline-light-link" href="/assinaturas-eletronicas/">Comparar modalidades <span aria-hidden="true">→</span></Link>
             </article>
             <article>
               <span className="mode-tag mode-tag--yellow">ICP-BRASIL</span>
               <h3>Assinatura digital com certificado</h3>
-              <p>Para documentos que exigem certificado ICP-Brasil, a chave permanece no token do titular e o PIN não é enviado ao portal.</p>
+              <p>Quando habilitada no fluxo, a assinatura qualificada usa certificado ICP-Brasil. A chave privada e o PIN permanecem sob controle do titular.</p>
               {icpBase ? (
                 <a className="inline-light-link" href={icpBase}>Acessar área ICP-Brasil <span aria-hidden="true">→</span></a>
               ) : (
-                <span className="mode-status">Disponibilização controlada pelo escritório</span>
+                <Link className="inline-light-link" href="/certificacao-digital/">Entender a certificação digital <span aria-hidden="true">→</span></Link>
               )}
+            </article>
+            <article>
+              <span className="mode-tag">GOV.BR</span>
+              <h3>Assinatura avançada em serviço oficial</h3>
+              <p>O documento pode ser assinado externamente no GOV.BR e depois conferido pelos canais oficiais.</p>
+              <Link className="inline-light-link" href="/assinatura-gov-br/">Ver o percurso GOV.BR <span aria-hidden="true">→</span></Link>
             </article>
           </div>
         </div>
@@ -197,19 +194,12 @@ export function PortalHome() {
           <div><p className="eyebrow">Precisa de ajuda?</p><h2>Estamos aqui para orientar.</h2></div>
           <div className="help-actions">
             <Link className="button button--dark" href="/ajuda/">Central de ajuda</Link>
-            <a className="text-link" href="mailto:admin@maiocchi.adv.br">admin@maiocchi.adv.br</a>
+            <a className="text-link" href="mailto:roger@maiocchi.adv.br">roger@maiocchi.adv.br</a>
           </div>
         </div>
       </section>
 
-      <footer>
-        <div className="shell footer-main">
-          <Brand compact />
-          <p>Portal de assinaturas e documentos de Roger Maiocchi, advogado.</p>
-          <div className="footer-links"><Link href="/privacidade/">Privacidade</Link><Link href="/termos/">Termos de uso</Link><Link href="/codigo-fonte/">Código-fonte</Link><Link href="/ajuda/">Ajuda</Link></div>
-        </div>
-        <div className="shell footer-bottom"><span>© {new Date().getFullYear()} Roger Maiocchi, advogado.</span><span>Ambiente protegido por HTTPS</span></div>
-      </footer>
+      <SiteFooter />
     </main>
   );
 }

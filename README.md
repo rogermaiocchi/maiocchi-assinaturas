@@ -1,6 +1,6 @@
 # Maiocchi Assinaturas
 
-Porta de entrada institucional para o ambiente de documentos e assinaturas de Roger Maiocchi, advogado.
+Porta de entrada institucional para o ambiente de documentos e assinaturas do Maiocchi Advogado.
 
 ## Arquitetura
 
@@ -24,3 +24,5 @@ npm run lint
 O projeto gera uma exportação estática do Next.js e a serve com Nginx sem privilégios. O `compose.yml` conecta o container somente à rede externa do Traefik. As rotas TLS ficam em `deploy/traefik-assinatura.yml`.
 
 Segredos não pertencem a este repositório. O painel DocuSeal, o PostgreSQL e as credenciais administrativas são geridos separadamente no VPS e no Keychain do operador.
+
+O procedimento canônico do MacBook está em [`docs/operations/macbook-standard.md`](docs/operations/macbook-standard.md).

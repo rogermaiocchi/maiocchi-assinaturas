@@ -4,11 +4,11 @@ import "./globals.css";
 export const metadata: Metadata = {
   metadataBase: new URL("https://assinatura.maiocchi.adv.br"),
   title: {
-    default: "Maiocchi Assinaturas | Roger Maiocchi, advogado",
+    default: "Maiocchi Assinaturas | Maiocchi Advogado",
     template: "%s | Maiocchi Assinaturas",
   },
   description:
-    "Portal seguro para envio, acompanhamento e assinatura de documentos de Roger Maiocchi, advogado.",
+    "Portal seguro para envio, acompanhamento e assinatura de documentos do Maiocchi Advogado.",
   applicationName: "Maiocchi Assinaturas",
   manifest: "/site.webmanifest",
   icons: {
@@ -24,13 +24,13 @@ export const metadata: Metadata = {
     type: "website",
     locale: "pt_BR",
     siteName: "Maiocchi Assinaturas",
-    title: "Maiocchi Assinaturas | Roger Maiocchi, advogado",
+    title: "Maiocchi Assinaturas | Maiocchi Advogado",
     description: "Assine com clareza. Acompanhe com confiança.",
-    images: [{ url: "/og.png", width: 1731, height: 909, alt: "Maiocchi Assinaturas — Roger Maiocchi, advogado" }],
+    images: [{ url: "/og.png", width: 1731, height: 909, alt: "Maiocchi Assinaturas, portal do Maiocchi Advogado" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Maiocchi Assinaturas | Roger Maiocchi, advogado",
+    title: "Maiocchi Assinaturas | Maiocchi Advogado",
     description: "Assine com clareza. Acompanhe com confiança.",
     images: ["/og.png"],
   },
