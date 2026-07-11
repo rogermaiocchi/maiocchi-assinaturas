@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { BadgeCheck, FileKey, KeyRound, ShieldCheck } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, BadgeCheck, FileKey, KeyRound, ShieldCheck } from "lucide-react";
 import { FlowMap } from "../flow-map";
 import { LegalPage } from "../legal-page";
 
@@ -19,6 +20,7 @@ export default function DigitalCertificatePage() {
     <h2>O que a assinatura comprova</h2><p>A assinatura digital permite verificar autoria e integridade. Alterações posteriores no conteúdo coberto pela assinatura devem ser detectadas pelo validador. Assinar não cifra o documento nem o torna sigiloso.</p>
     <h2>Validade e revogação</h2><p>O certificado possui prazo de validade. Comprometimento, perda de controle ou informação incorreta exige contato com a autoridade certificadora para avaliar a revogação. Um certificado expirado ou revogado não deve ser aceito como válido fora das regras aplicáveis.</p>
     <h2>Cuidados</h2><p>Nunca envie arquivo A1, senha, PIN ou chave privada ao escritório. Digite o PIN somente no componente seguro do certificado. Desconfie de pedido por e-mail, telefone ou mensagem.</p>
+    <p><Link className="button button--dark" href="/certificado-icp-brasil/"><FileKey aria-hidden="true" size={17} /><span>Usar certificado ICP-Brasil</span><ArrowRight aria-hidden="true" size={16} /></Link></p>
     <h2>Fonte oficial</h2><p>Consulte as <a href="https://www.gov.br/iti/pt-br/acesso-a-informacao/perguntas-frequentes/certificacao-digital" target="_blank" rel="noreferrer">perguntas frequentes do Instituto Nacional de Tecnologia da Informação</a>.</p>
   </LegalPage>;
 }

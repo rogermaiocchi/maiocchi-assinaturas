@@ -26,7 +26,7 @@ export default function GovBrSignaturePage() {
     <h2>Integração com sistemas</h2><p>A API GOV.BR é destinada a órgãos e entes públicos. O Maiocchi Advogado não apresenta este portal como integração direta com a API governamental; ele oferece orientação e conferência do documento assinado externamente.</p>
     <h2>Conferência</h2><p>Use o <a href="https://validar.iti.gov.br/" target="_blank" rel="noreferrer">Validador do ITI</a>. No Adobe Reader, pode ser necessário importar a cadeia de certificados indicada pelo Governo Digital para exibir confiança.</p>
     <h2>Cadeia de certificados GOV.BR</h2>
-    <p><a className="button button--yellow" href="/certificados/Cadeia_GovBr-der.p7b" download>Baixar cadeia GOV.BR</a></p>
+    <p><a className="button button--yellow" href="/certificados/Cadeia_GovBr-der.p7b" download><Download aria-hidden="true" size={18} /><span>Baixar cadeia GOV.BR</span></a></p>
     <p>O arquivo <strong>Cadeia_GovBr-der.p7b</strong> contém três certificados e fecha até a Autoridade Certificadora Raiz do Governo Federal do Brasil v1. SHA-256: <code>dbf22f7c15ace9c37e6b4141271695a17dc445b5a04c003ced94322ad905879f</code>.</p>
     <p>Esta cadeia auxilia a validação de PDFs assinados pelo GOV.BR. Ela não habilita login por certificado, não deve ser adicionada às raízes mTLS do portal e não converte assinatura avançada em assinatura qualificada ICP-Brasil.</p>
     <h2>Fontes oficiais</h2>

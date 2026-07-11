@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: maiocchi/assinatura-portal:1.3.0
+    image: maiocchi/assinatura-portal:1.4.0
     container_name: assinatura-portal
     restart: unless-stopped
     read_only: true

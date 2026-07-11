@@ -10,9 +10,15 @@ test("renderiza a porta de entrada Maiocchi", async () => {
   const html = await readFile(new URL("index.html", outputRoot), "utf8");
   assert.match(html, /<title>Maiocchi Assinaturas \| Maiocchi Advogado<\/title>/i);
   assert.match(html, /Recebeu um documento\?/i);
+  assert.match(html, /Acesse e assine seu documento/i);
+  assert.match(html, /class="brand__mark"/i);
+  assert.match(html, /src="\/icon-512\.png"/i);
+  assert.match(html, /Ir para o conteúdo principal/i);
+  assert.match(html, /id="conteudo-principal"/i);
   assert.match(html, /Área dos advogados/i);
   assert.match(html, /documentos\.assinatura\.maiocchi\.adv\.br\/sign_in/i);
   assert.match(html, /ICP-BRASIL/i);
+  assert.match(html, /\/certificado-icp-brasil\//i);
   assert.match(html, /roger@maiocchi\.adv\.br/i);
   assert.match(html, /\/assinaturas-eletronicas\//i);
   assert.match(html, /\/assinatura-gov-br\//i);
@@ -34,8 +40,8 @@ test("publica páginas legais e de ajuda", async () => {
   assert.match(terms, /OAB\/DF/i);
   assert.match(help, /Assinatura com certificado ICP-Brasil/i);
   assert.match(source, /GNU Affero General Public License/i);
-  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/archive\/refs\/tags\/portal-v1\.3\.0\.zip/i);
-  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/tree\/portal-v1\.3\.0/i);
+  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/archive\/refs\/tags\/portal-v1\.4\.0\.zip/i);
+  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/tree\/portal-v1\.4\.0/i);
   assert.doesNotMatch(source, /href="\/codigo-fonte\/docuseal-maiocchi-3\.0\.1\.tar\.gz"/i);
   assert.doesNotMatch(source, /termos adicionais/i);
   for (const html of [privacy, terms, help]) {
@@ -48,6 +54,7 @@ test("publica e conecta o conteúdo de assinaturas e segurança", async () => {
   const pages = await Promise.all([
     readFile(new URL("assinaturas-eletronicas/index.html", outputRoot), "utf8"),
     readFile(new URL("certificacao-digital/index.html", outputRoot), "utf8"),
+    readFile(new URL("certificado-icp-brasil/index.html", outputRoot), "utf8"),
     readFile(new URL("assinatura-gov-br/index.html", outputRoot), "utf8"),
     readFile(new URL("validar/index.html", outputRoot), "utf8"),
     readFile(new URL("seguranca/index.html", outputRoot), "utf8"),
@@ -57,12 +64,16 @@ test("publica e conecta o conteúdo de assinaturas e segurança", async () => {
   assert.match(pages[0], /avançada/i);
   assert.match(pages[0], /qualificada/i);
   assert.match(pages[1], /A1, A3 e nuvem/i);
-  assert.match(pages[2], /serviço oficial/i);
-  assert.match(pages[2], /validar\.iti\.gov\.br/i);
-  assert.match(pages[2], /Cadeia_GovBr-der\.p7b/i);
-  assert.match(pages[2], /não deve ser adicionada às raízes mTLS/i);
-  assert.match(pages[3], /Validador do ITI/i);
-  assert.match(pages[4], /Conexão e isolamento/i);
+  assert.match(pages[2], /Uso do token local/i);
+  assert.match(pages[2], /lacuna-web-pki-2\.16\.1\.min\.js/i);
+  assert.match(pages[2], /Autenticar com certificado/i);
+  assert.match(pages[2], /certificado\.assinatura\.maiocchi\.adv\.br\/certificate_auth\/login\/present/i);
+  assert.match(pages[3], /serviço oficial/i);
+  assert.match(pages[3], /validar\.iti\.gov\.br/i);
+  assert.match(pages[3], /Cadeia_GovBr-der\.p7b/i);
+  assert.match(pages[3], /não deve ser adicionada às raízes mTLS/i);
+  assert.match(pages[4], /Validador do ITI/i);
+  assert.match(pages[5], /Conexão e isolamento/i);
 
   for (const html of pages) {
     assert.match(html, /Maiocchi Advogado/i);
@@ -75,6 +86,7 @@ test("publica e conecta o conteúdo de assinaturas e segurança", async () => {
 test("mantém navegação contextual e fluxos visuais em todo o portal", async () => {
   const routes = [
     "assinaturas-eletronicas",
+    "certificado-icp-brasil",
     "assinatura-gov-br",
     "certificacao-digital",
     "validar",

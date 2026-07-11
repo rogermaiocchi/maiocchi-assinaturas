@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {
+  ArrowRight,
   BadgeCheck,
   BookOpenText,
   CircleHelp,
@@ -20,6 +21,7 @@ type PortalRoute = {
 
 export const portalRoutes: PortalRoute[] = [
   { href: "/assinaturas-eletronicas/", label: "Modalidades de assinatura", shortLabel: "Modalidades", icon: FileSignature },
+  { href: "/certificado-icp-brasil/", label: "Certificado ICP-Brasil", shortLabel: "ICP-Brasil", icon: FileKey },
   { href: "/assinatura-gov-br/", label: "Assinatura GOV.BR", shortLabel: "GOV.BR", icon: Landmark },
   { href: "/certificacao-digital/", label: "Certificação digital", shortLabel: "Certificação", icon: FileKey },
   { href: "/validar/", label: "Validar assinatura", shortLabel: "Validar", icon: BadgeCheck },
@@ -27,10 +29,13 @@ export const portalRoutes: PortalRoute[] = [
   { href: "/ajuda/", label: "Central de ajuda", shortLabel: "Ajuda", icon: CircleHelp },
 ];
 
+const sectionRoutes = portalRoutes.filter((route) => route.href !== "/certificacao-digital/");
+
 const nextRoutes: Record<string, string[]> = {
-  "/assinaturas-eletronicas/": ["/certificacao-digital/", "/assinatura-gov-br/", "/validar/"],
-  "/assinatura-gov-br/": ["/validar/", "/certificacao-digital/", "/ajuda/"],
-  "/certificacao-digital/": ["/assinaturas-eletronicas/", "/validar/", "/seguranca/"],
+  "/assinaturas-eletronicas/": ["/certificado-icp-brasil/", "/certificacao-digital/", "/validar/"],
+  "/certificado-icp-brasil/": ["/certificacao-digital/", "/validar/", "/seguranca/"],
+  "/assinatura-gov-br/": ["/validar/", "/certificado-icp-brasil/", "/ajuda/"],
+  "/certificacao-digital/": ["/certificado-icp-brasil/", "/assinaturas-eletronicas/", "/validar/"],
   "/validar/": ["/assinaturas-eletronicas/", "/assinatura-gov-br/", "/ajuda/"],
   "/seguranca/": ["/privacidade/", "/validar/", "/ajuda/"],
   "/ajuda/": ["/assinaturas-eletronicas/", "/validar/", "/seguranca/"],
@@ -52,9 +57,10 @@ export function PortalSectionNav({ currentPath }: { currentPath: string }) {
   return (
     <nav className="portal-sections" aria-label="Seções do portal">
       <div className="shell portal-sections__track">
-        {portalRoutes.map((route) => {
+        {sectionRoutes.map((route) => {
           const Icon = route.icon;
-          const active = currentPath === route.href;
+          const active = currentPath === route.href
+            || (route.href === "/certificado-icp-brasil/" && currentPath === "/certificacao-digital/");
           return (
             <Link className={active ? "is-active" : ""} href={route.href} aria-current={active ? "page" : undefined} key={route.href}>
               <Icon aria-hidden="true" size={17} strokeWidth={1.8} />
@@ -85,7 +91,7 @@ export function NextActions({ currentPath }: { currentPath: string }) {
             <Link href={route.href} key={route.href}>
               <Icon aria-hidden="true" size={20} strokeWidth={1.8} />
               <span>{route.label}</span>
-              <span aria-hidden="true">→</span>
+              <ArrowRight aria-hidden="true" size={16} />
             </Link>
           );
         })}

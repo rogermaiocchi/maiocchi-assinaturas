@@ -33,6 +33,17 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 - O futuro `pki-bridge` deve ser um serviço separado e fail-closed para PAdES/ICP-Brasil.
 - O GOV.BR permanece um percurso externo para este escritório privado; o arquivo assinado deve ser preservado e validado no canal oficial.
 
+## Padrão visual e de interação
+
+- A marca canônica do portal é o ativo `public/icon-512.png`, identificado visualmente por `m.`; “Maiocchi Assinaturas” é a assinatura verbal secundária.
+- O primeiro viewport prioriza uma única tarefa: abrir o documento pelo link ou código recebido.
+- O cabeçalho principal expõe apenas Assinar, Modalidades, Validar e Ajuda; ICP-Brasil, GOV.BR, Segurança e páginas institucionais permanecem na navegação contextual e no rodapé.
+- Ícones Lucide acompanham rótulos textuais em ações e navegação. Ícones decorativos permanecem ocultos da árvore de acessibilidade.
+- Controles têm alvo mínimo de 44 por 44 pixels, foco visível e ordem de teclado verificável.
+- A largura móvel usa a viewport disponível com margem lateral de 16 pixels; não se fixa conteúdo em uma coluna artificialmente estreita.
+- O aceite visual exige screenshots em 1440 por 1000 e 390 por 844, sem sobreposição, corte, overflow horizontal ou texto fora do contêiner.
+- Nenhuma afirmação de acessibilidade ou conformidade é publicada sem auditoria da implementação real.
+
 ## Critério de conclusão
 
 Uma função só pode ser anunciada como disponível depois de teste real no ambiente correspondente. Ausência de licença Lacuna, credencial SMTP ou certificado de homologação é gate externo documentado, nunca substituído por chave de exemplo ou simulação.
