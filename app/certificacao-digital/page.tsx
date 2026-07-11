@@ -1,10 +1,18 @@
 import type { Metadata } from "next";
+import { BadgeCheck, FileKey, KeyRound, ShieldCheck } from "lucide-react";
+import { FlowMap } from "../flow-map";
 import { LegalPage } from "../legal-page";
 
 export const metadata: Metadata = { title: "Certificação digital" };
 
 export default function DigitalCertificatePage() {
-  return <LegalPage title="Certificação digital" lead="Certificado ICP-Brasil é identidade digital e instrumento de assinatura qualificada.">
+  return <LegalPage title="Certificação digital" lead="Certificado ICP-Brasil é identidade digital e instrumento de assinatura qualificada." currentPath="/certificacao-digital/">
+    <FlowMap eyebrow="Fluxo criptográfico" title="A chave permanece com o titular." description="O portal recebe o resultado assinado, nunca a chave privada, o arquivo A1, o PIN ou a senha." ariaLabel="Fluxo seguro de uso de certificado digital ICP-Brasil" steps={[
+      { title: "Selecionar certificado", description: "Escolha a identidade digital adequada ao signatário.", icon: FileKey },
+      { title: "Autorizar localmente", description: "Digite o PIN somente no componente seguro do certificado.", icon: KeyRound, tone: "yellow" },
+      { title: "Produzir assinatura", description: "A operação associa autoria e protege a integridade do conteúdo.", icon: ShieldCheck },
+      { title: "Validar", description: "Confira cadeia, política, validade e alterações posteriores.", icon: BadgeCheck, href: "/validar/", linkLabel: "Abrir validação" },
+    ]} />
     <h2>O que é</h2><p>O certificado digital ICP-Brasil é emitido por autoridade certificadora credenciada e vincula uma pessoa ou entidade a um par de chaves criptográficas depois da verificação de identidade.</p>
     <h2>A1, A3 e nuvem</h2><p>O A1 é normalmente armazenado em software. O A3 pode usar token, cartão ou serviço em nuvem. Em qualquer formato, a chave privada e a credencial de uso devem permanecer sob controle do titular.</p>
     <h2>Certificado OAB</h2><p>O certificado digital OAB é destinado a advogados inscritos e pode ser utilizado em serviços profissionais, observadas a política do certificado e as regras do sistema acessado.</p>

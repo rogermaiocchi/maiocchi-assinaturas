@@ -1,11 +1,19 @@
 import type { Metadata } from "next";
+import { BadgeCheck, Eye, FileSignature, UserCheck } from "lucide-react";
+import { FlowMap } from "../flow-map";
 import { LegalPage } from "../legal-page";
 
 export const metadata: Metadata = { title: "Termos de uso" };
 
 export default function TermsPage() {
-  return <LegalPage title="Termos de uso" lead="Condições para acessar, conferir e assinar documentos no portal do Maiocchi Advogado.">
+  return <LegalPage title="Termos de uso" lead="Condições para acessar, conferir e assinar documentos no portal do Maiocchi Advogado." currentPath="/termos/">
     <p className="legal-meta">Versão de 11 de julho de 2026.</p>
+    <FlowMap eyebrow="Uso responsável" title="Acesso pessoal. Decisão consciente. Evidência preservada." description="O uso do portal pressupõe conferência do conteúdo e interrupção imediata diante de dúvida, erro ou acesso indevido." ariaLabel="Fluxo de responsabilidades para uso do portal" steps={[
+      { title: "Acessar pessoalmente", description: "Use apenas o link individual destinado a você.", icon: UserCheck },
+      { title: "Conferir por inteiro", description: "Revise texto, dados, anexos e modalidade antes de agir.", icon: Eye },
+      { title: "Manifestar vontade", description: "Assine somente se o conteúdo estiver correto e compreendido.", icon: FileSignature, tone: "yellow" },
+      { title: "Preservar a cópia", description: "Guarde o arquivo eletrônico final e suas evidências.", icon: BadgeCheck },
+    ]} />
     <h2>1. Responsável pelo portal</h2><p>O portal é mantido pelo Maiocchi Advogado, sob responsabilidade de Roger Maiocchi, advogado inscrito na OAB/DF sob o nº 31.249. O canal de atendimento é <a href="mailto:roger@maiocchi.adv.br">roger@maiocchi.adv.br</a>.</p>
     <h2>2. Finalidade</h2><p>O serviço permite preparar, disponibilizar, preencher, acompanhar e assinar documentos relacionados à atividade profissional do escritório. O portal não é um serviço público nem representa o GOV.BR, o ITI, a ICP-Brasil, a Lacuna Software ou o DocuSeal.</p>
     <h2>3. Uso do acesso</h2><p>Links e códigos são pessoais. O usuário deve impedir o acesso por terceiros, não reutilizar credenciais de outra pessoa e comunicar imediatamente qualquer suspeita de uso indevido.</p>

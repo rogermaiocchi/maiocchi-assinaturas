@@ -1,10 +1,18 @@
 import type { Metadata } from "next";
+import { BadgeCheck, Download, Smartphone, Upload } from "lucide-react";
+import { FlowMap } from "../flow-map";
 import { LegalPage } from "../legal-page";
 
 export const metadata: Metadata = { title: "Assinatura GOV.BR" };
 
 export default function GovBrSignaturePage() {
-  return <LegalPage title="Assinatura GOV.BR" lead="O GOV.BR oferece assinatura avançada em serviço oficial, fora da infraestrutura do escritório.">
+  return <LegalPage title="Assinatura GOV.BR" lead="O GOV.BR oferece assinatura avançada em serviço oficial, fora da infraestrutura do escritório." currentPath="/assinatura-gov-br/">
+    <FlowMap eyebrow="Percurso externo oficial" title="Assine fora do portal. Volte com o arquivo original." description="O Maiocchi Advogado orienta o percurso; autenticação e assinatura acontecem no serviço GOV.BR." ariaLabel="Fluxo de assinatura externa pelo GOV.BR" steps={[
+      { title: "Baixar", description: "Obtenha o documento disponibilizado pelo escritório.", icon: Download },
+      { title: "Enviar ao GOV.BR", description: "Acesse o assinador oficial e carregue o arquivo.", icon: Upload, href: "https://assinador.iti.br/assinatura/index.xhtml", linkLabel: "Abrir serviço" },
+      { title: "Autorizar", description: "Confirme a operação no aplicativo GOV.BR.", icon: Smartphone, tone: "yellow" },
+      { title: "Validar e devolver", description: "Baixe, valide e entregue o PDF pelo canal indicado.", icon: BadgeCheck, href: "/validar/", linkLabel: "Validar arquivo" },
+    ]} />
     <h2>Quem pode usar</h2><p>Pessoas com conta GOV.BR nível prata ou ouro podem usar o Portal de Assinaturas GOV.BR. O certificado avançado é emitido e armazenado na infraestrutura do ITI.</p>
     <h2>Como assinar</h2>
     <ol className="ordered-guide">

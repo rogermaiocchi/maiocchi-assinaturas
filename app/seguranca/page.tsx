@@ -1,10 +1,18 @@
 import type { Metadata } from "next";
+import { ArchiveRestore, Fingerprint, Network, ShieldCheck } from "lucide-react";
+import { FlowMap } from "../flow-map";
 import { LegalPage } from "../legal-page";
 
 export const metadata: Metadata = { title: "Segurança" };
 
 export default function SecurityPage() {
-  return <LegalPage title="Segurança" lead="Controles reais, limites claros e cuidado com a evidência eletrônica.">
+  return <LegalPage title="Segurança" lead="Controles reais, limites claros e cuidado com a evidência eletrônica." currentPath="/seguranca/">
+    <FlowMap eyebrow="Defesa em camadas" title="Proteção ao longo do percurso." description="Conexão, isolamento, evidência e recuperação atuam em conjunto; nenhuma camada isolada elimina todo risco." ariaLabel="Camadas de segurança do portal de assinaturas" steps={[
+      { title: "Conexão", description: "HTTPS protege o transporte entre navegador e portal.", icon: Network },
+      { title: "Acesso", description: "Links individuais e serviços separados reduzem exposição.", icon: Fingerprint },
+      { title: "Evidência", description: "Eventos, hashes e validações apoiam a conferência.", icon: ShieldCheck, tone: "yellow" },
+      { title: "Recuperação", description: "Backups, versões e rollback apoiam a continuidade.", icon: ArchiveRestore },
+    ]} />
     <h2>Conexão e isolamento</h2><p>O portal utiliza HTTPS, proxy reverso, serviços isolados em containers e banco não exposto diretamente à internet. A área pública e o motor documental permanecem em subdomínios separados.</p>
     <h2>Acesso ao documento</h2><p>Links e códigos são individuais. O sistema registra eventos necessários ao fluxo e aplica controles de requisição. Compartilhamento do link reduz a segurança e deve ser comunicado.</p>
     <h2>Integridade</h2><p>Documentos concluídos e artefatos publicados podem ser identificados por hash. Na assinatura digital, a validação deve detectar alteração posterior no conteúdo coberto.</p>

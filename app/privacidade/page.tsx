@@ -1,11 +1,19 @@
 import type { Metadata } from "next";
+import { Archive, FileInput, Scale, ShieldCheck } from "lucide-react";
+import { FlowMap } from "../flow-map";
 import { LegalPage } from "../legal-page";
 
 export const metadata: Metadata = { title: "Privacidade" };
 
 export default function PrivacyPage() {
-  return <LegalPage title="Política de privacidade" lead="Como o Maiocchi Advogado trata dados pessoais durante a preparação e a assinatura de documentos.">
+  return <LegalPage title="Política de privacidade" lead="Como o Maiocchi Advogado trata dados pessoais durante a preparação e a assinatura de documentos." currentPath="/privacidade/">
     <p className="legal-meta">Versão de 11 de julho de 2026.</p>
+    <FlowMap eyebrow="Ciclo dos dados" title="Finalidade do início ao encerramento." description="O tratamento acompanha o serviço jurídico, com acesso limitado, segurança proporcional e retenção justificada." ariaLabel="Ciclo de tratamento de dados pessoais no portal" steps={[
+      { title: "Coletar o necessário", description: "Dados entram pelo documento, convite, assinatura e suporte.", icon: FileInput },
+      { title: "Usar com finalidade", description: "O tratamento serve ao fluxo, à evidência e aos deveres profissionais.", icon: Scale, tone: "yellow" },
+      { title: "Proteger e limitar", description: "Acesso, isolamento e controles reduzem exposição indevida.", icon: ShieldCheck },
+      { title: "Reter ou eliminar", description: "Prazos consideram serviço, lei, direitos e cópias de segurança.", icon: Archive },
+    ]} />
     <h2>1. Controlador e contato</h2><p>O tratamento é realizado no contexto da atividade profissional do Maiocchi Advogado, sob responsabilidade de Roger Maiocchi, OAB/DF 31.249. Solicitações de titulares e comunicações de privacidade devem ser enviadas a <a href="mailto:roger@maiocchi.adv.br">roger@maiocchi.adv.br</a>.</p>
     <h2>2. Alcance</h2><p>Esta política abrange o portal público, o ambiente DocuSeal, convites, preenchimento, assinaturas, validação, suporte e registros técnicos associados. Sites oficiais ou serviços externos acessados por link possuem políticas próprias.</p>
     <h2>3. Dados tratados</h2><p>Podem ser tratados nome, contato, função, dados de identificação presentes no documento, conteúdo documental, campos preenchidos, assinatura desenhada, certificado público, resultado de validação, IP, navegador, data, horário, eventos e comunicações de suporte.</p>

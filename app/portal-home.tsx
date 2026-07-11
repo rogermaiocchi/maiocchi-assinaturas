@@ -2,6 +2,8 @@
 
 import { FormEvent, useState } from "react";
 import Link from "next/link";
+import { BadgeCheck, FilePlus2, PenTool, UserRoundCheck } from "lucide-react";
+import { FlowMap } from "./flow-map";
 import { SiteFooter, SiteHeader } from "./site-chrome";
 
 const documentsBase = process.env.NEXT_PUBLIC_DOCUMENTS_URL || "https://documentos.assinatura.maiocchi.adv.br";
@@ -141,18 +143,18 @@ export function PortalHome() {
 
       <section className="steps-section" id="como-funciona">
         <div className="shell">
-          <div className="section-heading section-heading--row">
-            <div>
-              <p className="eyebrow">Como funciona</p>
-              <h2>Três etapas. Sem complicação.</h2>
-            </div>
-            <p>O portal conduz cada signatário e registra os eventos relevantes até a conclusão.</p>
-          </div>
-          <ol className="steps">
-            <li><span>1</span><div><h3>Envio</h3><p>O advogado prepara o documento, informa os participantes e envia os convites.</p></div></li>
-            <li><span>2</span><div><h3>Identificação e assinatura</h3><p>Cada pessoa acessa seu link, confere o conteúdo e assina nos campos indicados.</p></div></li>
-            <li><span>3</span><div><h3>Conclusão</h3><p>O documento final fica disponível com registros de data, horário e eventos do processo.</p></div></li>
-          </ol>
+          <FlowMap
+            eyebrow="Como funciona"
+            title="Do preparo à preservação."
+            description="O percurso deixa claro quem age em cada etapa e quais evidências devem acompanhar o documento concluído."
+            ariaLabel="Fluxo de preparação, acesso, assinatura e preservação do documento"
+            steps={[
+              { title: "Preparar", description: "O advogado configura o documento, os participantes e a ordem do fluxo.", icon: FilePlus2 },
+              { title: "Identificar", description: "Cada pessoa entra pelo link individual e confere seus dados e o conteúdo.", icon: UserRoundCheck },
+              { title: "Assinar", description: "O signatário manifesta sua vontade na modalidade indicada para o caso.", icon: PenTool, tone: "yellow" },
+              { title: "Preservar", description: "O arquivo final e seu histórico ficam disponíveis para conferência e guarda.", icon: BadgeCheck, href: "/validar/", linkLabel: "Como validar" },
+            ]}
+          />
         </div>
       </section>
 

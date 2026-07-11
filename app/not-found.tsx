@@ -4,7 +4,7 @@ import { SiteHeader } from "./site-chrome";
 export default function NotFound() {
   return (
     <main className="portal-404">
-      <SiteHeader back />
+      <SiteHeader />
       <section className="shell portal-404__content">
         <p className="eyebrow"><span className="status-dot" /> Erro 404</p>
         <h1>Esta página não foi encontrada.</h1>

@@ -1,10 +1,18 @@
 import type { Metadata } from "next";
+import { BadgeCheck, FileSearch, Scale, ShieldCheck } from "lucide-react";
+import { FlowMap } from "../flow-map";
 import { LegalPage } from "../legal-page";
 
 export const metadata: Metadata = { title: "Assinaturas eletrônicas" };
 
 export default function ElectronicSignaturesPage() {
-  return <LegalPage title="Assinaturas eletrônicas" lead="O nome da modalidade deve corresponder às evidências que o processo realmente produz.">
+  return <LegalPage title="Assinaturas eletrônicas" lead="O nome da modalidade deve corresponder às evidências que o processo realmente produz." currentPath="/assinaturas-eletronicas/">
+    <FlowMap eyebrow="Mapa de decisão" title="A modalidade vem depois do caso." description="A aparência da assinatura não define sua categoria. Forma legal, risco e evidências orientam a escolha." ariaLabel="Fluxo para escolha e validação da modalidade de assinatura" steps={[
+      { title: "Entender o ato", description: "Verifique finalidade, forma exigida e participantes.", icon: FileSearch },
+      { title: "Avaliar o risco", description: "Considere identificação, controle e aceitação necessária.", icon: Scale },
+      { title: "Escolher evidências", description: "Use assinatura simples, avançada ou qualificada conforme o caso.", icon: ShieldCheck, tone: "yellow" },
+      { title: "Validar o resultado", description: "Confira integridade, autoria e registros no arquivo final.", icon: BadgeCheck, href: "/validar/", linkLabel: "Abrir validação" },
+    ]} />
     <h2>Assinatura eletrônica simples</h2><p>Permite identificar o signatário e associar dados eletrônicos ao documento. No portal, o acesso por link, o preenchimento e a assinatura desenhada são tratados como simples por padrão. A trilha ajuda a demonstrar o processo, mas não transforma a assinatura em qualificada.</p>
     <h2>Assinatura eletrônica avançada</h2><p>Deve estar associada ao signatário de maneira unívoca, permanecer sob seu controle e permitir a detecção de alterações posteriores. O GOV.BR oferece assinatura avançada a pessoas com conta prata ou ouro. O Maiocchi Advogado orienta o percurso externo, mas não opera a API governamental.</p>
     <h2>Assinatura eletrônica qualificada</h2><p>Utiliza certificado digital emitido no âmbito da ICP-Brasil. O certificado vincula o titular a um par de chaves criptográficas. A chave privada permanece sob controle do titular e não deve ser enviada ao portal.</p>

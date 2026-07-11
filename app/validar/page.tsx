@@ -1,10 +1,18 @@
 import type { Metadata } from "next";
+import { BadgeCheck, FileCheck2, FileLock2, SearchCheck } from "lucide-react";
+import { FlowMap } from "../flow-map";
 import { LegalPage } from "../legal-page";
 
 export const metadata: Metadata = { title: "Validar assinatura" };
 
 export default function ValidationPage() {
-  return <LegalPage title="Validar assinatura" lead="Valide o arquivo eletrônico original. Uma impressão ou captura de tela não conserva todas as evidências.">
+  return <LegalPage title="Validar assinatura" lead="Valide o arquivo eletrônico original. Uma impressão ou captura de tela não conserva todas as evidências." currentPath="/validar/">
+    <FlowMap eyebrow="Conferência" title="Valide antes de confiar." description="A marca visível no PDF é apenas um sinal gráfico. A conclusão depende das evidências eletrônicas do arquivo." ariaLabel="Fluxo para validação de assinatura eletrônica" steps={[
+      { title: "Preservar o original", description: "Não edite nem imprima para PDF o arquivo recebido.", icon: FileLock2 },
+      { title: "Abrir o validador", description: "Envie o original ao serviço oficial do ITI.", icon: SearchCheck, href: "https://validar.iti.gov.br/", linkLabel: "Abrir ITI" },
+      { title: "Ler o resultado", description: "Confira signatário, integridade, cadeia e horário.", icon: BadgeCheck, tone: "yellow" },
+      { title: "Guardar evidências", description: "Preserve o PDF e o relatório junto ao processo.", icon: FileCheck2 },
+    ]} />
     <h2>Validador oficial do ITI</h2><p>O Validador do ITI verifica assinaturas ICP-Brasil e assinaturas avançadas GOV.BR. O arquivo é enviado ao serviço oficial conforme seus próprios termos.</p>
     <p><a className="button button--yellow" href="https://validar.iti.gov.br/" target="_blank" rel="noreferrer">Abrir Validador do ITI</a></p>
     <h2>Adobe Acrobat Reader</h2><p>Abra o PDF original e consulte o painel de assinaturas. Para documentos GOV.BR, siga a orientação oficial para importar a cadeia de certificados quando o Adobe ainda não reconhecer a autoridade.</p>

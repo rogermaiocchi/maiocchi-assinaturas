@@ -34,8 +34,8 @@ test("publica páginas legais e de ajuda", async () => {
   assert.match(terms, /OAB\/DF/i);
   assert.match(help, /Assinatura com certificado ICP-Brasil/i);
   assert.match(source, /GNU Affero General Public License/i);
-  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/archive\/refs\/tags\/portal-v1\.2\.2\.zip/i);
-  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/tree\/portal-v1\.2\.2/i);
+  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/archive\/refs\/tags\/portal-v1\.3\.0\.zip/i);
+  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/tree\/portal-v1\.3\.0/i);
   assert.doesNotMatch(source, /href="\/codigo-fonte\/docuseal-maiocchi-3\.0\.1\.tar\.gz"/i);
   assert.doesNotMatch(source, /termos adicionais/i);
   for (const html of [privacy, terms, help]) {
@@ -69,6 +69,30 @@ test("publica e conecta o conteúdo de assinaturas e segurança", async () => {
     assert.match(html, /\/privacidade\//i);
     assert.match(html, /\/termos\//i);
     assert.doesNotMatch(html, /admin@maiocchi\.adv\.br|contato@maiocchi\.adv\.br|Maiocchi Advocacia/i);
+  }
+});
+
+test("mantém navegação contextual e fluxos visuais em todo o portal", async () => {
+  const routes = [
+    "assinaturas-eletronicas",
+    "assinatura-gov-br",
+    "certificacao-digital",
+    "validar",
+    "seguranca",
+    "ajuda",
+    "privacidade",
+    "termos",
+    "codigo-fonte",
+  ];
+  const pages = await Promise.all(routes.map((route) => readFile(new URL(`${route}/index.html`, outputRoot), "utf8")));
+  const home = await readFile(new URL("index.html", outputRoot), "utf8");
+
+  assert.match(home, /class="flow-map"/i);
+  for (const html of pages) {
+    assert.match(html, /aria-label="Seções do portal"/i);
+    assert.match(html, /class="flow-map"/i);
+    assert.match(html, /aria-label="Próximas páginas recomendadas"/i);
+    assert.match(html, /aria-label="Abrir navegação"/i);
   }
 });
 

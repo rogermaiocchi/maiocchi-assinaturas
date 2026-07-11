@@ -1,27 +1,39 @@
 import Link from "next/link";
+import { LogIn, Menu } from "lucide-react";
 import { Brand } from "./brand";
 
 const documentsBase = process.env.NEXT_PUBLIC_DOCUMENTS_URL || "https://documentos.assinatura.maiocchi.adv.br";
 const lawyersBase = process.env.NEXT_PUBLIC_LAWYERS_URL || `${documentsBase}/sign_in`;
 
-export function SiteHeader({ back = false }: { back?: boolean }) {
+const mainNav = [
+  ["/assinaturas-eletronicas/", "Modalidades"],
+  ["/assinatura-gov-br/", "GOV.BR"],
+  ["/validar/", "Validar"],
+  ["/seguranca/", "Segurança"],
+  ["/ajuda/", "Ajuda"],
+] as const;
+
+export function SiteHeader() {
   return (
     <header className="site-header">
       <div className="shell header-inner">
         <Brand />
-        {back ? (
-          <Link className="text-link header-back" href="/">Voltar ao portal</Link>
-        ) : (
-          <>
-            <nav aria-label="Navegação principal">
-              <Link href="/assinaturas-eletronicas/">Modalidades</Link>
-              <Link href="/certificacao-digital/">Certificação digital</Link>
-              <Link href="/seguranca/">Segurança</Link>
-              <Link href="/ajuda/">Ajuda</Link>
-            </nav>
-            <a className="button button--dark button--small" href={lawyersBase}>Área dos advogados</a>
-          </>
-        )}
+        <nav className="desktop-nav" aria-label="Navegação principal">
+          {mainNav.map(([href, label]) => <Link href={href} key={href}>{label}</Link>)}
+        </nav>
+        <details className="mobile-nav">
+          <summary title="Abrir navegação" aria-label="Abrir navegação">
+            <Menu aria-hidden="true" size={21} />
+          </summary>
+          <nav aria-label="Navegação móvel">
+            <Link href="/">Início</Link>
+            {mainNav.map(([href, label]) => <Link href={href} key={href}>{label}</Link>)}
+          </nav>
+        </details>
+        <a className="button button--dark button--small header-login" href={lawyersBase} title="Área dos advogados">
+          <LogIn aria-hidden="true" size={16} />
+          <span>Área dos advogados</span>
+        </a>
       </div>
     </header>
   );
