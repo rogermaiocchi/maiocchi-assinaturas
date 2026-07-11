@@ -34,7 +34,9 @@ test("publica páginas legais e de ajuda", async () => {
   assert.match(terms, /OAB\/DF/i);
   assert.match(help, /Assinatura com certificado ICP-Brasil/i);
   assert.match(source, /GNU Affero General Public License/i);
-  assert.match(source, /docuseal-maiocchi-3\.0\.1\.tar\.gz/i);
+  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/archive\/refs\/tags\/portal-v1\.2\.2\.zip/i);
+  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/tree\/portal-v1\.2\.2/i);
+  assert.doesNotMatch(source, /href="\/codigo-fonte\/docuseal-maiocchi-3\.0\.1\.tar\.gz"/i);
   assert.doesNotMatch(source, /termos adicionais/i);
   for (const html of [privacy, terms, help]) {
     assert.match(html, /roger@maiocchi\.adv\.br|Maiocchi Advogado/i);
