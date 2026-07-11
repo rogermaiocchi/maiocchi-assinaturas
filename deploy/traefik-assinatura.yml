@@ -10,6 +10,12 @@ http:
         customResponseHeaders:
           Permissions-Policy: "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
 
+    documents-to-main:
+      redirectRegex:
+        regex: '^https://documentos\.assinatura\.maiocchi\.adv\.br/(.*)'
+        replacement: 'https://assinatura.maiocchi.adv.br/${1}'
+        permanent: true
+
     certificado-strip-headers:
       headers:
         customRequestHeaders:
@@ -44,12 +50,29 @@ http:
       tls:
         certResolver: le
 
+    docuseal-main-paths:
+      entryPoints: [websecure]
+      priority: 200
+      rule: >-
+        Host(`assinatura.maiocchi.adv.br`) &&
+        (PathRegexp(`^/(account_configs|account_custom_fields|api|blobs|blobs_proxy|certificate_auth|console_redirect|d|dashboard|direct_uploads|disk|e|encrypted_user_configs|enquiries|file|folders|invitation|js|manage|mcp|mfa_setup|new|newsletter|p|password|recede_historical_location|refresh_historical_location|representations|resubmit_form|resume_historical_location|s|send_submission_email|settings|setup|sign_in|sign_out|start_form_email_2fa_send|submissions|submissions_filters|submit_form_email_2fa|submitters|submitters_autocomplete|submitters_resubmit|success|template_folders_autocomplete|template_sharings_testing|templates|templates_upload|testing_account|testing_api_settings|timestamp_server|up|upgrade|user_configs|user_initials|user_signature|users|verify_pdf_signature|webhook_hmac|webhook_preferences|webhook_secret)(/|$)`) ||
+        PathPrefix(`/packs/`) ||
+        PathPrefix(`/legal/`) ||
+        PathPrefix(`/apple-icon-`) ||
+        PathPrefix(`/pwa-`) ||
+        Path(`/preview.png`) ||
+        Path(`/service-worker.js`))
+      service: docuseal-svc
+      middlewares: [assinatura-security]
+      tls:
+        certResolver: le
+
     maiocchi-documents:
       entryPoints: [websecure]
       priority: 10
       rule: Host(`documentos.assinatura.maiocchi.adv.br`)
       service: docuseal-svc
-      middlewares: [assinatura-security]
+      middlewares: [documents-to-main]
       tls:
         certResolver: le
 

@@ -23,8 +23,8 @@ import {
 } from "lucide-react";
 import { Brand } from "./brand";
 
-const documentsBase = process.env.NEXT_PUBLIC_DOCUMENTS_URL || "https://documentos.assinatura.maiocchi.adv.br";
-const lawyersBase = process.env.NEXT_PUBLIC_LAWYERS_URL || `${documentsBase}/sign_in`;
+const documentsBase = process.env.NEXT_PUBLIC_DOCUMENTS_URL || "https://assinatura.maiocchi.adv.br";
+const lawyersBase = process.env.NEXT_PUBLIC_LAWYERS_URL || `${documentsBase}/dashboard`;
 
 const mainNav: Array<{ href: string; label: string; icon: LucideIcon }> = [
   { href: "/#acessar-documento", label: "Assinar", icon: PenLine },

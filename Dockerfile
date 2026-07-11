@@ -5,9 +5,9 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
-ARG NEXT_PUBLIC_DOCUMENTS_URL=https://documentos.assinatura.maiocchi.adv.br
-ARG NEXT_PUBLIC_LAWYERS_URL=https://documentos.assinatura.maiocchi.adv.br/sign_in
-ARG NEXT_PUBLIC_ICP_URL=https://certificado.assinatura.maiocchi.adv.br/certificate_auth/login/present
+ARG NEXT_PUBLIC_DOCUMENTS_URL=https://assinatura.maiocchi.adv.br
+ARG NEXT_PUBLIC_LAWYERS_URL=https://assinatura.maiocchi.adv.br/dashboard
+ARG NEXT_PUBLIC_ICP_URL=https://assinatura.maiocchi.adv.br/sign_in
 ARG NEXT_PUBLIC_WEB_PKI_LICENSE=
 ARG NEXT_PUBLIC_PKI_BRIDGE_URL=
 ENV NEXT_PUBLIC_DOCUMENTS_URL=$NEXT_PUBLIC_DOCUMENTS_URL

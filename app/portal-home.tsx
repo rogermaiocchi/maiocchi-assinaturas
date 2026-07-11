@@ -23,8 +23,8 @@ import {
 import { FlowMap } from "./flow-map";
 import { SiteFooter, SiteHeader } from "./site-chrome";
 
-const documentsBase = process.env.NEXT_PUBLIC_DOCUMENTS_URL || "https://documentos.assinatura.maiocchi.adv.br";
-const lawyersBase = process.env.NEXT_PUBLIC_LAWYERS_URL || `${documentsBase}/sign_in`;
+const documentsBase = process.env.NEXT_PUBLIC_DOCUMENTS_URL || "https://assinatura.maiocchi.adv.br";
+const lawyersBase = process.env.NEXT_PUBLIC_LAWYERS_URL || `${documentsBase}/dashboard`;
 
 function accessDocument(raw: string) {
   const value = raw.trim();

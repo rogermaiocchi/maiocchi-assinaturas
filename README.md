@@ -4,9 +4,9 @@ Porta de entrada institucional para o ambiente de documentos e assinaturas do Ma
 
 ## Arquitetura
 
-- `assinatura.maiocchi.adv.br`: portal estático deste projeto.
-- `documentos.assinatura.maiocchi.adv.br`: painel interno e motor de assinatura DocuSeal.
-- Os links de signatários (`/s`, `/d`, `/e` e `/p`) usam o subdomínio de documentos, com a mesma identidade visual do portal.
+- `assinatura.maiocchi.adv.br`: entrada única para o portal estático e para as rotas operacionais do DocuSeal.
+- As rotas de signatários (`/s`, `/d`, `/e` e `/p`) e a área dos advogados (`/dashboard`, com autenticação em `/sign_in`) são encaminhadas ao DocuSeal no mesmo domínio.
+- `documentos.assinatura.maiocchi.adv.br` existe somente para redirecionar links antigos ao domínio principal, preservando caminho e consulta.
 
 O ativo `public/icon-512.png` é a marca `m.` canônica do portal e também origina os ícones de navegador.
 
@@ -27,7 +27,7 @@ Variáveis públicas de build:
 
 - `NEXT_PUBLIC_DOCUMENTS_URL`: origem do DocuSeal para links de documentos.
 - `NEXT_PUBLIC_LAWYERS_URL`: entrada da área de gestão.
-- `NEXT_PUBLIC_ICP_URL`: endpoint de autenticação por certificado cliente.
+- `NEXT_PUBLIC_ICP_URL`: entrada da área dos advogados que oferece autenticação por certificado cliente.
 - `NEXT_PUBLIC_WEB_PKI_LICENSE`: licença pública Lacuna Web PKI para o domínio; sem ela, o componente só deve ser usado em `localhost`.
 - `NEXT_PUBLIC_PKI_BRIDGE_URL`: endpoint público do `pki-bridge`, quando a assinatura PAdES estiver habilitada.
 

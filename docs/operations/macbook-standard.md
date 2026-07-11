@@ -29,7 +29,8 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 ## Separação de responsabilidades
 
 - O portal Next.js publica identidade, conteúdo, ajuda e referências oficiais.
-- O DocuSeal administra modelos, participantes, evidências de fluxo e arquivos.
+- O DocuSeal administra modelos, participantes, evidências de fluxo e arquivos nas rotas operacionais do mesmo domínio `assinatura.maiocchi.adv.br`.
+- O subdomínio `documentos.assinatura.maiocchi.adv.br` é somente compatibilidade e redireciona de forma permanente, preservando caminho e consulta.
 - O futuro `pki-bridge` deve ser um serviço separado e fail-closed para PAdES/ICP-Brasil.
 - O GOV.BR permanece um percurso externo para este escritório privado; o arquivo assinado deve ser preservado e validado no canal oficial.
 
@@ -43,6 +44,7 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 - A largura móvel usa a viewport disponível com margem lateral de 16 pixels; não se fixa conteúdo em uma coluna artificialmente estreita.
 - O aceite visual exige screenshots em 1440 por 1000 e 390 por 844, sem sobreposição, corte, overflow horizontal ou texto fora do contêiner.
 - Nenhuma afirmação de acessibilidade ou conformidade é publicada sem auditoria da implementação real.
+- O Web PKI não é carregado no domínio de produção sem licença; o acesso por certificado começa na tela DocuSeal, que gera o token CSRF e o desafio mTLS.
 
 ## Critério de conclusão
 

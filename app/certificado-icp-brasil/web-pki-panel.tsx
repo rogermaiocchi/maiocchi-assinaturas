@@ -1,13 +1,18 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
 import Script from "next/script";
 import { ArrowRight, BadgeCheck, FileKey, KeyRound, RefreshCw, ShieldAlert } from "lucide-react";
 
 const webPkiScript = "https://cdn.lacunasoftware.com/libs/web-pki/lacuna-web-pki-2.16.1.min.js";
 const webPkiLicense = process.env.NEXT_PUBLIC_WEB_PKI_LICENSE || "";
 const pkiBridgeUrl = process.env.NEXT_PUBLIC_PKI_BRIDGE_URL || "";
-const icpAuthUrl = process.env.NEXT_PUBLIC_ICP_URL || "https://certificado.assinatura.maiocchi.adv.br/certificate_auth/login/present";
+const icpAuthUrl = process.env.NEXT_PUBLIC_ICP_URL || "https://assinatura.maiocchi.adv.br/sign_in";
+const subscribeToHost = () => () => undefined;
+
+function isLocalHost() {
+  return ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+}
 
 type WebPkiError = {
   userMessage?: string;
@@ -98,7 +103,11 @@ function certificateExpiry(certificate: CertificateModel) {
 
 export function WebPkiPanel() {
   const pkiRef = useRef<LacunaWebPki | null>(null);
-  const [status, setStatus] = useState("Aguardando inicialização do Web PKI.");
+  const [status, setStatus] = useState(webPkiLicense
+    ? "Aguardando inicialização do Web PKI."
+    : "Web PKI disponível somente em teste local até a licença de produção ser configurada.");
+  const localHost = useSyncExternalStore(subscribeToHost, isLocalHost, () => false);
+  const webPkiAllowed = Boolean(webPkiLicense) || localHost;
   const [error, setError] = useState("");
   const [ready, setReady] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -177,7 +186,9 @@ export function WebPkiPanel() {
 
   return (
     <section className="icp-console" aria-labelledby="icp-console-title">
-      <Script src={webPkiScript} strategy="afterInteractive" onLoad={initialize} onError={() => setError("Não foi possível carregar a biblioteca Web PKI da Lacuna.")} />
+      {webPkiAllowed && (
+        <Script src={webPkiScript} strategy="afterInteractive" onLoad={initialize} onError={() => setError("Não foi possível carregar a biblioteca Web PKI da Lacuna.")} />
+      )}
       <div className="icp-console__header">
         <p className="eyebrow"><span className="status-dot" /> Uso do token local</p>
         <h2 id="icp-console-title">Certificado ICP-Brasil no navegador.</h2>
@@ -190,18 +201,18 @@ export function WebPkiPanel() {
       <div className="icp-status-grid">
         <div>
           <span className="mode-tag mode-tag--yellow"><FileKey aria-hidden="true" size={13} /> WEB PKI</span>
-          <strong>{ready ? "Componente pronto" : "Componente em verificação"}</strong>
+          <strong>{ready ? "Componente pronto" : webPkiAllowed ? "Componente em verificação" : "Produção aguardando licença"}</strong>
           <p>{status}</p>
         </div>
         <div>
           <span className="mode-tag"><KeyRound aria-hidden="true" size={13} /> LICENÇA</span>
-          <strong>{webPkiLicense ? "Licença de produção configurada" : "Localhost liberado para teste"}</strong>
-          <p>{webPkiLicense ? "O build contém licença pública Web PKI para o domínio." : "Sem licença pública, o Web PKI funciona apenas em localhost, conforme a documentação da Lacuna."}</p>
+          <strong>{webPkiLicense ? "Licença de produção configurada" : webPkiAllowed ? "Ambiente local de teste" : "Licença de produção pendente"}</strong>
+          <p>{webPkiLicense ? "O build contém licença pública Web PKI para o domínio." : "Sem licença pública, o Web PKI não é carregado no domínio de produção."}</p>
         </div>
         <div>
           <span className="mode-tag"><BadgeCheck aria-hidden="true" size={13} /> PAdES</span>
           <strong>{pkiBridgeUrl ? "Bridge configurado" : "Aguardando bridge produtivo"}</strong>
-          <p>{pkiBridgeUrl || "A leitura do token está habilitada; o fechamento PAdES depende do serviço PKI conectado."}</p>
+          <p>{pkiBridgeUrl || "O fechamento PAdES permanece indisponível até o serviço PKI ser conectado e homologado."}</p>
         </div>
       </div>
 
@@ -212,7 +223,7 @@ export function WebPkiPanel() {
         </button>
         <a className="button button--dark" href={icpAuthUrl}>
           <FileKey aria-hidden="true" size={17} />
-          <span>Autenticar com certificado</span>
+          <span>Entrar com certificado</span>
           <ArrowRight aria-hidden="true" size={16} />
         </a>
       </div>

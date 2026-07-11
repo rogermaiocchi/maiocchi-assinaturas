@@ -16,7 +16,8 @@ test("renderiza a porta de entrada Maiocchi", async () => {
   assert.match(html, /Ir para o conteúdo principal/i);
   assert.match(html, /id="conteudo-principal"/i);
   assert.match(html, /Área dos advogados/i);
-  assert.match(html, /documentos\.assinatura\.maiocchi\.adv\.br\/sign_in/i);
+  assert.match(html, /assinatura\.maiocchi\.adv\.br\/dashboard/i);
+  assert.doesNotMatch(html, /documentos\.assinatura\.maiocchi\.adv\.br/i);
   assert.match(html, /ICP-BRASIL/i);
   assert.match(html, /\/certificado-icp-brasil\//i);
   assert.match(html, /roger@maiocchi\.adv\.br/i);
@@ -40,8 +41,8 @@ test("publica páginas legais e de ajuda", async () => {
   assert.match(terms, /OAB\/DF/i);
   assert.match(help, /Assinatura com certificado ICP-Brasil/i);
   assert.match(source, /GNU Affero General Public License/i);
-  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/archive\/refs\/tags\/portal-v1\.4\.0\.zip/i);
-  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/tree\/portal-v1\.4\.0/i);
+  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/archive\/refs\/tags\/portal-v1\.5\.0\.zip/i);
+  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/tree\/portal-v1\.5\.0/i);
   assert.doesNotMatch(source, /href="\/codigo-fonte\/docuseal-maiocchi-3\.0\.1\.tar\.gz"/i);
   assert.doesNotMatch(source, /termos adicionais/i);
   for (const html of [privacy, terms, help]) {
@@ -65,9 +66,10 @@ test("publica e conecta o conteúdo de assinaturas e segurança", async () => {
   assert.match(pages[0], /qualificada/i);
   assert.match(pages[1], /A1, A3 e nuvem/i);
   assert.match(pages[2], /Uso do token local/i);
-  assert.match(pages[2], /lacuna-web-pki-2\.16\.1\.min\.js/i);
-  assert.match(pages[2], /Autenticar com certificado/i);
-  assert.match(pages[2], /certificado\.assinatura\.maiocchi\.adv\.br\/certificate_auth\/login\/present/i);
+  assert.match(pages[2], /Produção aguardando licença/i);
+  assert.match(pages[2], /Entrar com certificado/i);
+  assert.match(pages[2], /assinatura\.maiocchi\.adv\.br\/sign_in/i);
+  assert.doesNotMatch(pages[2], /src="https:\/\/cdn\.lacunasoftware\.com\/libs\/web-pki/i);
   assert.match(pages[3], /serviço oficial/i);
   assert.match(pages[3], /validar\.iti\.gov\.br/i);
   assert.match(pages[3], /Cadeia_GovBr-der\.p7b/i);
@@ -133,14 +135,17 @@ test("publica identidade de navegador Maiocchi", async () => {
 });
 
 test("padroniza páginas inexistentes e redirecionamentos internos", async () => {
-  const [notFound, nginx] = await Promise.all([
+  const [notFound, nginx, traefik] = await Promise.all([
     readFile(new URL("404.html", outputRoot), "utf8"),
     readFile(new URL("../nginx.conf", import.meta.url), "utf8"),
+    readFile(new URL("../deploy/traefik-assinatura.yml", import.meta.url), "utf8"),
   ]);
   assert.match(notFound, /Esta página não foi encontrada/i);
   assert.match(notFound, /Maiocchi Advogado/i);
   assert.match(nginx, /absolute_redirect off;/i);
   assert.match(nginx, /error_page 404 \/404\.html;/i);
-  assert.match(nginx, /\^\/\(s\|d\|e\|p\)\/\.\+\$/i);
-  assert.match(nginx, /308 https:\/\/documentos\.assinatura\.maiocchi\.adv\.br\$request_uri/i);
+  assert.doesNotMatch(nginx, /documentos\.assinatura\.maiocchi\.adv\.br/i);
+  assert.match(traefik, /docuseal-main-paths:/i);
+  assert.match(traefik, /documents-to-main:/i);
+  assert.match(traefik, /replacement: 'https:\/\/assinatura\.maiocchi\.adv\.br\/\$\{1\}'/i);
 });
