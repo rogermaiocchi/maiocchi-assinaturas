@@ -135,6 +135,7 @@ footer { background: var(--ink); color: var(--white); }
 .legal-body p, .legal-body li { color: #464641; line-height: 1.7; }
 .legal-body a { text-decoration: underline; text-underline-offset: 3px; font-weight: 700; }
 .legal-body .button { text-decoration: none; }
+.legal-body code { overflow-wrap: anywhere; }
 .legal-body ul, .legal-body ol { padding-left: 24px; }
 .legal-body li + li { margin-top: 8px; }
 .legal-meta { color: var(--muted); font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }

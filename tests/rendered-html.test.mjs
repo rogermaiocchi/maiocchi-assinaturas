@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { stat } from "node:fs/promises";
 import test from "node:test";
@@ -56,6 +57,8 @@ test("publica e conecta o conteúdo de assinaturas e segurança", async () => {
   assert.match(pages[1], /A1, A3 e nuvem/i);
   assert.match(pages[2], /serviço oficial/i);
   assert.match(pages[2], /validar\.iti\.gov\.br/i);
+  assert.match(pages[2], /Cadeia_GovBr-der\.p7b/i);
+  assert.match(pages[2], /não deve ser adicionada às raízes mTLS/i);
   assert.match(pages[3], /Validador do ITI/i);
   assert.match(pages[4], /Conexão e isolamento/i);
 
@@ -65,6 +68,12 @@ test("publica e conecta o conteúdo de assinaturas e segurança", async () => {
     assert.match(html, /\/termos\//i);
     assert.doesNotMatch(html, /admin@maiocchi\.adv\.br|contato@maiocchi\.adv\.br|Maiocchi Advocacia/i);
   }
+});
+
+test("publica sem alteração a cadeia GOV.BR indicada na fonte oficial", async () => {
+  const chain = await readFile(new URL("../public/certificados/Cadeia_GovBr-der.p7b", import.meta.url));
+  assert.equal(chain.length, 5_364);
+  assert.equal(createHash("sha256").update(chain).digest("hex"), "dbf22f7c15ace9c37e6b4141271695a17dc445b5a04c003ced94322ad905879f");
 });
 
 test("publica o código-fonte correspondente da aplicação de assinaturas", async () => {
