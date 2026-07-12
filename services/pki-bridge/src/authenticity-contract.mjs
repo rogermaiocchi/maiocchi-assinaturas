@@ -1,7 +1,7 @@
 import { createHash, randomBytes, sign, verify } from "node:crypto";
 
 export const AUTHENTICITY_SCHEMA = "https://assinatura.maiocchi.adv.br/schemas/authenticity-key-v1.schema.json";
-export const AUTHENTICITY_VERSION = "1.0.0";
+export const AUTHENTICITY_VERSION = "1.1.0";
 export const OFFICIAL_VALIDATOR_URL = "https://validar.iti.gov.br/";
 
 const PUBLIC_ID_PATTERN = /^MAI-\d{4}(?:-[0-9A-HJKMNP-TV-Z]{4}){4}$/;
@@ -47,6 +47,45 @@ function requireKeyId(value, name) {
   const keyId = requireString(value, name);
   if (!KEY_ID_PATTERN.test(keyId)) throw new TypeError(`${name} is invalid`);
   return keyId;
+}
+
+function optionalDisplay(value, name, fallback, maxLength = 180) {
+  if (value === undefined || value === null || value === "") return fallback;
+  const normalized = requireString(value, name).replace(/\s+/g, " ");
+  if (normalized.length > maxLength) throw new TypeError(`${name} is too long`);
+  return normalized;
+}
+
+function normalizeGoldMetadata(value, { publicId, revision, profile, signatures }) {
+  if (value !== undefined && (value === null || typeof value !== "object" || Array.isArray(value))) {
+    throw new TypeError("document context is invalid");
+  }
+  const context = value || {};
+  const contextSigners = Array.isArray(context.signers) ? context.signers : [];
+  if (context.signers !== undefined && !Array.isArray(context.signers)) throw new TypeError("document context signers are invalid");
+  if (contextSigners.length > 12) throw new TypeError("document context has too many signers");
+  if (contextSigners.length > signatures.length) throw new TypeError("document context has more signers than validated signatures");
+  const signers = signatures.map((signature, index) => {
+    const declared = contextSigners[index];
+    if (declared !== undefined && (declared === null || typeof declared !== "object" || Array.isArray(declared))) {
+      throw new TypeError(`signer ${index} is invalid`);
+    }
+    return {
+      name: optionalDisplay(declared?.name ?? signature.signerName, `signer ${index} name`, "Não informado", 140),
+      role: optionalDisplay(declared?.role, `signer ${index} role`, "Signatário", 80),
+      certificateFingerprintSha256: requireSha256(signature.certificateFingerprintSha256, `signer ${index} certificate fingerprint`),
+      signedAt: requireTimestamp(signature.signingTime, `signer ${index} signing time`),
+    };
+  });
+  return {
+    barcodeValue: `MAI|${publicId}|R${revision}`,
+    intendedFor: optionalDisplay(context.intendedFor, "intended for", "Não informado"),
+    purpose: optionalDisplay(context.purpose, "document purpose", "Documento eletrônico"),
+    signingLocation: optionalDisplay(context.signingLocation, "signing location", "Não informado"),
+    tokenType: optionalDisplay(context.tokenType, "token type", "Não informado", 100),
+    signatureType: `PAdES ${profile} - ICP-Brasil`,
+    signers,
+  };
 }
 
 function base64url(value) {
@@ -112,6 +151,7 @@ export function buildAuthenticityRecord({
   profile,
   policyOid,
   signatureCount,
+  signatures,
   validatedAt,
   validator,
   validatorKeyId,
@@ -121,6 +161,7 @@ export function buildAuthenticityRecord({
   representationSha256,
   representationSize,
   disclosureMode = "restricted",
+  documentContext,
   baseUrl = "https://assinatura.maiocchi.adv.br",
 }) {
   const id = assertPublicId(publicId);
@@ -133,6 +174,14 @@ export function buildAuthenticityRecord({
   const origin = new URL(requireHttpsUrl(baseUrl, "portal base URL"));
   const verifyUrl = new URL(`/v/${id}`, origin).toString();
   const originalUrl = disclosureMode === "public" ? new URL(`/original/${id}.pdf`, origin).toString() : null;
+  const normalizedSignatures = Array.isArray(signatures) ? signatures : [];
+  if (normalizedSignatures.length !== signatureCount) throw new TypeError("signature metadata count is invalid");
+  const goldStandard = normalizeGoldMetadata(documentContext, {
+    publicId: id,
+    revision,
+    profile: normalizedProfile,
+    signatures: normalizedSignatures,
+  });
 
   return {
     schema: AUTHENTICITY_SCHEMA,
@@ -175,6 +224,7 @@ export function buildAuthenticityRecord({
       size: requirePositiveInteger(representationSize, "representation size"),
       hash: { algorithm: "SHA-256", value: requireSha256(representationSha256, "representation SHA-256") },
     },
+    goldStandard,
     disclosure: { mode: disclosureMode },
     links: {
       verify: verifyUrl,

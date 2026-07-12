@@ -50,6 +50,15 @@ type AuthenticityEnvelope = {
       size: number;
       hash: { algorithm: "SHA-256"; value: string };
     };
+    goldStandard?: {
+      barcodeValue: string;
+      intendedFor: string;
+      purpose: string;
+      signingLocation: string;
+      tokenType: string;
+      signatureType: string;
+      signers: Array<{ name: string; role: string; certificateFingerprintSha256: string; signedAt: string }>;
+    };
     disclosure: { mode: "restricted" | "public" };
     links: { verify: string; original: string | null; print: string; officialValidator: string };
   };
@@ -160,6 +169,15 @@ export function AuthenticityVerifier() {
 
   const active = lookup.kind === "found" && lookup.value.documentStatus === "active";
   const record = lookup.kind === "found" ? lookup.value.envelope.record : null;
+  const gold = record?.goldStandard || {
+    barcodeValue: `${record?.document.id || "MAI"}|LEGACY`,
+    intendedFor: "Não informado",
+    purpose: "Documento eletrônico",
+    signingLocation: "Não informado",
+    tokenType: "Não informado",
+    signatureType: record ? `${record.signature.format} ${record.signature.profile} - ICP-Brasil` : "PAdES - ICP-Brasil",
+    signers: [],
+  };
 
   return (
     <section className="auth-verifier" aria-labelledby="auth-verifier-title">
@@ -215,6 +233,13 @@ export function AuthenticityVerifier() {
               <div><dt>Atestado</dt><dd>{record.validation.attestation.algorithm} · {record.validation.attestation.keyId}</dd></div>
               <div><dt>Tamanho</dt><dd>{formatBytes(record.document.size)}</dd></div>
               <div><dt>Política</dt><dd>{record.signature.policyOid}</dd></div>
+              <div><dt>Destinado a</dt><dd>{gold.intendedFor}</dd></div>
+              <div><dt>Finalidade</dt><dd>{gold.purpose}</dd></div>
+              <div><dt>Assinante</dt><dd>{gold.signers.length ? gold.signers.map((signer) => `${signer.name} (${signer.role})`).join(", ") : "Não informado"}</dd></div>
+              <div><dt>Assinado em</dt><dd>{formatDate(gold.signers[0]?.signedAt || record.document.finalizedAt)}</dd></div>
+              <div><dt>Local declarado</dt><dd>{gold.signingLocation}</dd></div>
+              <div><dt>Token</dt><dd>{gold.tokenType}</dd></div>
+              <div><dt>Código de barras</dt><dd>{gold.barcodeValue}</dd></div>
             </dl>
 
             <div className="auth-hash">

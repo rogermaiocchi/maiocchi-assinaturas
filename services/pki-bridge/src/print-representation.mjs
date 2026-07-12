@@ -1,4 +1,5 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import bwipjs from "bwip-js";
 import QRCode from "qrcode";
 import { assertPublicId } from "./authenticity-contract.mjs";
 
@@ -28,7 +29,33 @@ function drawWrapped(page, text, { x, y, font, size, maxWidth, lineHeight, color
   return y - lines.length * lineHeight;
 }
 
-export async function createAuthenticitySheet({ publicId, originalSha256, revision, finalizedAt, verifyUrl }) {
+function display(value, fallback = "Não informado") {
+  return typeof value === "string" && value.trim() ? value.trim().replace(/\s+/g, " ") : fallback;
+}
+
+function formatTimestamp(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return display(value);
+  return date.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+}
+
+function metadataFrom(documentContext, signatures, signatureType) {
+  const context = documentContext && typeof documentContext === "object" && !Array.isArray(documentContext) ? documentContext : {};
+  const firstSigner = Array.isArray(context.signers) && context.signers[0] ? context.signers[0] : {};
+  const firstSignature = Array.isArray(signatures) && signatures[0] ? signatures[0] : {};
+  return {
+    intendedFor: display(context.intendedFor),
+    purpose: display(context.purpose, "Documento eletrônico"),
+    signingLocation: display(context.signingLocation),
+    tokenType: display(context.tokenType),
+    signerName: display(firstSigner.name ?? firstSignature.signerName),
+    signerRole: display(firstSigner.role, "Signatário"),
+    signedAt: firstSignature.signingTime ? formatTimestamp(firstSignature.signingTime) : "Não informado",
+    signatureType: display(signatureType, "PAdES ICP-Brasil"),
+  };
+}
+
+export async function createAuthenticitySheet({ publicId, originalSha256, revision, finalizedAt, verifyUrl, documentContext, signatures, signatureType }) {
   const id = assertPublicId(publicId);
   if (!/^[a-f0-9]{64}$/.test(originalSha256 || "")) throw new TypeError("original SHA-256 is invalid");
   if (!Number.isSafeInteger(revision) || revision <= 0) throw new TypeError("revision is invalid");
@@ -43,6 +70,10 @@ export async function createAuthenticitySheet({ publicId, originalSha256, revisi
   const mono = await pdf.embedFont(StandardFonts.Courier);
   const qr = await QRCode.toBuffer(verificationUrl.toString(), { type: "png", width: 512, margin: 1, errorCorrectionLevel: "M" });
   const qrImage = await pdf.embedPng(qr);
+  const barcodeValue = `MAI|${id}|R${revision}`;
+  const barcode = await bwipjs.toBuffer({ bcid: "code128", text: barcodeValue, scale: 3, height: 14, includetext: false, paddingwidth: 0, paddingheight: 0 });
+  const barcodeImage = await pdf.embedPng(barcode);
+  const metadata = metadataFrom(documentContext, signatures, signatureType);
 
   pdf.setTitle(`Folha de autenticidade ${id}`);
   pdf.setAuthor("Maiocchi Advogado");
@@ -73,17 +104,36 @@ export async function createAuthenticitySheet({ publicId, originalSha256, revisi
     page.drawText(line, { x: 72, y: cursor - 24 - index * 17, font: mono, size: 11, color: INK });
   });
 
-  const qrSize = 136;
-  page.drawImage(qrImage, { x: 72, y: 190, width: qrSize, height: qrSize });
-  page.drawText("VERIFICAÇÃO", { x: 236, y: 310, font: timesBold, size: 9, color: MUTED });
-  drawWrapped(page, verificationUrl.toString(), { x: 236, y: 286, font: mono, size: 9, maxWidth: 285, lineHeight: 14, color: INK });
-  page.drawText("VALIDADOR OFICIAL", { x: 236, y: 236, font: timesBold, size: 9, color: MUTED });
-  page.drawText("https://validar.iti.gov.br/", { x: 236, y: 214, font: mono, size: 9, color: INK });
+  cursor -= 108;
+  page.drawText("METADADOS DA ASSINATURA", { x: 72, y: cursor, font: timesBold, size: 9, color: MUTED });
+  const details = [
+    ["DESTINADO A", metadata.intendedFor],
+    ["FINALIDADE", metadata.purpose],
+    ["ASSINANTE", `${metadata.signerName} · ${metadata.signerRole}`],
+    ["DATA/HORA DA ASSINATURA", metadata.signedAt],
+    ["LOCAL DECLARADO", metadata.signingLocation],
+    ["TOKEN", metadata.tokenType],
+    ["TIPO", metadata.signatureType],
+  ];
+  details.forEach(([label, value], index) => {
+    const y = cursor - 21 - index * 17;
+    page.drawText(label, { x: 72, y, font: timesBold, size: 7.5, color: MUTED });
+    page.drawText(value.slice(0, 90), { x: 192, y, font: times, size: 8.5, color: INK });
+  });
 
-  page.drawLine({ start: { x: 72, y: 150 }, end: { x: 523, y: 150 }, thickness: 0.8, color: rgb(0.75, 0.75, 0.72) });
-  page.drawText(`Finalizado em ${finalizedDate.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}`, { x: 72, y: 125, font: times, size: 9, color: MUTED });
-  page.drawText("Página 1 de 1", { x: 458, y: 72, font: times, size: 9, color: MUTED });
-  page.drawText("Maiocchi Advogado · Roger Maiocchi · OAB/DF 31.249", { x: 72, y: 72, font: times, size: 9, color: MUTED });
+  const qrSize = 116;
+  page.drawImage(qrImage, { x: 72, y: 148, width: qrSize, height: qrSize });
+  page.drawText("QR DE VERIFICAÇÃO", { x: 216, y: 250, font: timesBold, size: 9, color: MUTED });
+  drawWrapped(page, verificationUrl.toString(), { x: 216, y: 228, font: mono, size: 8, maxWidth: 305, lineHeight: 12, color: INK });
+  page.drawText("CÓDIGO DE BARRAS", { x: 216, y: 182, font: timesBold, size: 9, color: MUTED });
+  page.drawImage(barcodeImage, { x: 216, y: 128, width: 305, height: 42 });
+  page.drawText(barcodeValue, { x: 216, y: 112, font: mono, size: 7.5, color: MUTED });
+  page.drawText("VALIDADOR OFICIAL: https://validar.iti.gov.br/", { x: 216, y: 92, font: mono, size: 7.5, color: INK });
+
+  page.drawLine({ start: { x: 72, y: 72 }, end: { x: 523, y: 72 }, thickness: 0.8, color: rgb(0.75, 0.75, 0.72) });
+  page.drawText(`Finalizado em ${finalizedDate.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}`, { x: 72, y: 50, font: times, size: 8, color: MUTED });
+  page.drawText("Página 1 de 1", { x: 458, y: 50, font: times, size: 8, color: MUTED });
+  page.drawText("Maiocchi Advogado · Roger Maiocchi · OAB/DF 31.249", { x: 72, y: 33, font: times, size: 8, color: MUTED });
 
   return Buffer.from(await pdf.save({ useObjectStreams: false, addDefaultPage: false }));
 }

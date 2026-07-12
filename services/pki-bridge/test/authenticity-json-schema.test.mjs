@@ -22,6 +22,7 @@ function envelope() {
     profile: "AD-RT",
     policyOid: "2.16.76.1.7.1.12.2.3",
     signatureCount: 1,
+    signatures: [{ certificateFingerprintSha256: "e".repeat(64), signingTime: "2026-07-12T12:00:00.000Z", signerName: "Assinante de teste" }],
     validatedAt: "2026-07-12T12:01:00.000Z",
     validator: "Validador de contrato",
     validatorKeyId: "validator-2026-01",

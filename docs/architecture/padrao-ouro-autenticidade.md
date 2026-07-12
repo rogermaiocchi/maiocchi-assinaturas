@@ -37,6 +37,9 @@ O contrato deste documento foi fixado em 12 de julho de 2026. A confiança decor
 11. O navegador calcula o hash localmente; o arquivo escolhido para comparação não é enviado ao portal.
 12. O VALIDAR ITI é uma conferência independente iniciada pelo usuário, sem falso resultado automatizado.
 13. O mesmo workflow e o mesmo pacote produzem a mesma chave de registro e o mesmo ID; replay idêntico retorna o registro existente e divergência retorna conflito.
+14. QR Code e Code 128 identificam o registro; o QR aponta à verificação HTTPS e o código de barras codifica `MAI|<id>|R<versão>`. Nenhum deles substitui o hash ou a assinatura PAdES.
+15. Destinatário, finalidade, local declarado, tipo de token e papel dos signatários entram no envelope JWS e na folha A4. Campo sem fonte confiável é armazenado como `Não informado`, nunca inferido.
+16. A localização é declaração operacional, não prova de geolocalização. O tipo de token também é metadado declarado, não prova criptográfica da mídia.
 
 # 2. Arquitetura
 

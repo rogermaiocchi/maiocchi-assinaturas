@@ -25,6 +25,7 @@ const validation = {
     chainStatus: "valid",
     revocationStatus: "good",
     certificateFingerprintSha256: "a".repeat(64),
+    signerName: "Assinante ICP Teste",
     signingTime: "2026-07-12T12:00:00.000Z",
     timestampStatus: "valid",
     timestampTime: "2026-07-12T12:00:30.000Z",
@@ -104,6 +105,8 @@ test("registra somente resultado PAdES validado e preserva o PDF final", async (
   assert.deepEqual(await artifactStore.get(persisted.artifacts.original.storageKey), signedPdf);
   assert.notEqual(persisted.artifacts.original.sha256, persisted.artifacts.representation.sha256);
   assert.equal(result.envelope.record.validation.attestation.keyId, "validator-2026-01");
+  assert.equal(result.envelope.record.goldStandard.signers[0].name, "Assinante ICP Teste");
+  assert.equal(result.envelope.record.goldStandard.barcodeValue, "MAI|MAI-2026-1111-1111-1111-1111|R1");
   assert.equal(persisted.artifacts.validationAttestation.sha256, result.envelope.record.validation.attestation.hash.value);
 
   const replay = await registerGoldStandardDocument({

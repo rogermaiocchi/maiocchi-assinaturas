@@ -54,6 +54,7 @@ export async function registerGoldStandardDocument({
   validationAttestation,
   finalizedAt,
   disclosureMode = "restricted",
+  documentContext,
 }, {
   repository,
   artifactStore,
@@ -101,6 +102,7 @@ export async function registerGoldStandardDocument({
     validationAttestationSha256,
     finalizedAt: finalTimestamp,
     disclosureMode,
+    documentContext: documentContext || {},
   }));
   const existing = await repository.findByWorkflowId(workflowId);
   if (existing) {
@@ -132,6 +134,9 @@ export async function registerGoldStandardDocument({
     revision,
     finalizedAt: finalTimestamp,
     verifyUrl,
+    documentContext,
+    signatures: validation.signatures,
+    signatureType: `PAdES ${validation.profile} - ICP-Brasil`,
   });
   const representationSha256 = sha256Hex(representation);
   const record = buildAuthenticityRecord({
@@ -143,6 +148,7 @@ export async function registerGoldStandardDocument({
     profile: validation.profile,
     policyOid: validation.policyOid,
     signatureCount: validation.signatures.length,
+    signatures: validation.signatures,
     validatedAt: validation.validatedAt,
     validator: validation.validator,
     validatorKeyId: attestation.keyId,
@@ -152,6 +158,7 @@ export async function registerGoldStandardDocument({
     representationSha256,
     representationSize: representation.length,
     disclosureMode,
+    documentContext,
     baseUrl,
   });
   const envelope = signAuthenticityRecord(record, { privateKey, keyId });

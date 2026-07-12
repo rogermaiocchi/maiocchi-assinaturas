@@ -279,6 +279,7 @@ export function createRequestHandler({
           validationAttestation: body.validationAttestation,
           finalizedAt: body.finalizedAt,
           disclosureMode: body.disclosureMode,
+          documentContext: body.documentContext,
         }, {
           repository,
           artifactStore,
