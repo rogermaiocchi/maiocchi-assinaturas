@@ -11,7 +11,7 @@ struct MaiocchiPadesTokenAgent {
         let confirmation = NativeSignatureConfirmation()
         let allowed = Set(ProcessInfo.processInfo.environment["MAIOCCHI_ALLOWED_ORIGINS"]?
             .split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
-            ?? ["https://assinatura.maiocchi.adv.br", "http://localhost:3000"])
+            ?? ["https://assinatura.maiocchi.adv.br", "http://127.0.0.1:35100", "http://localhost:3000"])
 
         app.http.server.configuration.hostname = "127.0.0.1"
         app.http.server.configuration.port = 35100
@@ -19,8 +19,25 @@ struct MaiocchiPadesTokenAgent {
         app.routes.defaultMaxBodySize = "2mb"
 
         let routes = app.grouped(LoopbackGuard(allowedOrigins: allowed))
+        routes.on(.OPTIONS, "v1", ":endpoint") { _ in Response(status: .noContent) }
+        routes.get("v1", "authorize") { _ -> Response in
+            let response = Response(status: .ok, body: .init(string: AuthorizationPage.html))
+            response.headers.contentType = .html
+            response.headers.replaceOrAdd(
+                name: .contentSecurityPolicy,
+                value: "default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self' https://assinatura.maiocchi.adv.br; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+            )
+            response.headers.replaceOrAdd(name: HTTPHeaders.Name("Referrer-Policy"), value: "no-referrer")
+            response.headers.replaceOrAdd(name: HTTPHeaders.Name("X-Frame-Options"), value: "DENY")
+            return response
+        }
+        routes.get("v1", "authorize.js") { _ -> Response in
+            let response = Response(status: .ok, body: .init(string: AuthorizationPage.javascript))
+            response.headers.contentType = HTTPMediaType(type: "text", subType: "javascript", parameters: ["charset": "utf-8"])
+            return response
+        }
         routes.get("v1", "status") { _ in
-            AgentStatus(status: "ok", version: "1.0.0", provider: "CryptoTokenKit")
+            AgentStatus(status: "ok", version: "1.1.0", provider: "CryptoTokenKit")
         }
         routes.get("v1", "certificates") { _ async throws -> CertificateList in
             CertificateList(certificates: try store.list())

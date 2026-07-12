@@ -19,3 +19,10 @@ import Testing
     #expect(decoded.documentSha256 == original.documentSha256)
     #expect(decoded.certificateFingerprintSha256 == original.certificateFingerprintSha256)
 }
+
+@Test func authorizationPageKeepsTicketInFragmentAndUsesRestrictedEndpoints() {
+    #expect(AuthorizationPage.html.contains("/v1/authorize.js"))
+    #expect(AuthorizationPage.javascript.contains("location.hash.slice(1)"))
+    #expect(AuthorizationPage.javascript.contains("/api/pades/prepare"))
+    #expect(!AuthorizationPage.html.contains("ticket="))
+}
