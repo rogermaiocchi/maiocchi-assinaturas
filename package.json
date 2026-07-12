@@ -1,6 +1,6 @@
 {
   "name": "maiocchi-assinaturas-portal",
-  "version": "1.7.1",
+  "version": "1.7.2",
   "private": true,
   "engines": {
     "node": ">=22.13.0"
