@@ -10,9 +10,9 @@ test("renderiza a porta de entrada Maiocchi", async () => {
   const html = await readFile(new URL("index.html", outputRoot), "utf8");
   assert.match(html, /<title>Maiocchi Assinaturas \| Maiocchi Advogado<\/title>/i);
   assert.match(html, /Recebeu um documento\?/i);
-  assert.match(html, /Acesse e assine seu documento/i);
+  assert.match(html, /Maiocchi <span>Assinaturas\.<\/span>/i);
   assert.match(html, /class="brand__mark"/i);
-  assert.match(html, /src="\/icon-512\.png"/i);
+  assert.doesNotMatch(html, /class="brand__mark"[^>]*src=/i);
   assert.match(html, /Ir para o conteúdo principal/i);
   assert.match(html, /id="conteudo-principal"/i);
   assert.match(html, /Área dos advogados/i);
@@ -41,8 +41,8 @@ test("publica páginas legais e de ajuda", async () => {
   assert.match(terms, /OAB\/DF/i);
   assert.match(help, /Assinatura com certificado ICP-Brasil/i);
   assert.match(source, /GNU Affero General Public License/i);
-  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/archive\/refs\/tags\/portal-v1\.7\.6\.zip/i);
-  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/tree\/portal-v1\.7\.6/i);
+  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/archive\/refs\/tags\/portal-v1\.8\.0\.zip/i);
+  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/tree\/portal-v1\.8\.0/i);
   assert.doesNotMatch(source, /href="\/codigo-fonte\/docuseal-maiocchi-3\.0\.1\.tar\.gz"/i);
   assert.doesNotMatch(source, /termos adicionais/i);
   for (const html of [privacy, terms, help]) {
@@ -108,9 +108,9 @@ test("mantém navegação contextual e fluxos visuais em todo o portal", async (
 
   assert.match(home, /class="flow-map"/i);
   for (const html of pages) {
-    assert.match(html, /aria-label="Seções do portal"/i);
+    assert.match(html, /aria-label="Acessos diretos do portal"/i);
     assert.match(html, /class="flow-map"/i);
-    assert.match(html, /aria-label="Próximas páginas recomendadas"/i);
+    assert.match(html, /aria-label="Ações diretas recomendadas"/i);
     assert.match(html, /aria-label="Abrir navegação"/i);
   }
 });

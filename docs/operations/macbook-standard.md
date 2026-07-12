@@ -39,13 +39,15 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 
 ## Padrão visual e de interação
 
-- A marca canônica do portal é o ativo `public/icon-512.png`, identificado visualmente por `m.`; “Maiocchi Assinaturas” é a assinatura verbal secundária.
+- A marca canônica do portal é `m.` em CSS, com fundo transparente e ponto em `#FFB800`; `public/icon-512.png` e os favicons reproduzem a mesma marca nas superfícies do navegador.
 - O primeiro viewport prioriza uma única tarefa: abrir o documento pelo link ou código recebido.
-- O cabeçalho principal expõe apenas Assinar, Modalidades, Validar e Ajuda; ICP-Brasil, GOV.BR, Segurança e páginas institucionais permanecem na navegação contextual e no rodapé.
+- O cabeçalho principal expõe apenas Assinar, Validar e Área dos advogados. Ajuda, modalidades, ICP-Brasil, GOV.BR, Segurança e páginas institucionais permanecem no contexto da página e no rodapé recolhível.
+- O padrão do portal principal preservado na VPS é a referência visual: hero editorial full-bleed, imagem de alta resolução, header transparente que se materializa no scroll, carvão, branco e dourado `#FFB800`.
+- Profundidade e movimento usam apenas transformações CSS leves, com desativação integral em `prefers-reduced-motion`.
 - Ícones Lucide acompanham rótulos textuais em ações e navegação. Ícones decorativos permanecem ocultos da árvore de acessibilidade.
 - Controles têm alvo mínimo de 44 por 44 pixels, foco visível e ordem de teclado verificável.
 - A largura móvel usa a viewport disponível com margem lateral de 16 pixels; não se fixa conteúdo em uma coluna artificialmente estreita.
-- O aceite visual exige screenshots em 1440 por 1000 e 390 por 844, sem sobreposição, corte, overflow horizontal ou texto fora do contêiner.
+- O aceite visual exige screenshots em 1440 por 900 e 390 por 844, sem sobreposição, corte, overflow horizontal ou texto fora do contêiner; o hero deve deixar visível o início da próxima seção.
 - Nenhuma afirmação de acessibilidade ou conformidade é publicada sem auditoria da implementação real.
 - O agente PAdES privado escuta apenas em `127.0.0.1:35100`, aceita origens explícitas e acessa o A3 pelo CryptoTokenKit. O link documental contém ticket de uso único; PIN e chave nunca transitam pelo portal. A compatibilidade depende da combinação de mídia, driver, gerenciador e macOS registrada na matriz Certisign.
 

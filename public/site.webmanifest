@@ -4,8 +4,8 @@
   "description": "Portal seguro de documentos e assinaturas do Maiocchi Advogado.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f6f5f1",
-  "theme_color": "#ffc400",
+  "background_color": "#f5f5f3",
+  "theme_color": "#ffb800",
   "icons": [
     {
       "src": "/icon-192.png",

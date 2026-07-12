@@ -28,16 +28,12 @@ const lawyersBase = process.env.NEXT_PUBLIC_LAWYERS_URL || `${documentsBase}/das
 
 const mainNav: Array<{ href: string; label: string; icon: LucideIcon }> = [
   { href: "/#acessar-documento", label: "Assinar", icon: PenLine },
-  { href: "/assinaturas-eletronicas/", label: "Modalidades", icon: FileSignature },
   { href: "/validar/", label: "Validar", icon: BadgeCheck },
-  { href: "/ajuda/", label: "Ajuda", icon: CircleHelp },
 ];
 
 const mobileNav: Array<{ href: string; label: string; icon: LucideIcon }> = [
   ...mainNav,
-  { href: "/certificado-icp-brasil/", label: "Certificado ICP-Brasil", icon: FileKey },
-  { href: "/assinatura-gov-br/", label: "Assinatura GOV.BR", icon: Landmark },
-  { href: "/seguranca/", label: "Segurança", icon: ShieldCheck },
+  { href: "/ajuda/", label: "Ajuda", icon: CircleHelp },
 ];
 
 const footerNav: Array<{ href: string; label: string; icon: LucideIcon }> = [
@@ -54,7 +50,15 @@ const footerNav: Array<{ href: string; label: string; icon: LucideIcon }> = [
 export function SiteHeader() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const menuButton = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const update = () => setScrolled(window.scrollY > 28);
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    return () => window.removeEventListener("scroll", update);
+  }, []);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -77,7 +81,7 @@ export function SiteHeader() {
   return (
     <>
       <a className="skip-link" href="#conteudo-principal">Ir para o conteúdo principal</a>
-      <header className="site-header">
+      <header className={`site-header${scrolled ? " is-scrolled" : ""}`}>
         <div className="shell header-inner">
           <Brand />
           <nav className="desktop-nav" aria-label="Navegação principal">
@@ -136,7 +140,18 @@ export function SiteFooter() {
     <footer>
       <div className="shell footer-main">
         <Brand compact />
-        <p>Portal de documentos e assinaturas do Maiocchi Advogado. Responsável: Roger Maiocchi, OAB/DF 31.249.</p>
+        <div className="footer-summary">
+          <p>Documentos, assinaturas e validação em um único endereço.</p>
+          <a href="mailto:roger@maiocchi.adv.br"><Mail aria-hidden="true" size={15} /><span>roger@maiocchi.adv.br</span></a>
+        </div>
+        <nav className="footer-primary" aria-label="Acessos principais">
+          <Link href="/#acessar-documento"><PenLine aria-hidden="true" size={16} /><span>Assinar</span></Link>
+          <Link href="/validar/"><BadgeCheck aria-hidden="true" size={16} /><span>Validar</span></Link>
+          <a href={lawyersBase}><LogIn aria-hidden="true" size={16} /><span>Área dos advogados</span></a>
+        </nav>
+      </div>
+      <details className="shell footer-disclosure">
+        <summary>Informações, modalidades e políticas</summary>
         <nav className="footer-links" aria-label="Navegação institucional">
           {footerNav.map(({ href, label, icon: Icon }) => (
             <Link href={href} key={href}>
@@ -145,10 +160,10 @@ export function SiteFooter() {
             </Link>
           ))}
         </nav>
-      </div>
+      </details>
       <div className="shell footer-bottom">
-        <span>© {new Date().getFullYear()} Maiocchi Advogado</span>
-        <a href="mailto:roger@maiocchi.adv.br"><Mail aria-hidden="true" size={13} /><span>roger@maiocchi.adv.br</span></a>
+        <span>© {new Date().getFullYear()} Maiocchi Advogado · Roger Maiocchi, OAB/DF 31.249</span>
+        <span>assinatura.maiocchi.adv.br</span>
       </div>
     </footer>
   );

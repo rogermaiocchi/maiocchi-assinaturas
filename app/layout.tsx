@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     siteName: "Maiocchi Assinaturas",
     title: "Maiocchi Assinaturas | Maiocchi Advogado",
     description: "Assine com clareza. Acompanhe com confiança.",
-    images: [{ url: "/og.png", width: 1731, height: 909, alt: "Maiocchi Assinaturas, portal do Maiocchi Advogado" }],
+    images: [{ url: "/og.png", width: 1200, height: 630, alt: "Maiocchi Assinaturas, portal do Maiocchi Advogado" }],
   },
   twitter: {
     card: "summary_large_image",

@@ -8,7 +8,7 @@ Porta de entrada institucional para o ambiente de documentos e assinaturas do Ma
 - As rotas de signatários (`/s`, `/d`, `/e` e `/p`) e a área dos advogados (`/dashboard`, com autenticação em `/sign_in`) são encaminhadas ao DocuSeal no mesmo domínio.
 - `documentos.assinatura.maiocchi.adv.br` existe somente para redirecionar links antigos ao domínio principal, preservando caminho e consulta.
 
-O ativo `public/icon-512.png` é a marca `m.` canônica do portal e também origina os ícones de navegador.
+A marca `m.` é renderizada em CSS no portal para manter fundo transparente e baixo custo de transferência. Os ativos `public/icon-512.png` e favicons reproduzem a mesma marca para navegador e instalação.
 
 ## Desenvolvimento
 
