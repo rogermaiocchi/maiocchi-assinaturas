@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { PDFDocument } from "pdf-lib";
+import { PDFDict, PDFDocument, PDFName } from "pdf-lib";
 import test from "node:test";
 import { createAuthenticitySheet } from "../src/print-representation.mjs";
 
@@ -20,6 +20,9 @@ test("gera folha A4 independente, de uma página e com metadados do escritório"
   assert.ok(Math.abs(height - 841.89) < 0.01);
   assert.equal(pdf.getAuthor(), "Maiocchi Advogado");
   assert.match(pdf.getTitle(), /MAI-2026-1111/i);
+  const images = pdf.getPage(0).node.Resources().lookup(PDFName.of("XObject"), PDFDict);
+  assert.equal(images.keys().length, 2, "a folha deve incorporar QR Code e código de barras");
+  assert.ok(bytes.length > 20_000, "a folha deve conter os gráficos de conferência");
 });
 
 test("rejeita metadados e URL fora do contrato", async () => {
