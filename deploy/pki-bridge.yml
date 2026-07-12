@@ -1,7 +1,7 @@
 services:
   pki-bridge:
     build:
-      context: ..
+      context: "${PORTAL_SOURCE_DIR:-..}"
       dockerfile: services/pki-bridge/Dockerfile
     image: maiocchi/pki-bridge:1.0.0
     container_name: pki-bridge
@@ -43,7 +43,7 @@ services:
 
   pades-provider:
     build:
-      context: ..
+      context: "${PORTAL_SOURCE_DIR:-..}"
       dockerfile: services/pades-provider/Dockerfile
     image: maiocchi/pades-provider:1.0.0
     container_name: pades-provider
