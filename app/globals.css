@@ -195,6 +195,7 @@ footer { background: var(--ink); color: var(--white); }
 .icp-status-grid > div { min-width: 0; padding: 18px; border: 1px solid var(--line); }
 .icp-status-grid strong { display: block; margin-top: 16px; font-size: 16px; }
 .icp-status-grid p { margin: 8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.55; overflow-wrap: anywhere; }
+.icp-status-grid .hash-value { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
 .icp-console__actions { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; }
 .icp-message { margin: 22px 0 0; padding: 13px 15px; display: flex; align-items: flex-start; gap: 10px; border: 1px solid var(--line); color: #454540; line-height: 1.45; font-size: 14px; }
 .icp-message--error { border-color: #9d1c1c; color: #761414; }

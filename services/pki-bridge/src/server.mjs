@@ -8,6 +8,9 @@ import { FileArtifactStore } from "./artifact-store.mjs";
 import { assertPublicId, verifyAuthenticityEnvelope } from "./authenticity-contract.mjs";
 import { applyMigrations, PostgresAuthenticityRepository } from "./authenticity-repository.mjs";
 import { registerGoldStandardDocument } from "./authenticity-service.mjs";
+import { PrivatePadesProviderClient } from "./private-pades-provider-client.mjs";
+import { PostgresPrivateSigningRepository } from "./private-signing-repository.mjs";
+import { bearerToken, PrivateSigningService } from "./private-signing-service.mjs";
 import { verifyWebhookSignature } from "./webhook.mjs";
 
 const JSON_TYPE = "application/json; charset=utf-8";
@@ -129,6 +132,7 @@ export function createRequestHandler({
   allowedOrigins = [],
   maxBodyBytes = 40 * 1024 * 1024,
   healthCheck = async () => true,
+  privateSigningService = null,
 }) {
   const baseOrigin = new URL(baseUrl).origin;
   const permittedOrigins = new Set([baseOrigin, ...allowedOrigins.map((value) => new URL(value).origin)]);
@@ -151,7 +155,7 @@ export function createRequestHandler({
           return problem(403, "origin_not_allowed", "Origem não autorizada.");
         }
         response.writeHead(204, headers({
-          "access-control-allow-headers": "accept, content-type",
+          "access-control-allow-headers": "accept, authorization, content-type",
           "access-control-allow-methods": "GET, POST, OPTIONS",
           "access-control-max-age": "600",
         }));
@@ -159,7 +163,35 @@ export function createRequestHandler({
       }
       if (request.method === "GET" && url.pathname === "/healthz") {
         await healthCheck();
-        return json(200, { status: "ok" });
+        return json(200, { status: "ok", privatePadesProvider: privateSigningService ? "ready" : "disabled" });
+      }
+
+      if (url.pathname === "/api/pades/ticket" && request.method === "GET") {
+        if (!privateSigningService) return problem(503, "provider_unavailable", "Provider PAdES privado indisponível.");
+        return json(200, await privateSigningService.status(bearerToken(request)));
+      }
+
+      if (url.pathname === "/api/pades/prepare" && request.method === "POST") {
+        if (!privateSigningService) return problem(503, "provider_unavailable", "Provider PAdES privado indisponível.");
+        const raw = await readBody(request, 2 * 1024 * 1024);
+        return json(201, await privateSigningService.prepare(bearerToken(request), JSON.parse(raw.toString("utf8"))));
+      }
+
+      if (url.pathname === "/api/pades/complete" && request.method === "POST") {
+        if (!privateSigningService) return problem(503, "provider_unavailable", "Provider PAdES privado indisponível.");
+        const raw = await readBody(request, 1024 * 1024);
+        return json(200, await privateSigningService.complete(bearerToken(request), JSON.parse(raw.toString("utf8"))));
+      }
+
+      if (url.pathname === "/api/pades/result" && request.method === "GET") {
+        if (!privateSigningService) return problem(503, "provider_unavailable", "Provider PAdES privado indisponível.");
+        const result = await privateSigningService.result(bearerToken(request));
+        response.writeHead(200, headers({
+          "content-type": "application/pdf",
+          "content-length": String(result.bytes.length),
+          "content-disposition": contentDisposition(result.name),
+        }));
+        return response.end(result.bytes);
       }
       const requestedKeyId = keyIdFromPath(url.pathname);
       if (request.method === "GET" && requestedKeyId) {
@@ -260,6 +292,21 @@ export function createRequestHandler({
         return json(result.replayed ? 200 : 201, { publicId: result.publicId, envelope: result.envelope, replayed: Boolean(result.replayed) });
       }
 
+      if (request.method === "POST" && url.pathname === "/internal/pades/tickets") {
+        if (!privateSigningService) return problem(503, "provider_unavailable", "Provider PAdES privado indisponível.");
+        const raw = await readBody(request, maxBodyBytes);
+        if (!verifyWebhookSignature(request.headers["x-maiocchi-signature"], internalHmacKey, raw)) {
+          return problem(401, "unauthorized", "Requisição interna não autorizada.");
+        }
+        const body = JSON.parse(raw.toString("utf8"));
+        const result = await privateSigningService.createTicket({
+          pdf: Buffer.from(body.pdfBase64 || "", "base64"),
+          documentName: body.documentName,
+          ttlSeconds: body.ttlSeconds,
+        });
+        return json(201, result);
+      }
+
       return problem(404, "not_found", "Rota não encontrada.");
     } catch (error) {
       const status = Number.isInteger(error.status) ? error.status : error instanceof SyntaxError || error instanceof TypeError ? 400 : 500;
@@ -287,6 +334,19 @@ async function main() {
   await applyMigrations(pool);
   const repository = new PostgresAuthenticityRepository(pool);
   const artifactStore = new FileArtifactStore(artifactRoot);
+  const providerEndpoint = process.env.PRIVATE_PADES_PROVIDER_URL;
+  const providerApiKey = process.env.PRIVATE_PADES_PROVIDER_API_KEY;
+  if (Boolean(providerEndpoint) !== Boolean(providerApiKey)) throw new Error("private PAdES provider configuration is incomplete");
+  const privateSigningService = providerEndpoint ? new PrivateSigningService({
+    repository: new PostgresPrivateSigningRepository(pool),
+    artifactStore,
+    provider: new PrivatePadesProviderClient({
+      endpoint: providerEndpoint,
+      apiKey: providerApiKey,
+      allowInsecureInternal: process.env.PRIVATE_PADES_ALLOW_INTERNAL_HTTP === "true",
+    }),
+    baseUrl: process.env.PUBLIC_BASE_URL || "https://assinatura.maiocchi.adv.br",
+  }) : null;
   const handler = createRequestHandler({
     repository,
     artifactStore,
@@ -301,6 +361,7 @@ async function main() {
     baseUrl: process.env.PUBLIC_BASE_URL || "https://assinatura.maiocchi.adv.br",
     allowedOrigins: (process.env.ALLOWED_ORIGINS || "").split(",").map((value) => value.trim()).filter(Boolean),
     healthCheck: () => pool.query("SELECT 1"),
+    privateSigningService,
   });
   const port = Number(process.env.PORT || 3400);
   const server = http.createServer(handler);

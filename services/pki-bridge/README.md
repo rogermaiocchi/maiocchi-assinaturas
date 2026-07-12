@@ -1,10 +1,12 @@
 # pki-bridge
 
-Camada fail-closed entre o workflow DocuSeal, um provider PAdES e o registro público de autenticidade. O código não incorpora o projeto de demonstração da Lacuna; ele implementa contratos próprios a partir da documentação e do OpenAPI oficial.
+Camada fail-closed entre o workflow DocuSeal, o provider PAdES privado e o registro público de autenticidade.
 
 ## Estado operacional
 
-O provider é fail-closed. Sem endpoint HTTPS, credencial injetada em runtime, security context e licença contratados, a geração PAdES permanece desabilitada. Credenciais de exemplo são proibidas. O verificador de autenticidade não transforma um PDF em PAdES e não simula validação ICP-Brasil.
+O provider privado usa DSS 6.4 no servidor e um agente Swift/CryptoTokenKit no MacBook. Sem trust store ICP-Brasil, política AD-RB, credencial interna e agente local, a geração permanece desabilitada. O verificador de autenticidade não transforma um PDF em PAdES e não simula validação ICP-Brasil.
+
+Arquitetura e gates: [`docs/architecture/private-pades-provider.md`](../../docs/architecture/private-pades-provider.md).
 
 ## Contratos implementados
 

@@ -1,6 +1,6 @@
 # ADR 0001 - Produto Lacuna e modelo de implantação
 
-- Status: bloqueado por contratação
+- Status: superado pelo ADR 0002
 - Data: 2026-07-11
 - Decisores: Maiocchi Advogado
 
@@ -9,6 +9,10 @@
 O portal precisa acrescentar assinaturas PAdES com certificados ICP-Brasil ao fluxo documental do DocuSeal. `PkiSuiteSamples` demonstra REST PKI, REST PKI Core, Web PKI, Amplia, CloudHub e PKI Express, mas não é uma dependência de produção e não oferece licença de código inequívoca no repositório.
 
 O portal processa documentos jurídicos. Enviar o PDF integral a um SaaS acrescentaria operador, transferência, retenção e dependência externa ao tratamento. A VPS possui 4 CPUs, 15 GiB de memória e espaço disponível suficiente para uma implantação adicional, mas capacidade técnica não substitui direito de uso nem suporte do fabricante.
+
+Pesquisa comparativa: [provider PAdES no navegador](../architecture/pades-browser-provider-research.md).
+
+Em 12 de julho de 2026, a implementação privada descrita no [ADR 0002](0002-private-pades-provider.md) removeu a dependência de licença Web PKI/REST PKI. Este ADR permanece como registro da decisão anterior e da análise do produto Lacuna.
 
 ## Decisão
 

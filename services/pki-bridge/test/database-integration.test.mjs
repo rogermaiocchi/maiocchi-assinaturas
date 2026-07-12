@@ -25,7 +25,7 @@ test("migra e persiste a trilha de autenticidade no PostgreSQL", { skip: !databa
   await applyMigrations(pool);
   await applyMigrations(pool);
   const migrations = await pool.query("SELECT name FROM pki_schema_migrations ORDER BY name");
-  assert.deepEqual(migrations.rows.map((row) => row.name), ["001_initial.sql", "002_authenticity_gold_standard.sql"]);
+  assert.deepEqual(migrations.rows.map((row) => row.name), ["001_initial.sql", "002_authenticity_gold_standard.sql", "003_private_pades_provider.sql"]);
 
   const workflowId = randomUUID();
   await pool.query(

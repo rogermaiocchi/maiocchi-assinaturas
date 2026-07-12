@@ -1,7 +1,10 @@
-node_modules
-.next
-out
 .git
-.DS_Store
-npm-debug.log
-work
+.next
+node_modules
+**/.build
+**/target
+**/.DS_Store
+artifacts
+pgdata
+keys
+validator-keys

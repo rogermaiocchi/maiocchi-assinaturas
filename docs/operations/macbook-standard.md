@@ -47,7 +47,7 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 - A largura móvel usa a viewport disponível com margem lateral de 16 pixels; não se fixa conteúdo em uma coluna artificialmente estreita.
 - O aceite visual exige screenshots em 1440 por 1000 e 390 por 844, sem sobreposição, corte, overflow horizontal ou texto fora do contêiner.
 - Nenhuma afirmação de acessibilidade ou conformidade é publicada sem auditoria da implementação real.
-- O Web PKI não é carregado no domínio de produção sem licença; o acesso por certificado começa na tela DocuSeal, que gera o token CSRF e o desafio mTLS.
+- O agente PAdES privado escuta apenas em `127.0.0.1:35100`, aceita a origem oficial e acessa o A3 pelo CryptoTokenKit. O link documental contém ticket de uso único; PIN e chave nunca transitam pelo portal.
 
 ## Critério de conclusão
 

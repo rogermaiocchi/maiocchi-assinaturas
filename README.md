@@ -30,8 +30,9 @@ Variáveis públicas de build:
 - `NEXT_PUBLIC_DOCUMENTS_URL`: origem do DocuSeal para links de documentos.
 - `NEXT_PUBLIC_LAWYERS_URL`: entrada da área de gestão.
 - `NEXT_PUBLIC_ICP_URL`: entrada da área dos advogados que oferece autenticação por certificado cliente.
-- `NEXT_PUBLIC_WEB_PKI_LICENSE`: licença pública Lacuna Web PKI para o domínio; sem ela, o componente só deve ser usado em `localhost`.
-- `NEXT_PUBLIC_PKI_BRIDGE_URL`: endpoint público do `pki-bridge`, quando a assinatura PAdES estiver habilitada.
+- `NEXT_PUBLIC_PKI_BRIDGE_URL`: origem pública do `pki-bridge`; vazio usa o mesmo domínio do portal.
+
+O agente macOS privado fica em `clients/pades-token-agent`. O motor DSS fica em `services/pades-provider` e não possui rota pública.
 
 Segredos não pertencem a este repositório. O painel DocuSeal, o PostgreSQL e as credenciais administrativas são geridos separadamente no VPS e no Keychain do operador.
 

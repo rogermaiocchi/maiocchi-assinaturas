@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>br.adv.maiocchi.pades-agent</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>__AGENT_BINARY__</string>
+    <string>serve</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>MAIOCCHI_ALLOWED_ORIGINS</key>
+    <string>https://assinatura.maiocchi.adv.br,http://localhost:3000</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ProcessType</key>
+  <string>Interactive</string>
+  <key>StandardOutPath</key>
+  <string>__AGENT_LOG__</string>
+  <key>StandardErrorPath</key>
+  <string>__AGENT_ERROR_LOG__</string>
+  <key>ThrottleInterval</key>
+  <integer>5</integer>
+</dict>
+</plist>

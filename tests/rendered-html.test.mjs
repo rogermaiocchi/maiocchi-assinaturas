@@ -41,8 +41,8 @@ test("publica páginas legais e de ajuda", async () => {
   assert.match(terms, /OAB\/DF/i);
   assert.match(help, /Assinatura com certificado ICP-Brasil/i);
   assert.match(source, /GNU Affero General Public License/i);
-  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/archive\/refs\/tags\/portal-v1\.6\.0\.zip/i);
-  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/tree\/portal-v1\.6\.0/i);
+  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/archive\/refs\/tags\/portal-v1\.7\.0\.zip/i);
+  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/tree\/portal-v1\.7\.0/i);
   assert.doesNotMatch(source, /href="\/codigo-fonte\/docuseal-maiocchi-3\.0\.1\.tar\.gz"/i);
   assert.doesNotMatch(source, /termos adicionais/i);
   for (const html of [privacy, terms, help]) {
@@ -65,10 +65,10 @@ test("publica e conecta o conteúdo de assinaturas e segurança", async () => {
   assert.match(pages[0], /avançada/i);
   assert.match(pages[0], /qualificada/i);
   assert.match(pages[1], /A1, A3 e nuvem/i);
-  assert.match(pages[2], /Uso do token local/i);
-  assert.match(pages[2], /Produção aguardando licença/i);
-  assert.match(pages[2], /Entrar com certificado/i);
-  assert.match(pages[2], /assinatura\.maiocchi\.adv\.br\/sign_in/i);
+  assert.match(pages[2], /CryptoTokenKit no MacBook/i);
+  assert.match(pages[2], /Maiocchi PAdES/i);
+  assert.match(pages[2], /Verificar agente e token/i);
+  assert.match(pages[2], /DSS \+ CryptoTokenKit/i);
   assert.doesNotMatch(pages[2], /src="https:\/\/cdn\.lacunasoftware\.com\/libs\/web-pki/i);
   assert.match(pages[3], /serviço oficial/i);
   assert.match(pages[3], /validar\.iti\.gov\.br/i);
