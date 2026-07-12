@@ -19,7 +19,7 @@ O contrato deste documento foi fixado em 12 de julho de 2026. A confiança decor
 | Banco e eventos encadeados | implementado | `services/pki-bridge/db/002_authenticity_gold_standard.sql` |
 | Verificador público | implementado | `app/validar/authenticity-verifier.tsx` |
 | Testes unitários e HTTP | implementado | `services/pki-bridge/test/` |
-| Geração PAdES ICP-Brasil real | gate externo | exige provider/licença/security context e teste independente |
+| Geração PAdES ICP-Brasil real | implementado | provider DSS privado, agente macOS A3, ticket de uso único e teste real; validação externa segue como conferência independente |
 | Integração genérica por API com VALIDAR ITI | não alegada | o guia público não documenta uma API genérica de upload para este caso |
 
 ## 1.3 Invariantes

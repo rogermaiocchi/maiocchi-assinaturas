@@ -7,7 +7,7 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 - Nome oficial: **Maiocchi Advogado**.
 - E-mail único do portal: `roger@maiocchi.adv.br`.
 - Responsável profissional: Roger Maiocchi, OAB/DF 31.249.
-- Textos não devem atribuir ao DocuSeal assinatura qualificada nem apresentar integração Lacuna como ativa sem licença e validação reais.
+- Textos não devem atribuir ao DocuSeal assinatura qualificada nem apresentar homologação por Lacuna, PJeOffice, CNJ ou ITI sem evidência documental específica.
 
 ## Acesso e segredos
 
@@ -32,7 +32,7 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 - O portal Next.js publica identidade, conteúdo, ajuda e referências oficiais.
 - O DocuSeal administra modelos, participantes, evidências de fluxo e arquivos nas rotas operacionais do mesmo domínio `assinatura.maiocchi.adv.br`.
 - O subdomínio `documentos.assinatura.maiocchi.adv.br` é somente compatibilidade e redireciona de forma permanente, preservando caminho e consulta.
-- O `pki-bridge` é um serviço separado e fail-closed para PAdES/ICP-Brasil. O registro de autenticidade pode operar somente depois de receber validação estruturada; a geração PAdES continua desabilitada sem provider comprovado.
+- O `pki-bridge` é um serviço separado e fail-closed para PAdES/ICP-Brasil. O provider privado DSS + agente CryptoTokenKit está ativo; o registro de autenticidade só opera depois de receber validação estruturada.
 - O PDF PAdES final é imutável. ID, hash e QR ficam no envelope externo e na folha A4 separada.
 - O verificador público mostra apenas metadados mínimos; o original permanece restrito por padrão e a comparação de arquivo ocorre localmente no navegador.
 - O GOV.BR permanece um percurso externo para este escritório privado; o arquivo assinado deve ser preservado e validado no canal oficial.
@@ -47,10 +47,10 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 - A largura móvel usa a viewport disponível com margem lateral de 16 pixels; não se fixa conteúdo em uma coluna artificialmente estreita.
 - O aceite visual exige screenshots em 1440 por 1000 e 390 por 844, sem sobreposição, corte, overflow horizontal ou texto fora do contêiner.
 - Nenhuma afirmação de acessibilidade ou conformidade é publicada sem auditoria da implementação real.
-- O agente PAdES privado escuta apenas em `127.0.0.1:35100`, aceita a origem oficial e acessa o A3 pelo CryptoTokenKit. O link documental contém ticket de uso único; PIN e chave nunca transitam pelo portal.
+- O agente PAdES privado escuta apenas em `127.0.0.1:35100`, aceita origens explícitas e acessa o A3 pelo CryptoTokenKit. O link documental contém ticket de uso único; PIN e chave nunca transitam pelo portal. A compatibilidade depende da combinação de mídia, driver, gerenciador e macOS registrada na matriz Certisign.
 
 ## Critério de conclusão
 
-Uma função só pode ser anunciada como disponível depois de teste real no ambiente correspondente. Ausência de licença Lacuna, credencial SMTP ou certificado de homologação é gate externo documentado, nunca substituído por chave de exemplo ou simulação.
+Uma função só pode ser anunciada como disponível depois de teste real no ambiente correspondente. Distribuição a terceiros exige Developer ID, hardened runtime e notarização Apple; PAdES-T/LT/LTA exige TSA e política configuradas; validação independente pelo VALIDAR ITI permanece etapa de conferência externa. Nenhum desses gates pode ser substituído por chave de exemplo ou simulação.
 
 O contrato detalhado do padrão ouro está em `docs/architecture/padrao-ouro-autenticidade.md`; os papéis governados estão em `docs/agents/padrao-ouro-prompts.md`.
