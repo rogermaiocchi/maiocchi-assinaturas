@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://assinatura.maiocchi.adv.br/schemas/authenticity-key-v1.schema.json",
+  "title": "Chave de autenticidade Maiocchi v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["record", "proof"],
+  "properties": {
+    "record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "version", "document", "signature", "validation", "representation", "disclosure", "links"],
+      "properties": {
+        "schema": { "const": "https://assinatura.maiocchi.adv.br/schemas/authenticity-key-v1.schema.json" },
+        "version": { "const": "1.0.0" },
+        "document": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "revision", "mediaType", "size", "hash", "finalizedAt"],
+          "properties": {
+            "id": { "type": "string", "pattern": "^MAI-[0-9]{4}(-[0-9A-HJKMNP-TV-Z]{4}){4}$" },
+            "revision": { "type": "integer", "minimum": 1 },
+            "mediaType": { "const": "application/pdf" },
+            "size": { "type": "integer", "minimum": 1 },
+            "hash": { "$ref": "#/$defs/sha256" },
+            "finalizedAt": { "type": "string", "format": "date-time" }
+          }
+        },
+        "signature": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["format", "infrastructure", "profile", "policyOid", "count", "docMdp"],
+          "properties": {
+            "format": { "const": "PAdES" },
+            "infrastructure": { "const": "ICP-Brasil" },
+            "profile": { "enum": ["AD-RB", "AD-RT"] },
+            "policyOid": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)+$" },
+            "count": { "type": "integer", "minimum": 1 },
+            "docMdp": { "const": "valid" }
+          }
+        },
+        "validation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "validatedAt", "validator", "attestation", "report"],
+          "properties": {
+            "status": { "const": "valid" },
+            "validatedAt": { "type": "string", "format": "date-time" },
+            "validator": { "type": "string", "minLength": 1 },
+            "attestation": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["type", "algorithm", "keyId", "hash"],
+              "properties": {
+                "type": { "const": "JWS" },
+                "algorithm": { "const": "EdDSA" },
+                "keyId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+                "hash": { "$ref": "#/$defs/sha256" }
+              }
+            },
+            "report": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["mediaType", "size", "hash"],
+              "properties": {
+                "mediaType": { "const": "application/json" },
+                "size": { "type": "integer", "minimum": 1 },
+                "hash": { "$ref": "#/$defs/sha256" }
+              }
+            }
+          }
+        },
+        "representation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "mediaType", "size", "hash"],
+          "properties": {
+            "type": { "const": "authenticity-sheet" },
+            "mediaType": { "const": "application/pdf" },
+            "size": { "type": "integer", "minimum": 1 },
+            "hash": { "$ref": "#/$defs/sha256" }
+          }
+        },
+        "disclosure": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode"],
+          "properties": { "mode": { "enum": ["restricted", "public"] } }
+        },
+        "links": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["verify", "original", "print", "officialValidator"],
+          "properties": {
+            "verify": { "type": "string", "format": "uri", "pattern": "^https://" },
+            "original": {
+              "oneOf": [
+                { "type": "null" },
+                { "type": "string", "format": "uri", "pattern": "^https://" }
+              ]
+            },
+            "print": { "type": "string", "format": "uri", "pattern": "^https://" },
+            "officialValidator": { "const": "https://validar.iti.gov.br/" }
+          }
+        }
+      }
+    },
+    "proof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "algorithm", "keyId", "value"],
+      "properties": {
+        "type": { "const": "JWS" },
+        "algorithm": { "const": "EdDSA" },
+        "keyId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" },
+        "value": { "type": "string", "pattern": "^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$" }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "value"],
+      "properties": {
+        "algorithm": { "const": "SHA-256" },
+        "value": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    }
+  }
+}

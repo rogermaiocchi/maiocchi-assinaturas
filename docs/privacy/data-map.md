@@ -1,4 +1,4 @@
-# Mapa preliminar de dados e LGPD
+# Mapa de dados e LGPD
 
 ## Papéis
 
@@ -17,6 +17,9 @@
 | Coletar aceite simples | campos, assinatura desenhada e eventos técnicos | manifestação de vontade e prova | contrato/exercício de direitos | prazo probatório |
 | Assinar com ICP-Brasil | certificado público, resultado e PDF | assinatura qualificada | contrato/exercício de direitos | prazo documental e probatório |
 | Validar GOV.BR | PDF reenviado, cadeia e relatório | verificar assinatura externa | contrato/exercício de direitos | prazo documental e probatório |
+| Registrar autenticidade | ID opaco, hashes, perfil, OID, horários e relatório | preservar integridade e prova | execução do fluxo/exercício de direitos | prazo documental e probatório |
+| Consultar chave pública | ID opaco e envelope entregues ao navegador | conferir registro e detectar adulteração | execução do fluxo/exercício de direitos | a consulta GET não cria evento no banco de autenticidade |
+| Comparar PDF no navegador | arquivo e SHA-256 calculado localmente | comparar bytes com o registro | operação local do titular | arquivo e hash não são enviados; só `match`/`mismatch` pode virar evento |
 | Operar segurança | IP, user agent, horário e eventos mínimos | prevenir abuso e incidentes | legítimo interesse e obrigação de segurança | janela de segurança definida |
 | Atender titular | identidade, pedido e resposta | cumprir direitos LGPD | obrigação legal | prazo de prestação de contas |
 
@@ -33,6 +36,10 @@ O conteúdo do documento pode conter dados sensíveis, segredo profissional, dad
 - provider recebe somente o necessário para a operação contratada;
 - relatório público não expõe certificado completo nem identificador nacional;
 - logs usam correlação opaca;
+- o banco público de autenticidade não registra IP, user agent, nome do signatário ou conteúdo do documento;
+- observações públicas de correspondência ficam separadas da cadeia probatória, são marcadas como não confiáveis e deduplicadas em janelas de dez minutos;
+- o original é restrito por padrão e a folha impressa não contém dados dos signatários;
+- a comparação SHA-256 usa `crypto.subtle` no dispositivo e não faz upload;
 - analytics e publicidade comportamental permanecem ausentes.
 
 ## Direitos dos titulares
@@ -45,6 +52,8 @@ A tabela final separará:
 
 - documento original;
 - PDF final assinado;
+- envelope de autenticidade e chave pública histórica;
+- folha de autenticidade;
 - anexos e versões intermediárias;
 - trilha e relatório;
 - logs de segurança;
@@ -67,3 +76,5 @@ O playbook deve identificar natureza e volume dos dados, titulares afetados, ris
 - localização e tratamento Lacuna;
 - procedimento de incidente aprovado;
 - teste de acesso, correção, restrição, eliminação e restauração.
+
+Esses gates impedem afirmar maturidade operacional integral da LGPD, mas não autorizam coleta ampliada enquanto estiverem abertos. O comportamento atual permanece minimizado e fail-closed.

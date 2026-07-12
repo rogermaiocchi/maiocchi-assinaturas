@@ -1,5 +1,3 @@
-BEGIN;
-
 CREATE TABLE pki_workflows (
   id uuid PRIMARY KEY,
   account_id bigint NOT NULL,
@@ -96,5 +94,3 @@ CREATE INDEX pki_workflows_status_idx ON pki_workflows (status, updated_at);
 CREATE INDEX pki_signers_workflow_status_idx ON pki_signers (workflow_id, status);
 CREATE INDEX pki_sessions_expiry_idx ON pki_sessions (status, expires_at);
 CREATE INDEX pki_events_workflow_idx ON pki_events (workflow_id, id);
-
-COMMIT;

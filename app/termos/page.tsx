@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Termos de uso" };
 
 export default function TermsPage() {
   return <LegalPage title="Termos de uso" lead="Condições para acessar, conferir e assinar documentos no portal do Maiocchi Advogado." currentPath="/termos/">
-    <p className="legal-meta">Versão de 11 de julho de 2026.</p>
+    <p className="legal-meta">Versão de 12 de julho de 2026.</p>
     <FlowMap eyebrow="Uso responsável" title="Acesso pessoal. Decisão consciente. Evidência preservada." description="O uso do portal pressupõe conferência do conteúdo e interrupção imediata diante de dúvida, erro ou acesso indevido." ariaLabel="Fluxo de responsabilidades para uso do portal" steps={[
       { title: "Acessar pessoalmente", description: "Use apenas o link individual destinado a você.", icon: UserCheck },
       { title: "Conferir por inteiro", description: "Revise texto, dados, anexos e modalidade antes de agir.", icon: Eye },
@@ -22,11 +22,12 @@ export default function TermsPage() {
     <h2>6. Certificados e credenciais</h2><p>A chave privada, o PIN e a senha do certificado pertencem ao titular. Eles não devem ser enviados ao escritório. O usuário responde pela guarda de seu dispositivo e deve solicitar revogação à autoridade competente se houver comprometimento.</p>
     <h2>7. Revisões e cancelamento</h2><p>Alteração de conteúdo depois do início de uma assinatura digital exige nova revisão e nova coleta de assinaturas. O escritório pode cancelar links expirados, duplicados, comprometidos ou relacionados a documento substituído.</p>
     <h2>8. Evidências e cópia final</h2><p>O sistema pode registrar datas, horários, eventos técnicos, hashes, confirmações e relatórios de validação. A cópia final disponibilizada deve ser preservada em formato eletrônico; imprimir para PDF pode remover ou invalidar assinaturas digitais.</p>
-    <h2>9. Uso proibido</h2><p>É proibido acessar documento alheio, contornar controles, testar credenciais, inserir arquivo malicioso, adulterar evidência, automatizar abuso ou usar o portal em violação à lei e aos direitos de terceiros.</p>
-    <h2>10. Disponibilidade</h2><p>Manutenção, atualização, indisponibilidade de terceiros e eventos fora do controle razoável podem interromper o serviço. O escritório adotará medidas proporcionais para restabelecer o acesso, sem prometer funcionamento ininterrupto.</p>
-    <h2>11. Validade no caso concreto</h2><p>A tecnologia preserva evidências, mas não torna automaticamente qualquer documento adequado a qualquer finalidade. Lei aplicável, forma exigida, poderes do signatário, conteúdo e aceitação das partes devem ser considerados no caso concreto.</p>
-    <h2>12. Software e terceiros</h2><p>O motor documental utiliza DocuSeal sob AGPLv3. Componentes PKI somente serão apresentados como ativos quando licenciados e habilitados. Serviços GOV.BR e validadores externos têm termos próprios.</p>
-    <h2>13. Privacidade</h2><p>O tratamento de dados é descrito na <a href="/privacidade/">Política de privacidade</a>, que integra estes termos.</p>
-    <h2>14. Atualizações e contato</h2><p>Alterações relevantes serão publicadas com nova data de versão. Dúvidas ou incidentes podem ser comunicados a <a href="mailto:roger@maiocchi.adv.br">roger@maiocchi.adv.br</a>.</p>
+    <h2>9. Chave e via impressa</h2><p>O ID, o hash e o QR Code permitem localizar e comparar o registro eletrônico. A folha impressa é mera representação e não substitui o PDF PAdES original. O resultado do portal comprova a integridade do registro do escritório; a assinatura ICP-Brasil deve ser conferida no próprio PDF e, quando necessário, no VALIDAR ITI.</p>
+    <h2>10. Uso proibido</h2><p>É proibido acessar documento alheio, contornar controles, testar credenciais, inserir arquivo malicioso, adulterar evidência, automatizar abuso ou usar o portal em violação à lei e aos direitos de terceiros.</p>
+    <h2>11. Disponibilidade</h2><p>Manutenção, atualização, indisponibilidade de terceiros e eventos fora do controle razoável podem interromper o serviço. O escritório adotará medidas proporcionais para restabelecer o acesso, sem prometer funcionamento ininterrupto.</p>
+    <h2>12. Validade no caso concreto</h2><p>A tecnologia preserva evidências, mas não torna automaticamente qualquer documento adequado a qualquer finalidade. Lei aplicável, forma exigida, poderes do signatário, conteúdo e aceitação das partes devem ser considerados no caso concreto.</p>
+    <h2>13. Software e terceiros</h2><p>O motor documental utiliza DocuSeal sob AGPLv3. Componentes PKI somente serão apresentados como ativos quando licenciados e habilitados. Serviços GOV.BR e validadores externos têm termos próprios.</p>
+    <h2>14. Privacidade</h2><p>O tratamento de dados é descrito na <a href="/privacidade/">Política de privacidade</a>, que integra estes termos.</p>
+    <h2>15. Atualizações e contato</h2><p>Alterações relevantes serão publicadas com nova data de versão. Dúvidas ou incidentes podem ser comunicados a <a href="mailto:roger@maiocchi.adv.br">roger@maiocchi.adv.br</a>.</p>
   </LegalPage>;
 }

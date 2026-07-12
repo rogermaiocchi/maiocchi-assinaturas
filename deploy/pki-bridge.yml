@@ -1,0 +1,63 @@
+services:
+  pki-bridge:
+    build:
+      context: ..
+      dockerfile: services/pki-bridge/Dockerfile
+    image: maiocchi/pki-bridge:1.0.0
+    container_name: pki-bridge
+    restart: unless-stopped
+    mem_limit: 384m
+    depends_on:
+      pki-db:
+        condition: service_healthy
+    environment:
+      PORT: "3400"
+      PUBLIC_BASE_URL: https://assinatura.maiocchi.adv.br
+      DATABASE_URL: "postgresql://pki:${PKI_DB_PASS}@pki-db:5432/pki"
+      ARTIFACT_ROOT: /data/artifacts
+      AUTHENTICITY_PRIVATE_KEY_FILE: /run/pki-keys/authenticity-ed25519.pem
+      AUTHENTICITY_PUBLIC_KEYS_DIR: /run/pki-keys
+      AUTHENTICITY_KEY_ID: "${AUTHENTICITY_KEY_ID}"
+      AUTHENTICITY_INTERNAL_HMAC_KEY: "${AUTHENTICITY_INTERNAL_HMAC_KEY}"
+      VALIDATOR_PUBLIC_KEYS_DIR: /run/validator-keys
+      PADES_ALLOWED_POLICY_OIDS: "${PADES_ALLOWED_POLICY_OIDS:-}"
+      ALLOW_PUBLIC_ORIGINALS: "${ALLOW_PUBLIC_ORIGINALS:-false}"
+      ALLOWED_ORIGINS: "${ALLOWED_ORIGINS:-}"
+    volumes:
+      - "${PKI_ARTIFACT_DIR:-./artifacts}:/data/artifacts"
+      - "${PKI_KEY_DIR:-./keys}:/run/pki-keys:ro"
+      - "${PKI_VALIDATOR_KEY_DIR:-./validator-keys}:/run/validator-keys:ro"
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks: [traefik-net, pki-internal]
+
+  pki-db:
+    image: postgres:16
+    container_name: pki-db
+    restart: unless-stopped
+    mem_limit: 384m
+    environment:
+      POSTGRES_DB: pki
+      POSTGRES_USER: pki
+      POSTGRES_PASSWORD: "${PKI_DB_PASS}"
+    volumes:
+      - "${PKI_PGDATA_DIR:-./pgdata}:/var/lib/postgresql/data"
+    networks: [pki-internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pki -d pki"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+networks:
+  traefik-net:
+    external: true
+    name: traefik-net
+  pki-internal:
+    driver: bridge

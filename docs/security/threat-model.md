@@ -31,7 +31,19 @@ Chave privada, PIN e senha do certificado do signatário não são ativos do por
 | Replay | UUID e idempotency key persistidos | mesmo evento duas vezes |
 | Corrida entre callbacks | versão otimista e transação | duas conclusões simultâneas |
 | PDF alterado | hash, storage imutável, `ByteRange` e validação final | byte alterado após assinatura |
+| Hash injetado no PDF final | proibição arquitetural; hash fica no envelope e na folha separada | salvar novamente o PDF e demonstrar divergência |
+| QR ou ID substituído no papel | exibir ID e hash completos; HTTPS; envelope Ed25519 | QR de outro documento e comparação textual |
+| Envelope adulterado | JWS Ed25519, JSON canônico e chave histórica por `keyId` | alteração de qualquer campo |
+| Chave pública substituída | arquivo fora da imagem, publicação histórica, rotação documentada e monitoramento | chave divergente do fingerprint de release |
+| Enumeração de documentos | IDs com 80 bits úteis, rate limit e resposta uniforme | varredura e throttling |
+| Exposição do original pelo QR | `restricted` por padrão e autorização separada | acesso anônimo a `/original/:id.pdf` |
+| Upload involuntário na comparação | hash no `crypto.subtle` local; endpoint recebe só match/mismatch | inspeção de rede com PDF selecionado |
+| Flood de observações públicas | rate limit, payload de 1 KiB, tabela não probatória e amostra única por documento/resultado a cada dez minutos | carga sustentada e corpo excessivo |
+| Quebra da trilha de verificação | hash do evento anterior e lock transacional por documento | alteração, remoção e corrida concorrente |
+| Replay de registro | chave determinística do pacote, lock por workflow e conflito em divergência | duas chamadas simultâneas e reenvio após timeout |
 | Cadeia não confiável | security context explícito, revogação e política | expirado, revogado, cadeia incompleta |
+| Adapter forja resultado | atestado Ed25519 sobre hashes e resumo; chave privada isolada do pki-bridge | resumo alterado, relatório trocado e chave desconhecida |
+| Chave antiga assina novo pacote | manifesto temporal com active/retired/revoked e `issuedAt` | atestado fora da janela ou chave retirada |
 | Trust store confundido | stores separados para PDF, mTLS e testes | raiz GOV.BR recusada em mTLS |
 | Upload hostil | limite, magic bytes, parser isolado e antivírus | PDF malformado/protegido/grande |
 | Exposição de segredo | cofre, egress gate e scan de repo/imagem/log | padrões de segredo bloqueados |
@@ -46,6 +58,8 @@ Chave privada, PIN e senha do certificado do signatário não são ativos do por
 - migração ou restore de banco;
 - troca do download final;
 - ativação do provider Lacuna;
+- troca ou rotação da chave Ed25519 do envelope;
+- mudança de `restricted` para `public` no original;
 - ativação de mTLS;
 - importação de trust anchors;
 - publicação de alegação de assinatura avançada/qualificada;
@@ -55,4 +69,4 @@ Todas exigem feature flag, backup validado, evidência de homologação e rollba
 
 ## Logs
 
-Os logs usam identificadores opacos e correlação. Não registram documento, código de acesso, assinatura, certificado completo, CPF extraído, token, HMAC, cookie, chave API, senha ou PIN.
+Os logs usam identificadores opacos e correlação. Não registram documento, código de acesso, assinatura, certificado completo, CPF extraído, token, HMAC, cookie, chave API, senha ou PIN. A trilha pública de autenticidade também não registra IP ou user agent.

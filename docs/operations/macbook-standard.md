@@ -25,13 +25,16 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 6. Publicar uma tag imutável de imagem, sem reutilizar tags anteriores.
 7. Verificar container saudável, rotas HTTPS, headers, conteúdo e links críticos.
 8. Em falha, executar `scripts/rollback-vps.sh` com o backup selecionado e repetir a verificação.
+9. Para o `pki-bridge`, confirmar também migrações, integridade dos artifacts, chave pública, CORS e cadeia dos eventos.
 
 ## Separação de responsabilidades
 
 - O portal Next.js publica identidade, conteúdo, ajuda e referências oficiais.
 - O DocuSeal administra modelos, participantes, evidências de fluxo e arquivos nas rotas operacionais do mesmo domínio `assinatura.maiocchi.adv.br`.
 - O subdomínio `documentos.assinatura.maiocchi.adv.br` é somente compatibilidade e redireciona de forma permanente, preservando caminho e consulta.
-- O futuro `pki-bridge` deve ser um serviço separado e fail-closed para PAdES/ICP-Brasil.
+- O `pki-bridge` é um serviço separado e fail-closed para PAdES/ICP-Brasil. O registro de autenticidade pode operar somente depois de receber validação estruturada; a geração PAdES continua desabilitada sem provider comprovado.
+- O PDF PAdES final é imutável. ID, hash e QR ficam no envelope externo e na folha A4 separada.
+- O verificador público mostra apenas metadados mínimos; o original permanece restrito por padrão e a comparação de arquivo ocorre localmente no navegador.
 - O GOV.BR permanece um percurso externo para este escritório privado; o arquivo assinado deve ser preservado e validado no canal oficial.
 
 ## Padrão visual e de interação
@@ -49,3 +52,5 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 ## Critério de conclusão
 
 Uma função só pode ser anunciada como disponível depois de teste real no ambiente correspondente. Ausência de licença Lacuna, credencial SMTP ou certificado de homologação é gate externo documentado, nunca substituído por chave de exemplo ou simulação.
+
+O contrato detalhado do padrão ouro está em `docs/architecture/padrao-ouro-autenticidade.md`; os papéis governados estão em `docs/agents/padrao-ouro-prompts.md`.

@@ -41,8 +41,8 @@ test("publica páginas legais e de ajuda", async () => {
   assert.match(terms, /OAB\/DF/i);
   assert.match(help, /Assinatura com certificado ICP-Brasil/i);
   assert.match(source, /GNU Affero General Public License/i);
-  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/archive\/refs\/tags\/portal-v1\.5\.0\.zip/i);
-  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/tree\/portal-v1\.5\.0/i);
+  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/archive\/refs\/tags\/portal-v1\.6\.0\.zip/i);
+  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/tree\/portal-v1\.6\.0/i);
   assert.doesNotMatch(source, /href="\/codigo-fonte\/docuseal-maiocchi-3\.0\.1\.tar\.gz"/i);
   assert.doesNotMatch(source, /termos adicionais/i);
   for (const html of [privacy, terms, help]) {
@@ -52,14 +52,14 @@ test("publica páginas legais e de ajuda", async () => {
 });
 
 test("publica e conecta o conteúdo de assinaturas e segurança", async () => {
-  const pages = await Promise.all([
+  const [pages, verifierSource] = await Promise.all([Promise.all([
     readFile(new URL("assinaturas-eletronicas/index.html", outputRoot), "utf8"),
     readFile(new URL("certificacao-digital/index.html", outputRoot), "utf8"),
     readFile(new URL("certificado-icp-brasil/index.html", outputRoot), "utf8"),
     readFile(new URL("assinatura-gov-br/index.html", outputRoot), "utf8"),
     readFile(new URL("validar/index.html", outputRoot), "utf8"),
     readFile(new URL("seguranca/index.html", outputRoot), "utf8"),
-  ]);
+  ]), readFile(new URL("../app/validar/authenticity-verifier.tsx", import.meta.url), "utf8")]);
 
   assert.match(pages[0], /simples/i);
   assert.match(pages[0], /avançada/i);
@@ -75,6 +75,11 @@ test("publica e conecta o conteúdo de assinaturas e segurança", async () => {
   assert.match(pages[3], /Cadeia_GovBr-der\.p7b/i);
   assert.match(pages[3], /não deve ser adicionada às raízes mTLS/i);
   assert.match(pages[4], /Validador do ITI/i);
+  assert.match(pages[4], /MAI-2026-XXXX-XXXX-XXXX-XXXX/i);
+  assert.match(pages[4], /DOC-ICP-15\.03 v9\.1/i);
+  assert.match(verifierSource, /Comparar um PDF neste dispositivo/i);
+  assert.match(verifierSource, /O cálculo ocorre localmente/i);
+  assert.match(verifierSource, /crypto\.subtle\.digest\("SHA-256"/i);
   assert.match(pages[5], /Conexão e isolamento/i);
 
   for (const html of pages) {

@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "keys": [
+    {
+      "keyId": "validator-2026-01",
+      "status": "active",
+      "notBefore": "2026-01-01T00:00:00.000Z",
+      "notAfter": "2027-01-01T00:00:00.000Z"
+    }
+  ]
+}

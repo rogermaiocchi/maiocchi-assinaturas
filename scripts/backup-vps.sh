@@ -19,11 +19,18 @@ docker exec docuseal-db pg_dump -U docuseal -d docuseal -Fc > "$destination/docu
 sudo tar -C /opt/traefik -czf "$destination/traefik-assinatura.tgz" \
   docker-compose.yml dynamic/assinatura-portal.yml dynamic/icp-trust
 
+artifacts=(assinatura-portal.tgz docuseal-config.tgz docuseal-db.dump traefik-assinatura.tgz)
+if [[ -d /opt/pki-bridge ]] && docker inspect pki-db >/dev/null 2>&1; then
+  sudo tar --exclude=pki-bridge/pgdata -C /opt -czf "$destination/pki-bridge-config.tgz" pki-bridge
+  docker exec pki-db pg_dump -U pki -d pki -Fc > "$destination/pki-db.dump"
+  artifacts+=(pki-bridge-config.tgz pki-db.dump)
+fi
+
 sudo chown -R "$(id -u):$(id -g)" "$destination"
 chmod 600 "$destination"/*
 (
   cd "$destination"
-  sha256sum assinatura-portal.tgz docuseal-config.tgz docuseal-db.dump traefik-assinatura.tgz > SHA256SUMS
+  sha256sum "${artifacts[@]}" > SHA256SUMS
 )
 chmod 600 "$destination/SHA256SUMS"
 
