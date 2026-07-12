@@ -10,6 +10,7 @@
     "start": "node src/server.mjs"
   },
   "dependencies": {
+    "bwip-js": "^4.11.2",
     "pdf-lib": "1.17.1",
     "pg": "8.22.0",
     "qrcode": "1.5.4"
