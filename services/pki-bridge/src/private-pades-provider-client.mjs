@@ -46,10 +46,12 @@ export class PrivatePadesProviderClient {
     const result = await this.request("/v1/signatures/prepare", {
       pdfBase64: pdf.toString("base64"), name, certificateBase64, chainBase64,
     });
-    if (!result.sessionId || !result.toBeSignedBase64 || result.digestAlgorithm !== "SHA-256" || result.signatureAlgorithm !== "RSA-SHA256") {
-      throw new PkiProviderError("Private PAdES provider returned an invalid signing task");
-    }
-    return result;
+    return this.signingTask(result);
+  }
+
+  async resume({ sessionId }) {
+    const id = encodeURIComponent(required(sessionId, "provider session ID"));
+    return this.signingTask(await this.request(`/v1/signatures/${id}/resume`, {}));
   }
 
   async complete({ sessionId, signatureBase64 }) {
@@ -60,5 +62,14 @@ export class PrivatePadesProviderClient {
       throw new PkiProviderError("Private PAdES provider did not return a trusted signed PDF");
     }
     return { ...result, pdf: Buffer.from(result.signedPdfBase64, "base64") };
+  }
+
+  signingTask(result) {
+    if (!result.sessionId || !result.toBeSignedBase64 || result.digestAlgorithm !== "SHA-256" ||
+        result.signatureAlgorithm !== "RSA-SHA256" || !result.documentSha256 ||
+        !result.certificateFingerprintSha256 || !result.expiresAt) {
+      throw new PkiProviderError("Private PAdES provider returned an invalid signing task");
+    }
+    return result;
   }
 }

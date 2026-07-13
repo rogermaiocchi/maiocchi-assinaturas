@@ -202,10 +202,19 @@ final class PadesEngine {
         Instant expiresAt = now.plus(SESSION_TTL);
         String documentSha256 = sha256(pdf);
         String certificateFingerprint = sha256(certificate.getEncoded());
-        sessions.put(id, new Session(pdf, safeName(request.name()), certificate, List.copyOf(chain), parameters,
-                tbs, documentSha256, certificateFingerprint, signerIdentity, now, expiresAt));
-        return new PrepareResult(id, Base64.getEncoder().encodeToString(tbs), "SHA-256", "RSA-SHA256",
-                documentSha256, certificateFingerprint, expiresAt.toString());
+        Session session = new Session(pdf, safeName(request.name()), certificate, List.copyOf(chain), parameters,
+                tbs, documentSha256, certificateFingerprint, signerIdentity, now, expiresAt);
+        sessions.put(id, session);
+        return prepareResult(id, session);
+    }
+
+    PrepareResult resume(String sessionId) {
+        cleanup();
+        Session session = sessions.get(sessionId);
+        if (session == null) {
+            throw new ProviderException(404, "session_not_found", "Sessão inexistente, expirada ou já utilizada.");
+        }
+        return prepareResult(sessionId, session);
     }
 
     CompleteResult complete(String sessionId, CompleteRequest request) {
@@ -235,6 +244,12 @@ final class PadesEngine {
     int activeSessions() {
         cleanup();
         return sessions.size();
+    }
+
+    private static PrepareResult prepareResult(String sessionId, Session session) {
+        return new PrepareResult(sessionId, Base64.getEncoder().encodeToString(session.toBeSigned()),
+                "SHA-256", "RSA-SHA256", session.documentSha256(), session.certificateFingerprint(),
+                session.expiresAt().toString());
     }
 
     private ValidationResult validate(byte[] signedPdf, SignerIdentity signerIdentity, Instant signingTime) {

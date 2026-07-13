@@ -9,23 +9,27 @@ function response(value, status = 200) {
 test("cliente do provider prepara e conclui somente resultado confiável", async () => {
   const calls = [];
   const signed = Buffer.from("%PDF-signed");
+  const signingTask = {
+    sessionId: "11111111-1111-4111-8111-111111111111", toBeSignedBase64: "ZHRicw==",
+    digestAlgorithm: "SHA-256", signatureAlgorithm: "RSA-SHA256", documentSha256: "a".repeat(64),
+    certificateFingerprintSha256: "b".repeat(64), expiresAt: "2026-07-12T18:00:00Z",
+  };
   const client = new PrivatePadesProviderClient({
     endpoint: "http://pades-provider:3500", apiKey: "provider-test-credential-with-32-chars", allowInsecureInternal: true,
     fetchImpl: async (url, init) => {
       calls.push({ url: String(url), key: init.headers["x-provider-key"], body: JSON.parse(init.body) });
-      if (String(url).endsWith("/prepare")) return response({
-        sessionId: "11111111-1111-4111-8111-111111111111", toBeSignedBase64: "ZHRicw==",
-        digestAlgorithm: "SHA-256", signatureAlgorithm: "RSA-SHA256", documentSha256: "a".repeat(64),
-        certificateFingerprintSha256: "b".repeat(64), expiresAt: "2026-07-12T18:00:00Z",
-      }, 201);
+      if (String(url).endsWith("/prepare")) return response(signingTask, 201);
+      if (String(url).endsWith("/resume")) return response(signingTask);
       return response({ signedPdfBase64: signed.toString("base64"), signedPdfSha256: "c".repeat(64),
         validation: { trusted: true, cryptographicIntegrity: true } });
     },
   });
   const task = await client.prepare({ pdf: Buffer.from("%PDF-test"), certificateBase64: "cert" });
+  const resumed = await client.resume({ sessionId: task.sessionId });
   const result = await client.complete({ sessionId: task.sessionId, signatureBase64: "signature" });
+  assert.deepEqual(resumed, task);
   assert.deepEqual(result.pdf, signed);
-  assert.equal(calls.length, 2);
+  assert.equal(calls.length, 3);
   assert.ok(calls.every((call) => call.key.length >= 32));
 });
 

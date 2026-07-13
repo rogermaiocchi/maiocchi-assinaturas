@@ -11,8 +11,51 @@ import { canonicalize, sha256Hex } from "../src/authenticity-contract.mjs";
 import { applyMigrations, PostgresAuthenticityRepository } from "../src/authenticity-repository.mjs";
 import { registerGoldStandardDocument } from "../src/authenticity-service.mjs";
 import { buildValidationAttestationClaims, signValidationAttestation } from "../src/validation-attestation.mjs";
+import { PostgresPrivateSigningRepository } from "../src/private-signing-repository.mjs";
 
 const databaseUrl = process.env.PKI_TEST_DATABASE_URL;
+
+test("substitui sessão PAdES preparada somente com compare-and-swap", { skip: !databaseUrl }, async (context) => {
+  const pool = new Pool({ connectionString: databaseUrl, max: 2 });
+  context.after(async () => pool.end());
+  await applyMigrations(pool);
+  const ticketId = randomUUID();
+  const originalSessionId = randomUUID();
+  const replacementSessionId = randomUUID();
+  await pool.query(
+    `INSERT INTO pades_private_tickets
+      (id, token_sha256, document_name, source_pdf_sha256, source_pdf_storage_key, source_pdf_size,
+       status, provider_session_id, certificate_fingerprint_sha256, to_be_signed_sha256, expires_at)
+     VALUES ($1, $2, 'retry.pdf', $3, 'sha256/retry.pdf', 10, 'prepared', $4, $5, $6,
+             now() + interval '10 minutes')`,
+    [ticketId, Buffer.alloc(32, 9), Buffer.alloc(32, 10), originalSessionId,
+      Buffer.alloc(32, 3), Buffer.alloc(32, 4)],
+  );
+  const ticket = (await pool.query("SELECT * FROM pades_private_tickets WHERE id = $1", [ticketId])).rows[0];
+  const repository = new PostgresPrivateSigningRepository(pool);
+
+  const replaced = await repository.replacePrepared(ticket, {
+    providerSessionId: replacementSessionId,
+    certificateFingerprint: "05".repeat(32),
+    toBeSignedSha256: "06".repeat(32),
+  });
+
+  assert.equal(replaced.provider_session_id, replacementSessionId);
+  assert.deepEqual(replaced.certificate_fingerprint_sha256, Buffer.alloc(32, 5));
+  assert.deepEqual(replaced.to_be_signed_sha256, Buffer.alloc(32, 6));
+  await assert.rejects(
+    repository.replacePrepared(ticket, {
+      providerSessionId: randomUUID(), certificateFingerprint: "07".repeat(32),
+      toBeSignedSha256: "08".repeat(32),
+    }),
+    (error) => error.status === 409,
+  );
+  const events = await pool.query(
+    "SELECT event_type, outcome FROM pades_private_ticket_events WHERE ticket_id = $1 ORDER BY id",
+    [ticketId],
+  );
+  assert.deepEqual(events.rows, [{ event_type: "signature_reprepared", outcome: "success" }]);
+});
 
 test("migra e persiste a trilha de autenticidade no PostgreSQL", { skip: !databaseUrl }, async (context) => {
   const pool = new Pool({ connectionString: databaseUrl, max: 3 });

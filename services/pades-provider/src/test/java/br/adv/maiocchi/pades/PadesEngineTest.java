@@ -68,6 +68,8 @@ class PadesEngineTest {
         ));
         assertEquals(PadesEngine.sha256(pdf), prepared.documentSha256());
         assertEquals("RSA-SHA256", prepared.signatureAlgorithm());
+        var resumed = engine.resume(prepared.sessionId());
+        assertEquals(prepared, resumed);
 
         Signature token = Signature.getInstance("SHA256withRSA");
         token.initSign(signerKey.getPrivate());
@@ -113,6 +115,9 @@ class PadesEngineTest {
         ProviderException replay = assertThrows(ProviderException.class,
                 () -> engine.complete(prepared.sessionId(), new PadesEngine.CompleteRequest(signature)));
         assertEquals("session_not_found", replay.code);
+        ProviderException resumeAfterUse = assertThrows(ProviderException.class,
+                () -> engine.resume(prepared.sessionId()));
+        assertEquals("session_not_found", resumeAfterUse.code);
     }
 
     @Test

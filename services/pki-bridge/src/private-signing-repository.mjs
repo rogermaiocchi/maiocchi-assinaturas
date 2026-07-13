@@ -84,6 +84,21 @@ export class PostgresPrivateSigningRepository {
     return result.rows[0];
   }
 
+  async replacePrepared(ticket, { providerSessionId, certificateFingerprint, toBeSignedSha256 }) {
+    const result = await this.pool.query(
+      `UPDATE pades_private_tickets
+          SET provider_session_id = $3, certificate_fingerprint_sha256 = $4,
+              to_be_signed_sha256 = $5, prepared_at = now(), updated_at = now()
+        WHERE id = $1 AND status = 'prepared' AND provider_session_id = $2 AND expires_at > now()
+        RETURNING *`,
+      [ticket.id, ticket.provider_session_id, providerSessionId,
+        hexBuffer(certificateFingerprint), hexBuffer(toBeSignedSha256)],
+    );
+    if (!result.rowCount) throw Object.assign(new Error("prepared ticket changed during retry"), { status: 409 });
+    await this.event(ticket.id, "signature_reprepared", "success", { certificateFingerprint, toBeSignedSha256 });
+    return result.rows[0];
+  }
+
   async markCompleted(ticket, { signedArtifact, validation, finalManifest, finalAttestation, finalizedAt }) {
     const result = await this.pool.query(
       `UPDATE pades_private_tickets

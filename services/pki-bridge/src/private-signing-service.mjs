@@ -8,6 +8,18 @@ const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 
 function sha256(value) { return createHash("sha256").update(value).digest("hex"); }
 
+function certificateFingerprint(value) {
+  if (typeof value !== "string" || value.length === 0 || value.length > 1_500_000 ||
+      !/^[A-Za-z0-9+/]+={0,2}$/.test(value)) {
+    throw Object.assign(new Error("certificate is invalid"), { status: 400 });
+  }
+  const bytes = Buffer.from(value, "base64");
+  if (!bytes.length || bytes.toString("base64") !== value) {
+    throw Object.assign(new Error("certificate is invalid"), { status: 400 });
+  }
+  return sha256(bytes);
+}
+
 function safeName(value) {
   let name = typeof value === "string" && value.trim() ? value.trim() : "documento.pdf";
   name = name.replace(/[^A-Za-z0-9._-]/g, "-").slice(0, 120);
@@ -313,7 +325,10 @@ export class PrivateSigningService {
     if (!this.provider) throw Object.assign(new Error("local signing provider is unavailable"), { status: 503 });
     let ticket = await this.repository.findByTokenHash(tokenHash(token));
     assertActive(ticket);
-    if (ticket.status !== "pending") throw Object.assign(new Error("ticket is not pending"), { status: 409 });
+    if (ticket.status === "prepared") {
+      return this.resumePrepared(ticket, { certificateBase64, chainBase64 });
+    }
+    if (ticket.status !== "pending") throw Object.assign(new Error("ticket is not available for signing"), { status: 409 });
     const prepared = await this.ensurePresentation(ticket, { clientMetadata, observedIp, modality: "local-a3" });
     ticket = prepared.ticket;
     const task = await this.provider.prepare({ pdf: prepared.pdf, name: ticket.document_name, certificateBase64, chainBase64 });
@@ -327,6 +342,51 @@ export class PrivateSigningService {
       certificateFingerprint,
       toBeSignedSha256: sha256(Buffer.from(task.toBeSignedBase64, "base64")),
     });
+    return this.publicSigningTask(ticket, task);
+  }
+
+  async resumePrepared(ticket, { certificateBase64, chainBase64 }) {
+    const selectedFingerprint = certificateFingerprint(certificateBase64);
+    const expectedFingerprint = bufferHex(ticket.certificate_fingerprint_sha256);
+    if (selectedFingerprint !== expectedFingerprint) {
+      throw Object.assign(new Error("prepared ticket belongs to another certificate"), { status: 409 });
+    }
+
+    let task;
+    try {
+      task = await this.provider.resume({ sessionId: ticket.provider_session_id });
+      this.assertPreparedTask(ticket, task);
+    } catch (error) {
+      if (!new Set(["session_not_found", "session_expired"]).has(error?.code)) throw error;
+      const pdf = await this.artifactStore.get(ticket.presentation_pdf_storage_key);
+      task = await this.provider.prepare({ pdf, name: ticket.document_name, certificateBase64, chainBase64 });
+      this.assertTaskBindings(ticket, task);
+      ticket = await this.repository.replacePrepared(ticket, {
+        providerSessionId: task.sessionId,
+        certificateFingerprint: task.certificateFingerprintSha256,
+        toBeSignedSha256: sha256(Buffer.from(task.toBeSignedBase64, "base64")),
+      });
+    }
+    return this.publicSigningTask(ticket, task);
+  }
+
+  assertPreparedTask(ticket, task) {
+    this.assertTaskBindings(ticket, task);
+    if (task.sessionId !== ticket.provider_session_id ||
+        sha256(Buffer.from(task.toBeSignedBase64, "base64")) !== bufferHex(ticket.to_be_signed_sha256)) {
+      throw Object.assign(new Error("resumed signing task does not match prepared ticket"), { status: 502 });
+    }
+  }
+
+  assertTaskBindings(ticket, task) {
+    if (task.documentSha256 !== bufferHex(ticket.presentation_pdf_sha256) ||
+        task.certificateFingerprintSha256 !== bufferHex(ticket.certificate_fingerprint_sha256)) {
+      throw Object.assign(new Error("provider task is not bound to the prepared ticket"), { status: 502 });
+    }
+  }
+
+  publicSigningTask(ticket, task) {
+    const presentationHash = bufferHex(ticket.presentation_pdf_sha256);
     const { toBeSignedBase64, ...publicTask } = task;
     return {
       ...publicTask,

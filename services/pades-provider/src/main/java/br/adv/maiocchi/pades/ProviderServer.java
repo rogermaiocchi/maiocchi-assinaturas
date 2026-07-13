@@ -36,7 +36,7 @@ public final class ProviderServer {
         this.server.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
         this.server.createContext("/healthz", this::health);
         this.server.createContext("/v1/signatures/prepare", this::prepare);
-        this.server.createContext("/v1/signatures", this::complete);
+        this.server.createContext("/v1/signatures", this::session);
     }
 
     void start() { server.start(); }
@@ -70,7 +70,7 @@ public final class ProviderServer {
         }
     }
 
-    private void complete(HttpExchange exchange) throws IOException {
+    private void session(HttpExchange exchange) throws IOException {
         if (!authorize(exchange)) return;
         if (!"POST".equals(exchange.getRequestMethod())) {
             problem(exchange, 405, "method_not_allowed", "Método não permitido.");
@@ -78,18 +78,26 @@ public final class ProviderServer {
         }
         String prefix = "/v1/signatures/";
         String path = exchange.getRequestURI().getPath();
-        if (!path.startsWith(prefix) || !path.endsWith("/complete")) {
+        boolean isResume = path.endsWith("/resume");
+        boolean isComplete = path.endsWith("/complete");
+        if (!path.startsWith(prefix) || (!isResume && !isComplete)) {
             problem(exchange, 404, "not_found", "Rota não encontrada.");
             return;
         }
-        String sessionId = path.substring(prefix.length(), path.length() - "/complete".length());
+        String suffix = isResume ? "/resume" : "/complete";
+        String sessionId = path.substring(prefix.length(), path.length() - suffix.length());
         if (!sessionId.matches("[0-9a-f-]{36}")) {
             problem(exchange, 404, "not_found", "Sessão não encontrada.");
             return;
         }
         try {
-            var request = JSON.readValue(readBody(exchange), PadesEngine.CompleteRequest.class);
-            json(exchange, 200, engine.complete(sessionId, request));
+            if (isResume) {
+                readBody(exchange);
+                json(exchange, 200, engine.resume(sessionId));
+            } else {
+                var request = JSON.readValue(readBody(exchange), PadesEngine.CompleteRequest.class);
+                json(exchange, 200, engine.complete(sessionId, request));
+            }
         } catch (ProviderException error) {
             problem(exchange, error.status, error.code, error.getMessage());
         } catch (LinkageError error) {

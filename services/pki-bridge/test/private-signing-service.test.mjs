@@ -66,6 +66,14 @@ class MemoryRepository {
     });
     return this.ticket;
   }
+  async replacePrepared(_ticket, values) {
+    Object.assign(this.ticket, {
+      provider_session_id: values.providerSessionId,
+      certificate_fingerprint_sha256: Buffer.from(values.certificateFingerprint, "hex"),
+      to_be_signed_sha256: Buffer.from(values.toBeSignedSha256, "hex"),
+    });
+    return this.ticket;
+  }
   async markCompleted(_ticket, { signedArtifact, validation, finalManifest, finalAttestation, finalizedAt }) {
     Object.assign(this.ticket, {
       status: "completed", signed_pdf_sha256: Buffer.from(signedArtifact.sha256, "hex"),
@@ -192,6 +200,92 @@ test("bloqueia certificado diferente do preparado", async () => {
   await assert.rejects(() => service.complete(token, {
     signatureBase64: "c2ln", certificateFingerprintSha256: "c".repeat(64),
   }), (error) => error.status === 409);
+});
+
+test("retoma a mesma tarefa depois de cancelamento na confirmação local", async () => {
+  const repository = new MemoryRepository();
+  const artifactStore = new MemoryArtifacts();
+  const certificate = Buffer.from("certificate-der-resume-fixture");
+  const certificateBase64 = certificate.toString("base64");
+  const fingerprint = sha256(certificate);
+  let preparedTask;
+  let prepareCalls = 0;
+  let resumeCalls = 0;
+  const provider = {
+    async prepare({ pdf }) {
+      prepareCalls += 1;
+      preparedTask = {
+        sessionId: "44444444-4444-4444-8444-444444444444",
+        toBeSignedBase64: Buffer.from("resume-dtbs").toString("base64"),
+        digestAlgorithm: "SHA-256", signatureAlgorithm: "RSA-SHA256",
+        documentSha256: sha256(pdf), certificateFingerprintSha256: fingerprint,
+        expiresAt: new Date(Date.now() + 120_000).toISOString(),
+      };
+      return preparedTask;
+    },
+    async resume({ sessionId }) {
+      resumeCalls += 1;
+      assert.equal(sessionId, preparedTask.sessionId);
+      return preparedTask;
+    },
+  };
+  const service = new PrivateSigningService({
+    repository, artifactStore, provider, postQuantumSigner,
+    baseUrl: "https://assinatura.maiocchi.adv.br",
+  });
+  const created = await service.createTicket({ pdf: await onePagePdf(), ttlSeconds: 600 });
+  const token = new URL(created.url).hash.slice("#ticket=".length);
+
+  const first = await service.prepare(token, { certificateBase64 });
+  const resumed = await service.prepare(token, { certificateBase64 });
+
+  assert.equal(resumed.sessionId, first.sessionId);
+  assert.equal(resumed.dataToSignBase64, first.dataToSignBase64);
+  assert.equal(prepareCalls, 1);
+  assert.equal(resumeCalls, 1);
+  assert.equal(repository.ticket.status, "prepared");
+});
+
+test("substitui atomicamente uma sessão preparada que expirou no provider", async () => {
+  const repository = new MemoryRepository();
+  const artifactStore = new MemoryArtifacts();
+  const certificate = Buffer.from("certificate-der-retry-fixture");
+  const certificateBase64 = certificate.toString("base64");
+  const fingerprint = sha256(certificate);
+  let prepareCalls = 0;
+  const provider = {
+    async prepare({ pdf }) {
+      prepareCalls += 1;
+      return {
+        sessionId: prepareCalls === 1
+          ? "55555555-5555-4555-8555-555555555555"
+          : "66666666-6666-4666-8666-666666666666",
+        toBeSignedBase64: Buffer.from(`retry-dtbs-${prepareCalls}`).toString("base64"),
+        digestAlgorithm: "SHA-256", signatureAlgorithm: "RSA-SHA256",
+        documentSha256: sha256(pdf), certificateFingerprintSha256: fingerprint,
+        expiresAt: new Date(Date.now() + 120_000).toISOString(),
+      };
+    },
+    async resume() {
+      throw Object.assign(new Error("expired"), { code: "session_not_found", status: 404 });
+    },
+  };
+  const service = new PrivateSigningService({
+    repository, artifactStore, provider, postQuantumSigner,
+    baseUrl: "https://assinatura.maiocchi.adv.br",
+  });
+  const created = await service.createTicket({ pdf: await onePagePdf(), ttlSeconds: 600 });
+  const token = new URL(created.url).hash.slice("#ticket=".length);
+  const first = await service.prepare(token, { certificateBase64 });
+  const presentationKey = repository.ticket.presentation_pdf_storage_key;
+
+  const replacement = await service.prepare(token, { certificateBase64 });
+
+  assert.notEqual(replacement.sessionId, first.sessionId);
+  assert.equal(replacement.dataToSignBase64, Buffer.from("retry-dtbs-2").toString("base64"));
+  assert.equal(repository.ticket.provider_session_id, replacement.sessionId);
+  assert.equal(repository.ticket.presentation_pdf_storage_key, presentationKey);
+  assert.equal(prepareCalls, 2);
 });
 
 test("assina em PSC remoto sem agente local e valida antes de liberar", async () => {
