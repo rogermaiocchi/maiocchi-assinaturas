@@ -44,6 +44,7 @@ test("incorpora autenticação e reconduz páginas intermediárias à home", asy
   assert.match(accessSource, /fetch\("\/portal-auth\/session"/i);
   assert.match(accessSource, /authenticity_token/i);
   assert.match(accessSource, /\/portal-auth\/certificate/i);
+  assert.match(accessSource, /form\[action='\/certificate_auth\/login\/start'\]/i);
   assert.match(accessSource, /credentials: "same-origin"/i);
   assert.match(dashboardPatch, /redirect_to.*#advogados/i);
   assert.match(traefik, /replacePath:[\s\S]*path: \/sign_in/i);
@@ -65,8 +66,8 @@ test("publica páginas legais e de ajuda", async () => {
   assert.match(terms, /OAB\/DF/i);
   assert.match(help, /Assinatura com certificado ICP-Brasil/i);
   assert.match(source, /GNU Affero General Public License/i);
-  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/archive\/refs\/tags\/portal-v1\.9\.1\.zip/i);
-  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/tree\/portal-v1\.9\.1/i);
+  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/archive\/refs\/tags\/portal-v1\.9\.2\.zip/i);
+  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/tree\/portal-v1\.9\.2/i);
   assert.doesNotMatch(source, /href="\/codigo-fonte\/docuseal-maiocchi-3\.0\.1\.tar\.gz"/i);
   assert.doesNotMatch(source, /termos adicionais/i);
   for (const html of [privacy, terms, help]) {

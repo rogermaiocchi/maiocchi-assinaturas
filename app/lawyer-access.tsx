@@ -19,7 +19,7 @@ type AccessState =
   | { kind: "error"; message: string }
   | { kind: "authenticated"; message: string };
 
-async function requestCsrfToken() {
+async function requestCsrfToken(formSelector: string) {
   const response = await fetch("/portal-auth/session", {
     method: "GET",
     credentials: "same-origin",
@@ -30,7 +30,7 @@ async function requestCsrfToken() {
 
   const html = await response.text();
   const document = new DOMParser().parseFromString(html, "text/html");
-  const token = document.querySelector<HTMLInputElement>("#new_user input[name='authenticity_token']")?.value
+  const token = document.querySelector<HTMLInputElement>(`${formSelector} input[name='authenticity_token']`)?.value
     || document.querySelector<HTMLMetaElement>("meta[name='csrf-token']")?.content;
   if (!token) throw new Error("Não foi possível iniciar uma sessão protegida.");
   return token;
@@ -54,7 +54,7 @@ export function LawyerAccess() {
     setState({ kind: "loading", message: "Confirmando o acesso..." });
 
     try {
-      const token = await requestCsrfToken();
+      const token = await requestCsrfToken("#new_user");
       const body = new URLSearchParams({
         authenticity_token: token,
         "user[email]": email.trim(),
@@ -98,7 +98,7 @@ export function LawyerAccess() {
   async function startCertificateAccess() {
     setState({ kind: "loading", message: "Preparando o certificado conectado..." });
     try {
-      const token = await requestCsrfToken();
+      const token = await requestCsrfToken("form[action='/certificate_auth/login/start']");
       const form = document.createElement("form");
       form.method = "post";
       form.action = "/portal-auth/certificate";
