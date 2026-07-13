@@ -11,13 +11,13 @@ O controle pós-quântico protege transporte e confidencialidade em repouso enqu
 | Camada | Controle | Estado |
 | --- | --- | --- |
 | Borda pública | TLS 1.3 com grupo híbrido X25519MLKEM768 | Ativo por Traefik 3.7.5 / Go 1.25.11 |
-| Cifras TLS | AES-256-GCM ou ChaCha20-Poly1305 | Ativo conforme negociação TLS 1.3 |
+| Cifras TLS | AEAD TLS 1.3: AES-128/256-GCM ou ChaCha20-Poly1305 | Ativo conforme negociação; o teste padrão selecionou AES-128-GCM |
 | Artefatos | AES-256-GCM, nonce aleatório de 96 bits e storage key como AAD | Ativo e obrigatório no PKI Bridge |
 | Integridade | SHA-256 do PDF final e storage por conteúdo | Ativo; não é alegado como assinatura PQ |
 | Assinatura jurídica | PAdES ICP-Brasil, política AD-RB/AD-RT | Clássica por requisito regulatório |
 | Atestados internos | Ed25519/JWS | Clássicos, preservados para compatibilidade |
 
-AES-256 oferece margem de 128 bits contra busca quântica idealizada. ML-KEM protege o segredo de sessão contra o cenário “capturar agora, decifrar depois”, desde que o cliente também negocie o grupo híbrido.
+AES-256 nos artefatos oferece margem de 128 bits contra busca quântica idealizada. ML-KEM protege o segredo de sessão TLS contra o cenário “capturar agora, decifrar depois”, desde que o cliente também negocie o grupo híbrido. As suites TLS 1.3 são selecionadas pelo stack Go e pelo cliente; a aplicação não declara AES-256 para toda conexão.
 
 ## Crypto-agility
 
