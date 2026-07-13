@@ -3,7 +3,7 @@ services:
     build:
       context: "${PORTAL_SOURCE_DIR:-..}"
       dockerfile: services/pki-bridge/Dockerfile
-    image: maiocchi/pki-bridge:1.3.2
+    image: maiocchi/pki-bridge:1.3.3
     container_name: pki-bridge
     restart: unless-stopped
     mem_limit: 384m
@@ -51,7 +51,7 @@ services:
     build:
       context: "${PORTAL_SOURCE_DIR:-..}"
       dockerfile: services/pades-provider/Dockerfile
-    image: maiocchi/pades-provider:1.2.0
+    image: maiocchi/pades-provider:1.2.1
     container_name: pades-provider
     restart: unless-stopped
     mem_limit: 768m

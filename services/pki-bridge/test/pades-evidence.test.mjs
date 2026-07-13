@@ -57,10 +57,21 @@ test("acrescenta pagina de evidencias e carimba todas as paginas antes do PAdES"
   assert.equal(composed.getPageCount(), 3);
   assert.equal(sheet.getPageCount(), 1);
   assert.equal(result.totalPages, 3);
-  assert.equal(result.signatureBox.bottom, 64);
+  assert.deepEqual(result.signatureBox, { left: 72, bottom: 52, width: 451, height: 92 });
   assert.match(result.verificationUrl, /validar\/\?codigo=MAI-2026-1111-2222-3333-4444/);
   assert.equal(composed.getTitle(), "relatorio");
   assert.match(composed.getSubject(), /ICP-Brasil/);
+  assert.equal(manifest.signature.policyOid, "2.16.76.1.7.1.11.1.3");
+  assert.equal(manifest.signature.optionalAttributes.assurance, "private-provider-enforced");
+  assert.deepEqual(manifest.signature.optionalAttributes.incorporated, [
+    "signerAttr", "/Name", "/M", "/Location", "/Reason", "/ContactInfo", "/Prop_Build",
+  ]);
+  assert.deepEqual(manifest.signature.optionalAttributes.actConditional, [
+    "contentTimeStamp", "signatureTimeStampToken", "Document Time-stamp",
+  ]);
+  assert.deepEqual(manifest.signature.optionalAttributes.contextualOrDefault, [
+    "/Reference", "/Changes", "/V=0", "/Prop_AuthTime", "DSS", "VRI",
+  ]);
   assert.doesNotMatch(manifest.purpose, /⚖/u);
 });
 

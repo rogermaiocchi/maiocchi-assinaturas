@@ -69,8 +69,8 @@ function padesSignatureOptions() {
     reason: "Assinatura eletrônica qualificada ICP-Brasil",
     visualRepresentation: {
       text: {
-        fontSize: 8,
-        text: "ASSINADO DIGITALMENTE\n{{signerName}}\nCPF {{signerNationalId}} · ICP-Brasil · PAdES AD-RB",
+        fontSize: 6,
+        text: "ASSINADO DIGITALMENTE\n{{signerName}}\nCPF {{signerNationalId}} · ICP-Brasil · PAdES AD-RB\nAtributos ITI: conferir no relatório final e no VALIDAR ITI",
         includeSigningTime: true,
         horizontalAlign: "Left",
         container: { left: 10, right: 10, top: 7, bottom: 7 },
@@ -78,7 +78,7 @@ function padesSignatureOptions() {
       position: {
         pageNumber: -1,
         measurementUnits: "PdfPoints",
-        manual: { left: 72, bottom: 64, width: 451, height: 72 },
+        manual: { left: 72, bottom: 52, width: 451, height: 92 },
       },
     },
   };

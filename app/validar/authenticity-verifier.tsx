@@ -3,6 +3,9 @@
 import { type ChangeEvent, type FormEvent, useCallback, useEffect, useState } from "react";
 import {
   BadgeCheck,
+  CircleCheck,
+  CircleDashed,
+  Clock3,
   Download,
   ExternalLink,
   FileCheck2,
@@ -40,6 +43,18 @@ type AuthenticityEnvelope = {
       policyOid: string;
       count: number;
       docMdp: "valid";
+      itiAttributes?: {
+        normativeDocument: string;
+        profile: string;
+        attributes: Array<{
+          scope: string;
+          identifier: string;
+          requirement: string;
+          present: boolean;
+          status: string;
+        }>;
+        prohibitedAbsent: string[];
+      } | null;
     };
     validation: {
       status: "valid";
@@ -102,6 +117,20 @@ function formatBytes(value: number) {
   if (value < 1024) return `${value} bytes`;
   if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
   return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function itiStatus(status: string) {
+  const labels: Record<string, string> = {
+    PRESENT: "Incorporado",
+    REQUIRES_ICP_BRASIL_ACT: "Condicionado à ACT",
+    NOT_APPLICABLE_APPROVAL_SIGNATURE: "Não aplicável à aprovação",
+    NOT_APPLICABLE_WITHOUT_REFERENCE_TRANSFORM: "Sem transformação referenciada",
+    EFFECTIVE_DEFAULT_0: "Padrão normativo 0",
+    NOT_AVAILABLE_BEFORE_A3_AUTHENTICATION: "Sem tempo prévio mensurável",
+    NOT_REQUESTED_FOR_AD_RB: "Não solicitado no AD-RB",
+    REQUIRED_ONLY_WHEN_DSS_IS_PRESENT: "Exigível apenas com DSS",
+  };
+  return labels[status] || status.replaceAll("_", " ").toLowerCase();
 }
 
 async function fileSha256(file: File) {
@@ -175,6 +204,7 @@ export function AuthenticityVerifier({ officialValidatorMode = "external" }: { o
 
   const active = lookup.kind === "found" && lookup.value.documentStatus === "active";
   const record = lookup.kind === "found" ? lookup.value.envelope.record : null;
+  const itiAttributes = record?.signature.itiAttributes || null;
   const gold = record?.goldStandard || {
     barcodeValue: `${record?.document.id || "MAI"}|LEGACY`,
     intendedFor: "Não informado",
@@ -252,6 +282,31 @@ export function AuthenticityVerifier({ officialValidatorMode = "external" }: { o
               {gold.postQuantumCode && <div><dt>PQC incorporado</dt><dd>{gold.postQuantumCode}</dd></div>}
               {gold.finalPostQuantumCode && <div><dt>PQC do PDF final</dt><dd>{gold.finalPostQuantumCode}</dd></div>}
             </dl>
+
+            {itiAttributes && (
+              <section className="auth-iti" aria-labelledby="auth-iti-title">
+                <div className="auth-iti__heading">
+                  <div>
+                    <span>Perfil técnico ITI</span>
+                    <h3 id="auth-iti-title">Atributos opcionais conferidos no PDF final</h3>
+                  </div>
+                  <code>{itiAttributes.profile} · {itiAttributes.normativeDocument}</code>
+                </div>
+                <div className="auth-iti__grid">
+                  {itiAttributes.attributes.map((attribute) => {
+                    const conditional = attribute.status === "REQUIRES_ICP_BRASIL_ACT";
+                    const Icon = attribute.present ? CircleCheck : conditional ? Clock3 : CircleDashed;
+                    return (
+                      <div className={`auth-iti__item ${attribute.present ? "is-present" : conditional ? "is-conditional" : "is-contextual"}`} key={`${attribute.scope}-${attribute.identifier}`}>
+                        <Icon aria-hidden="true" size={16} />
+                        <div><strong>{attribute.identifier}</strong><span>{attribute.scope} · regra {attribute.requirement}</span></div>
+                        <em>{itiStatus(attribute.status)}</em>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
 
             <div className="auth-hash">
               <span><Fingerprint aria-hidden="true" size={17} /> SHA-256 do PDF eletrônico PAdES final</span>

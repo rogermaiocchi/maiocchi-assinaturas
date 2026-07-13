@@ -97,10 +97,12 @@ final class PadesEngine {
     private static final byte[] ICP_BRASIL_AD_RB_V1_3_DIGEST =
             HexFormat.of().parseHex(ICP_BRASIL_AD_RB_V1_3_SIGN_POLICY_HASH_SHA256);
     private static final String CERTIFICATE_TYPE = "A3";
+    private static final String PDF_LOCATION = "Brasil";
+    private static final String PDF_CONTACT_INFO = "roger@maiocchi.adv.br";
     private static final float VISIBLE_SIGNATURE_X = 72f;
-    private static final float VISIBLE_SIGNATURE_BOTTOM = 64f;
+    private static final float VISIBLE_SIGNATURE_BOTTOM = 52f;
     private static final float VISIBLE_SIGNATURE_WIDTH = 451f;
-    private static final float VISIBLE_SIGNATURE_HEIGHT = 72f;
+    private static final float VISIBLE_SIGNATURE_HEIGHT = 92f;
     private static final Pattern NATIONAL_ID = Pattern.compile("(?<!\\d)(\\d{3}[.]?\\d{3}[.]?\\d{3}-?\\d{2})(?!\\d)");
     private static final DateTimeFormatter VISIBLE_SIGNING_TIME = DateTimeFormatter
             .ofPattern("dd/MM/uuuu HH:mm:ss 'UTC'").withZone(ZoneOffset.UTC);
@@ -207,14 +209,16 @@ final class PadesEngine {
         policy.setSpuri(signaturePolicy.uri());
         parameters.bLevel().setSignaturePolicy(policy);
         parameters.setEn319122(false);
-        parameters.bLevel().setClaimedSignerRoles(List.of(safeMetadata(
-                request.signerRole(), ItiPadesAdRbAttributes.DEFAULT_SIGNER_ROLE, 100)));
-        parameters.setLocation("Brasil");
-        parameters.setContactInfo("roger@maiocchi.adv.br");
+        String signerRole = safeMetadata(
+                request.signerRole(), ItiPadesAdRbAttributes.DEFAULT_SIGNER_ROLE, 100);
+        String reason = safeMetadata(request.reason(), ItiPadesAdRbAttributes.DEFAULT_REASON, 180);
+        parameters.bLevel().setClaimedSignerRoles(List.of(signerRole));
+        parameters.setLocation(PDF_LOCATION);
+        parameters.setContactInfo(PDF_CONTACT_INFO);
         parameters.setSignerName(signerIdentity.signedBy());
-        parameters.setReason(safeMetadata(request.reason(), ItiPadesAdRbAttributes.DEFAULT_REASON, 180));
+        parameters.setReason(reason);
         parameters.setAppName(ItiPadesAdRbAttributes.APPLICATION_NAME);
-        configureVisibleSignature(parameters, pdf, signerIdentity, now);
+        configureVisibleSignature(parameters, pdf, signerIdentity, now, signerRole, reason, timestampsRequired);
 
         DSSDocument document = new InMemoryDocument(pdf, safeName(request.name()));
         if (timestampsRequired) {
@@ -409,7 +413,8 @@ final class PadesEngine {
     }
 
     private static void configureVisibleSignature(PAdESSignatureParameters parameters, byte[] pdf,
-                                                  SignerIdentity signerIdentity, Instant signingTime) {
+                                                  SignerIdentity signerIdentity, Instant signingTime,
+                                                  String signerRole, String reason, boolean hasActTimestamps) {
         int page;
         float pageHeight;
         try (PDDocument document = Loader.loadPDF(pdf)) {
@@ -434,16 +439,24 @@ final class PadesEngine {
 
         SignatureImageTextParameters text = new SignatureImageTextParameters();
         text.setSignerTextPosition(SignerTextPosition.RIGHT);
-        text.setFont(new DSSJavaFont(Font.SANS_SERIF, Font.PLAIN, 6));
+        text.setFont(new DSSJavaFont(Font.SANS_SERIF, Font.PLAIN, 5));
         text.setTextColor(new Color(17, 18, 16));
         text.setBackgroundColor(Color.WHITE);
         text.setPadding(4f);
         String nationalIdLine = signerIdentity.nationalIdMasked() == null
                 ? "" : "\nCPF: " + signerIdentity.nationalIdMasked();
+        String actLine = hasActTimestamps
+                ? "ACT: carimbos de conteúdo e assinatura incorporados"
+                : "ACT: carimbos condicionais não aplicados";
         text.setText("ASSINADO DIGITALMENTE\n" + signerIdentity.signedBy()
                 + nationalIdLine
                 + "\n" + VISIBLE_SIGNING_TIME.format(signingTime)
-                + "\nICP-Brasil | A3 | PAdES AD-RB");
+                + "\nICP-Brasil | A3 | PAdES AD-RB"
+                + "\nsignerAttr: " + safeMetadata(signerRole, ItiPadesAdRbAttributes.DEFAULT_SIGNER_ROLE, 42)
+                + "\n/Location: " + PDF_LOCATION + " | /Reason: "
+                + safeMetadata(reason, ItiPadesAdRbAttributes.DEFAULT_REASON, 44)
+                + "\n/Name /M /ContactInfo /Prop_Build: incorporados"
+                + "\n" + actLine);
 
         SignatureImageParameters image = new SignatureImageParameters();
         image.setFieldParameters(field);

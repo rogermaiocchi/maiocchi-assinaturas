@@ -143,7 +143,28 @@ test("ticket privado vincula PDF, certificado, tarefa e resultado validado", asy
     async complete({ sessionId, signatureBase64 }) {
       assert.equal(sessionId, "22222222-2222-4222-8222-222222222222");
       assert.equal(signatureBase64, Buffer.from("signature").toString("base64"));
-      return { pdf: signedPdf, signedPdfSha256: sha256(signedPdf), validation: { trusted: true, cryptographicIntegrity: true } };
+      return {
+        pdf: signedPdf,
+        signedPdfSha256: sha256(signedPdf),
+        validation: {
+          trusted: true,
+          cryptographicIntegrity: true,
+          itiAttributes: {
+            normativeDocument: "DOC-ICP-15.03 v9.1, tabelas A.14-A.22",
+            profile: "PAdES AD-RB v1.3",
+            signedCms: [
+              { identifier: "id-aa-ets-signerAttr", requirement: "P", present: true, status: "PRESENT" },
+              { identifier: "id-aa-ets-contentTimeStamp", requirement: "P", present: false, status: "REQUIRES_ICP_BRASIL_ACT" },
+            ],
+            unsignedCms: [],
+            signatureDictionary: [
+              { identifier: "Name", requirement: "P", present: true, status: "PRESENT" },
+            ],
+            relatedDictionaries: [],
+            prohibitedAbsent: ["id-signingTime"],
+          },
+        },
+      };
     },
   };
   const service = new PrivateSigningService({ repository, artifactStore, provider, postQuantumSigner, baseUrl: "https://assinatura.maiocchi.adv.br" });
@@ -175,6 +196,12 @@ test("ticket privado vincula PDF, certificado, tarefa e resultado validado", asy
   assert.equal(verification.proofVerified, true);
   assert.equal(verification.envelope.proof.scope, "final-pades-record");
   assert.equal(verification.envelope.record.document.hash.value, sha256(signedPdf));
+  assert.equal(verification.envelope.record.signature.itiAttributes.profile, "PAdES AD-RB v1.3");
+  assert.deepEqual(verification.envelope.record.signature.itiAttributes.attributes.map(({ identifier, status }) => ({ identifier, status })), [
+    { identifier: "id-aa-ets-signerAttr", status: "PRESENT" },
+    { identifier: "id-aa-ets-contentTimeStamp", status: "REQUIRES_ICP_BRASIL_ACT" },
+    { identifier: "Name", status: "PRESENT" },
+  ]);
   const finalHash = repository.ticket.signed_pdf_sha256;
   repository.ticket.signed_pdf_sha256 = Buffer.alloc(32, 9);
   await assert.rejects(() => service.verification(created.publicId), (error) => error.status === 503);

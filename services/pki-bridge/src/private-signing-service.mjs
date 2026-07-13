@@ -120,6 +120,32 @@ function remoteSignerMetadata(signer) {
   };
 }
 
+function publicItiAttributes(validation) {
+  const profile = validation?.itiAttributes;
+  if (!profile || typeof profile !== "object" || Array.isArray(profile)) return null;
+  const scopes = [
+    ["CMS assinado", profile.signedCms],
+    ["CMS não assinado", profile.unsignedCms],
+    ["Dicionário de assinatura PDF", profile.signatureDictionary],
+    ["Dicionários relacionados", profile.relatedDictionaries],
+  ];
+  const attributes = scopes.flatMap(([scope, values]) => (Array.isArray(values) ? values : []).map((attribute) => ({
+    scope,
+    identifier: safeDisplay(attribute?.identifier, "Não identificado", 80),
+    requirement: safeDisplay(attribute?.requirement, "P", 4),
+    present: attribute?.present === true,
+    status: safeDisplay(attribute?.status, attribute?.present === true ? "PRESENT" : "NOT_PRESENT", 80),
+  })));
+  if (!attributes.length) return null;
+  return {
+    normativeDocument: safeDisplay(profile.normativeDocument, "DOC-ICP-15.03", 120),
+    profile: safeDisplay(profile.profile, "PAdES AD-RB", 80),
+    attributes,
+    prohibitedAbsent: (Array.isArray(profile.prohibitedAbsent) ? profile.prohibitedAbsent : [])
+      .map((value) => safeDisplay(value, "", 80)).filter(Boolean),
+  };
+}
+
 function trustedValidation(ticket) {
   const validation = ticket.validation_report || {};
   if (validation.provider === "rest_pki_core") {
@@ -482,6 +508,7 @@ export class PrivateSigningService {
           signature: {
             format: "PAdES", infrastructure: "ICP-Brasil", profile: "AD-RB",
             policyOid: policyOid || "Não informado", count: signers.length, docMdp: "valid",
+            itiAttributes: publicItiAttributes(validation),
           },
           validation: {
             status: "valid", validatedAt: finalizedAt,

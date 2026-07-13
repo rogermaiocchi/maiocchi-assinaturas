@@ -133,9 +133,9 @@ class PadesEngineTest {
             assertNotNull(field, "O PAdES deve conter campo de assinatura visível.");
             PDAnnotationWidget widget = field.getWidgets().getFirst();
             assertEquals(72f, widget.getRectangle().getLowerLeftX(), 1f);
-            assertEquals(64f, widget.getRectangle().getLowerLeftY(), 1f);
+            assertEquals(52f, widget.getRectangle().getLowerLeftY(), 1f);
             assertEquals(451f, widget.getRectangle().getWidth(), 1f);
-            assertEquals(72f, widget.getRectangle().getHeight(), 1f);
+            assertEquals(92f, widget.getRectangle().getHeight(), 1f);
             assertTrue(parsed.getPage(1).getAnnotations().stream()
                     .anyMatch(annotation -> annotation.getCOSObject() == widget.getCOSObject()),
                     "O campo visual deve ficar na última página.");

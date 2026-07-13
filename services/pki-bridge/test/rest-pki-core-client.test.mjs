@@ -100,7 +100,8 @@ test("cria e conclui sessão remota com certificado em nuvem", async () => {
   assert.deepEqual(calls[0].body.certificateRequirements, [{ type: "CryptoDevice" }]);
   const visual = calls[0].body.documents[0].pdfSignatureOptions.visualRepresentation;
   assert.equal(visual.position.pageNumber, -1);
-  assert.deepEqual(visual.position.manual, { left: 72, bottom: 64, width: 451, height: 72 });
+  assert.deepEqual(visual.position.manual, { left: 72, bottom: 52, width: 451, height: 92 });
+  assert.match(visual.text.text, /Atributos ITI/);
   assert.match(visual.text.text, /\{\{signerName\}\}/);
   assert.match(visual.text.text, /\{\{signerNationalId\}\}/);
   const session = await client.getSignatureSession(created.sessionId);

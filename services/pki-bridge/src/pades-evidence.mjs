@@ -13,7 +13,19 @@ const GOLD = rgb(0.95, 0.66, 0);
 const PALE = rgb(0.965, 0.972, 0.97);
 const LINE = rgb(0.76, 0.79, 0.78);
 const ICP_LOGO_PATH = fileURLToPath(new URL("../assets/icp-brasil-oficial.png", import.meta.url));
-const SIGNATURE_BOX = Object.freeze({ left: 72, bottom: 64, width: 451, height: 72 });
+const ITI_POLICY_OID = "2.16.76.1.7.1.11.1.3";
+const ITI_OPTIONAL_ATTRIBUTES = Object.freeze({
+  incorporated: Object.freeze([
+    "signerAttr", "/Name", "/M", "/Location", "/Reason", "/ContactInfo", "/Prop_Build",
+  ]),
+  actConditional: Object.freeze([
+    "contentTimeStamp", "signatureTimeStampToken", "Document Time-stamp",
+  ]),
+  contextualOrDefault: Object.freeze([
+    "/Reference", "/Changes", "/V=0", "/Prop_AuthTime", "DSS", "VRI",
+  ]),
+});
+const SIGNATURE_BOX = Object.freeze({ left: 72, bottom: 52, width: 451, height: 92 });
 
 function clean(value, fallback = "Não informado", max = 180) {
   if (typeof value !== "string" || !value.trim()) return fallback;
@@ -53,6 +65,14 @@ function wrap(font, value, size, maxWidth, maxLines = 3) {
 function drawLabelValue(page, fonts, label, value, x, y, width) {
   page.drawText(label, { x, y, font: fonts.bold, size: 6.8, color: MUTED });
   page.drawText(fitText(fonts.regular, value, 8.2, width), { x, y: y - 12, font: fonts.regular, size: 8.2, color: INK });
+}
+
+function drawAttributeSignal(page, fonts, { label, value, y, color }) {
+  page.drawCircle({ x: 57, y: y + 2.2, size: 3.2, color });
+  page.drawText(label, { x: 67, y, font: fonts.bold, size: 5.8, color: MUTED });
+  page.drawText(fitText(fonts.regular, value, 6.1, 396), {
+    x: 145, y, font: fonts.regular, size: 6.1, color: INK,
+  });
 }
 
 function splitHash(value) {
@@ -115,8 +135,16 @@ export function buildEvidenceManifest({ publicId, documentNumber, documentName, 
       format: "PAdES",
       infrastructure: "ICP-Brasil",
       profile: "AD-RB",
+      policyOid: ITI_POLICY_OID,
       tokenType: clean(signingMetadata?.tokenType, "Certificado ICP-Brasil A3", 100),
       signerIdentitySource: "certificado-digital",
+      optionalAttributes: {
+        normativeDocument: "DOC-ICP-15.03 v9.1",
+        assurance: signingMetadata?.modality === "remote" ? "psc-final-validation" : "private-provider-enforced",
+        incorporated: [...ITI_OPTIONAL_ATTRIBUTES.incorporated],
+        actConditional: [...ITI_OPTIONAL_ATTRIBUTES.actConditional],
+        contextualOrDefault: [...ITI_OPTIONAL_ATTRIBUTES.contextualOrDefault],
+      },
     },
   };
 }
@@ -146,7 +174,7 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
     page.drawRectangle({ x: 0, y: 0, width, height: 24, color: rgb(1, 1, 1), opacity: 0.93 });
     page.drawLine({ start: { x: 24, y: 24 }, end: { x: width - 24, y: 24 }, thickness: 0.35, color: LINE, opacity: 0.7 });
     page.drawText("m.", { x: 24, y: 8.5, font: fonts.bold, size: 8.5, color: INK, opacity: 0.78 });
-    const middle = `${manifest.publicId} · validar em assinatura.maiocchi.adv.br`;
+    const middle = `${manifest.publicId} · PAdES AD-RB · ITI · assinatura.maiocchi.adv.br`;
     page.drawText(fitText(fonts.regular, middle, 6.2, Math.max(80, width - 125)), {
       x: 43, y: 9.4, font: fonts.regular, size: 6.2, color: MUTED, opacity: 0.78,
     });
@@ -197,26 +225,43 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
   drawLabelValue(page, fonts, "LOCALIZAÇÃO", location, 304, 385, 235);
   drawLabelValue(page, fonts, "AMBIENTE", `${manifest.signingEnvironment.userAgent} · ${manifest.signingEnvironment.timezone}`, 54, 357, 485);
 
-  page.drawRectangle({ x: 42, y: 250, width: 326, height: 75, color: PALE, borderColor: LINE, borderWidth: 0.5 });
-  page.drawText("ATESTADO PÓS-QUÂNTICO DO MANIFESTO", { x: 54, y: 307, font: fonts.bold, size: 7.1, color: MUTED });
-  page.drawText(attestation.code, { x: 54, y: 288, font: fonts.mono, size: 8.2, color: INK });
-  page.drawText(`ML-DSA-65 · chave ${attestation.keyId}`, { x: 54, y: 271, font: fonts.regular, size: 7.4, color: MUTED });
-  page.drawImage(qr, { x: 382, y: 245, width: 92, height: 92 });
-  page.drawImage(barcode, { x: 42, y: 207, width: 326, height: 28 });
-  page.drawText(barcodeValue, { x: 42, y: 194, font: fonts.mono, size: 6.4, color: MUTED });
-  page.drawText("VALIDAÇÃO", { x: 382, y: 224, font: fonts.bold, size: 6.8, color: MUTED });
-  (verificationUrl.match(/.{1,42}/g) || []).slice(0, 3).forEach((line, index) => page.drawText(line, {
-    x: 382, y: 211 - index * 9, font: fonts.mono, size: 6.1, color: INK,
+  const optionalAttributes = manifest.signature.optionalAttributes;
+  page.drawRectangle({ x: 42, y: 274, width: 511, height: 64, color: PALE, borderColor: LINE, borderWidth: 0.5 });
+  page.drawText("SINAIS FÍSICOS DOS ATRIBUTOS OPCIONAIS ITI", { x: 54, y: 325, font: fonts.bold, size: 6.8, color: MUTED });
+  page.drawText(`${optionalAttributes.normativeDocument} · AD-RB v1.3 · OID ${manifest.signature.policyOid}`, {
+    x: 293, y: 325, font: fonts.mono, size: 5.5, color: MUTED,
+  });
+  drawAttributeSignal(page, fonts, {
+    label: optionalAttributes.assurance === "private-provider-enforced" ? "INCORPORADOS" : "PSC / CONFERIR",
+    value: optionalAttributes.incorporated.join(" · "), y: 309, color: GREEN,
+  });
+  drawAttributeSignal(page, fonts, {
+    label: "ACT / CONDICIONAL", value: optionalAttributes.actConditional.join(" · "), y: 295, color: GOLD,
+  });
+  drawAttributeSignal(page, fonts, {
+    label: "CONTEXTO / PADRÃO", value: optionalAttributes.contextualOrDefault.join(" · "), y: 281, color: MUTED,
+  });
+
+  page.drawRectangle({ x: 42, y: 222, width: 326, height: 44, color: PALE, borderColor: LINE, borderWidth: 0.5 });
+  page.drawText("ATESTADO PÓS-QUÂNTICO DO MANIFESTO", { x: 54, y: 253, font: fonts.bold, size: 6.7, color: MUTED });
+  page.drawText(attestation.code, { x: 54, y: 238, font: fonts.mono, size: 7.6, color: INK });
+  page.drawText(`ML-DSA-65 · chave ${attestation.keyId}`, { x: 54, y: 226, font: fonts.regular, size: 6.5, color: MUTED });
+  page.drawImage(qr, { x: 474, y: 190, width: 76, height: 76 });
+  page.drawImage(barcode, { x: 42, y: 187, width: 326, height: 25 });
+  page.drawText(barcodeValue, { x: 42, y: 177, font: fonts.mono, size: 5.9, color: MUTED });
+  page.drawText("VALIDAR", { x: 382, y: 254, font: fonts.bold, size: 6.4, color: MUTED });
+  (verificationUrl.match(/.{1,18}/g) || []).slice(0, 4).forEach((line, index) => page.drawText(line, {
+    x: 382, y: 242 - index * 8, font: fonts.mono, size: 5.2, color: INK,
   }));
 
-  page.drawLine({ start: { x: 42, y: 178 }, end: { x: 553, y: 178 }, thickness: 0.6, color: LINE });
-  page.drawText("SIGNATÁRIO IDENTIFICADO PELO CERTIFICADO ICP-BRASIL", { x: 72, y: 161, font: fonts.bold, size: 7.2, color: GREEN });
+  page.drawLine({ start: { x: 42, y: 166 }, end: { x: 553, y: 166 }, thickness: 0.6, color: LINE });
+  page.drawText("SIGNATÁRIO E ATRIBUTOS CONFIRMADOS NO PAdES", { x: 72, y: 151, font: fonts.bold, size: 7.2, color: GREEN });
   page.drawRectangle({ x: SIGNATURE_BOX.left, y: SIGNATURE_BOX.bottom, width: SIGNATURE_BOX.width, height: SIGNATURE_BOX.height, borderColor: LINE, borderWidth: 0.55 });
   page.drawText("A identificação, o CPF mascarado e o instante da assinatura serão inseridos neste campo pelo provider PAdES.", {
-    x: 84, y: 89, font: fonts.regular, size: 7.2, color: MUTED,
+    x: 84, y: 76, font: fonts.regular, size: 7.2, color: MUTED,
   });
   page.drawText("Base jurídica: MP 2.200-2/2001, art. 10, §1º; Lei 14.063/2020, art. 4º, III. Validação oficial: validar.iti.gov.br.", {
-    x: 42, y: 40, font: fonts.regular, size: 6.5, color: MUTED,
+    x: 42, y: 32, font: fonts.regular, size: 6.2, color: MUTED,
   });
   drawFooter(page, totalPages - 1);
 

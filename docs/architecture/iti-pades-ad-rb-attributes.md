@@ -2,14 +2,14 @@
 
 ## Escopo
 
-Padrão implementado pelo provider privado `1.2.0`, com base no DOC-ICP-15.03 v9.1,
+Padrão implementado pelo provider privado `1.2.1`, com base no DOC-ICP-15.03 v9.1,
 tabelas A.14 a A.22, e no DOC-ICP-15.02 v4.0. O símbolo `P` significa
 **permitido/opcional**, não “preencher sempre”. Uma entrada opcional só é emitida quando
 seu fato gerador existe e pode ser provado.
 
 ## CMS do assinante
 
-| Atributo | Regra AD-RB | Provider 1.2.0 |
+| Atributo | Regra AD-RB | Provider 1.2.1 |
 |---|---:|---|
 | `id-contentType` | O | presente e verificado |
 | `id-messageDigest` | O | presente e verificado |
@@ -33,13 +33,27 @@ PDF `/M` e `/Location`, como determina o DOC-ICP-15.02.
 | `/Location` | `Brasil`; geolocalização detalhada permanece na folha de evidências |
 | `/Reason` | finalidade normalizada do documento |
 | `/ContactInfo` | contato institucional do portal |
-| `/Prop_Build` | `Maiocchi Assinatura PAdES Provider 1.2.0` |
+| `/Prop_Build` | `Maiocchi Assinatura PAdES Provider 1.2.1` |
 | `/V` | default normativo efetivo `0`; não se duplica o valor padrão |
 | `/Reference` | somente assinatura de certificação/DocMDP; não aplicável à assinatura de aprovação atual |
 | `/Changes` | somente quando houver transformação referenciada; não aplicável ao fluxo atual |
 | `/Prop_AuthTime` | depende de tempo de autenticação mensurável antes da preparação; indisponível no fluxo A3 atual |
 
 As entradas `/Cert`, `/R` e `/Prop_AuthType` são proibidas e auditadas como ausentes.
+
+## Sinais físicos no documento
+
+A última página assinada contém uma matriz visual com todos os opcionais do perfil:
+
+- verde: atributo incorporado e exigido pelo contrato interno do provider;
+- amarelo: atributo condicionado a uma ACT ICP-Brasil;
+- cinza: atributo contextual, não aplicável ou coberto pelo valor normativo padrão.
+
+A aparência da assinatura identifica `signerAttr`, `/Location`, `/Reason`, as entradas
+`/Name`, `/M`, `/ContactInfo`, `/Prop_Build` e o estado real da ACT. Todas as páginas
+recebem rodapé com ID, perfil `PAdES AD-RB`, referência ao ITI e endereço de verificação.
+Esses sinais são referências legíveis e integram os bytes assinados; a prova de presença
+continua sendo o CMS/dicionário PDF conferido pelo provider e pelo VALIDAR ITI.
 
 ## Dicionários relacionados
 
