@@ -10,13 +10,11 @@ import {
   ArrowRight,
   ArrowUp,
   Download,
-  Fingerprint as FingerprintPattern,
   Grid3X3,
   Maximize2,
   MousePointer2,
   RotateCcw,
   Save,
-  ShieldCheck,
 } from "lucide-react";
 import {
   A4 as PDF_A4,
@@ -40,7 +38,7 @@ const PAGE_MARGINS = {
   bottom: Math.round(PDF_PAGE_MARGINS.bottom * EDITOR_SCALE),
   left: Math.round(PDF_PAGE_MARGINS.left * EDITOR_SCALE),
 };
-const LAYOUT_STORAGE_KEY = "maiocchi-pades-layout-v4";
+const LAYOUT_STORAGE_KEY = "maiocchi-pades-layout-v5";
 const initialLayout = Object.fromEntries(
   Object.entries(EVIDENCE_BLOCKS).map(([id, block]) => [id, editorBox(block)]),
 ) as Layout;
@@ -112,7 +110,7 @@ function SecuritySeal({ icpBrasil }: { icpBrasil: boolean }) {
     return (
       <div className="security-seal is-neutral">
         <div className="seal-copy">
-          <span className="seal-kicker"><ShieldCheck size={12} /> Assinatura eletrônica</span>
+          <span className="seal-kicker">Assinatura eletrônica</span>
           <strong contentEditable suppressContentEditableWarning>REGISTRO ELETRÔNICO</strong>
           <div contentEditable suppressContentEditableWarning>Identidade e instante: consulte o endereço de validação.</div>
           <small contentEditable suppressContentEditableWarning>Sem credencial ou alegação ICP-Brasil</small>
@@ -124,9 +122,10 @@ function SecuritySeal({ icpBrasil }: { icpBrasil: boolean }) {
 
   return (
     <div className="security-seal">
-      <img src="/assets/pades-security-seal-4k.png?v=9" alt="" />
+      <img src="/assets/pades-security-seal-4k.png?v=10" alt="" />
+      <img className="seal-icp-mark" src="/assets/icp-brasil-oficial.png" alt="ICP-Brasil" />
       <div className="seal-copy">
-        <span className="seal-kicker"><ShieldCheck size={12} /> Assinatura digital ICP-Brasil · PAdES AD-RB</span>
+        <span className="seal-kicker">Assinatura digital ICP-Brasil · PAdES AD-RB</span>
         <strong contentEditable suppressContentEditableWarning>ROGER MAIOCCHI</strong>
         <div contentEditable suppressContentEditableWarning>CPF 006.***.***-40 · 13/07/2026 15:57:40 UTC</div>
         <small contentEditable suppressContentEditableWarning>Certificado A3 · atributos incorporados · confira pelo QR ou código</small>
@@ -160,18 +159,10 @@ function DocumentCanvas({
   });
 
   return (
-    <article className="a4-canvas" aria-label="Folha de evidências PAdES editável">
-      <aside className="margin-verification" aria-label="Identificação recorrente na margem direita">
-        <img src="/assets/maiocchi-mark.svg" alt="m." />
-        <code>MAI-2026-ESY0-6MPD-QQBP-RMG4</code>
-      </aside>
-
+    <article className="a4-canvas" aria-label="Folha de evidências da assinatura digital editável">
       <Block {...props("header", "header-block")}>
         <div className="header-brand-row">
-          <span className="header-record">
-            <FingerprintPattern aria-hidden="true" size={14} strokeWidth={1.8} />
-            <span>Evidências da assinatura digital</span>
-          </span>
+          <span className="header-record">Evidências da assinatura digital</span>
           <span className={icpBrasil ? "header-mode is-icp" : "header-mode"}>
             Modalidade · {icpBrasil ? "ICP-Brasil" : "assinatura eletrônica"}
           </span>
@@ -180,7 +171,7 @@ function DocumentCanvas({
 
       <Block {...props("title", "title-block")}>
         <h1 contentEditable suppressContentEditableWarning>Documento eletrônico assinado</h1>
-        <p contentEditable suppressContentEditableWarning>O PDF PAdES é o original. Esta folha consolida sinais de conferência e não substitui a validação criptográfica.</p>
+        <p contentEditable suppressContentEditableWarning>O arquivo eletrônico assinado é o original. Esta página organiza evidências de conferência; sinais gráficos não substituem a validação criptográfica.</p>
       </Block>
 
       <Block {...props("document", "panel meta-grid")}>
@@ -252,10 +243,10 @@ function DocumentCanvas({
       </Block>
 
       <Block {...props("legal", "legal-block")}>
-        {icpBrasil && <img src="/assets/icp-brasil-oficial.png" alt="ICP-Brasil" />}
         <p contentEditable suppressContentEditableWarning>{icpBrasil
-          ? "Assinatura qualificada ICP-Brasil · MP 2.200-2/2001, art. 10, §1º · Lei 14.063/2020, art. 4º, III."
-          : "Fundamento jurídico conforme a modalidade indicada · Lei 14.063/2020, art. 4º."}</p>
+          ? "Assinatura eletrônica qualificada · MP 2.200-2/2001, art. 10, § 1º · Lei 14.063/2020, art. 4º, III."
+          : "Assinatura eletrônica conforme a modalidade registrada · MP 2.200-2/2001, art. 10, § 2º · Lei 14.063/2020, art. 4º."}</p>
+        {icpBrasil && <a href="https://validar.iti.gov.br/" target="_blank" rel="noreferrer">Validação externa: validar.iti.gov.br</a>}
       </Block>
 
       <Block {...props("footer", "footer-block")}>
@@ -330,7 +321,7 @@ function App() {
   const reset = () => { setLayout(initialLayout); setIcpBrasil(true); localStorage.removeItem(LAYOUT_STORAGE_KEY); };
   const download = () => {
     const blob = new Blob([JSON.stringify({
-      version: 4,
+      version: 5,
       canvas: A4,
       margins: PAGE_MARGINS,
       profile: icpBrasil ? "ICP-Brasil" : "não ICP-Brasil",
@@ -376,7 +367,7 @@ function App() {
           <input type="checkbox" checked={icpBrasil} onChange={(event) => setIcpBrasil(event.target.checked)} />
           <span aria-hidden="true"><i /></span>
           <strong>Assinatura ICP-Brasil</strong>
-          <small>Exibe fundo PAdES e marca ICP somente quando esta infraestrutura integra a assinatura.</small>
+          <small>Exibe a marca ICP no selo e o link oficial do ITI somente quando a assinatura é qualificada.</small>
         </label>
         <p>Arraste pela etiqueta amarela. Redimensione pelo canto inferior direito. Textos sublinhados são editáveis diretamente.</p>
         <div className="legend"><i></i><span>Coordenadas compartilhadas com o renderer do PDF.</span></div>

@@ -18,19 +18,24 @@ isso a composição visual corresponde ao PDF preparado para assinatura.
 ## Ativos
 
 - folha A4: margens de 3 cm no topo e à esquerda, e 2 cm na base e à direita.
-- cabeçalho: ícone vetorial Lucide `fingerprint-pattern` imediatamente antes de
-  “Evidências da assinatura digital”, com a mesma geometria no editor e no PDF.
+- cabeçalho: “Evidências da assinatura digital” alinhado à esquerda, sem ícone.
 - credencial ICP-Brasil: fundo de segurança sem marca institucional, com dados
-  da assinatura alinhados à esquerda; só aparece no modo ICP-Brasil.
+  da assinatura alinhados à esquerda e marca oficial ICP-Brasil à direita; só
+  aparece no modo ICP-Brasil.
 - modalidade não ICP-Brasil: quadro neutro, sem logo oficial, medalhão PAdES ou
   texto que sugira certificação ICP-Brasil.
-- `PAdES AD-RB`: medalhão técnico reto, em azul-cobalto com filetes dourados,
-  integrado às rosetas de passaporte na extremidade direita.
+- `PAdES AD-RB`: identificação textual vinculada aos dados assinados, sem
+  medalhão autodeclaratório; a marca oficial exibida decorre da infraestrutura
+  confirmada pelo certificado.
 - selo: SVG-fonte e PNG `4096x835`, proporção do campo PAdES `453,55x92` pontos.
 - o campo da assinatura não recebe título externo; os rótulos redundantes de
   “Resumo visual da assinatura” foram removidos do editor e do renderer.
 - QR e Code 128: amostras do contrato canônico `/v/:publicId` e
   `MAI|<publicId>|R1`.
+- páginas originais: linha dourada superior e registro marginal com micro marca,
+  código, SHA-256 e atestado ML-DSA-65; a folha final não repete esse registro.
+- validação externa: link visível e clicável para `https://validar.iti.gov.br/`
+  apenas no modo ICP-Brasil.
 
 Para reconstruir o fundo 4K e a amostra composta:
 

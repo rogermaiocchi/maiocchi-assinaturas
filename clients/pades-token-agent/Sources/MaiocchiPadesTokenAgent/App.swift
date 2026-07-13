@@ -1,8 +1,23 @@
 import Foundation
+import OSLog
 import Vapor
 
 @main
 struct MaiocchiPadesTokenAgent {
+    private static let version = "1.2.0"
+    private static let logger = Logger(
+        subsystem: "br.adv.maiocchi.pades-agent",
+        category: "lifecycle"
+    )
+
+    private static var architecture: String {
+        #if arch(arm64)
+        "arm64"
+        #else
+        "unsupported"
+        #endif
+    }
+
     static func main() async throws {
         var environment = try Environment.detect()
         try LoggingSystem.bootstrap(from: &environment)
@@ -37,7 +52,14 @@ struct MaiocchiPadesTokenAgent {
             return response
         }
         routes.get("v1", "status") { _ in
-            AgentStatus(status: "ok", version: "1.1.0", provider: "CryptoTokenKit")
+            AgentStatus(
+                status: "ok",
+                version: version,
+                provider: "CryptoTokenKit",
+                architecture: architecture,
+                profile: "apple-silicon-native",
+                tokenPolicy: "external-store-rsa-2048-fail-closed"
+            )
         }
         routes.get("v1", "certificates") { _ async throws -> CertificateList in
             CertificateList(certificates: try store.list())
@@ -55,6 +77,7 @@ struct MaiocchiPadesTokenAgent {
             }
             try confirmation.confirm(documentName: body.documentName, documentSha256: body.documentSha256)
             let signature = try store.sign(data, fingerprint: body.certificateFingerprintSha256)
+            logger.notice("Local external-token signing operation completed")
             return SignResponse(
                 sessionId: body.sessionId,
                 signatureBase64: signature.base64EncodedString(),
@@ -63,8 +86,10 @@ struct MaiocchiPadesTokenAgent {
         }
 
         do {
+            logger.notice("Starting PAdES agent with fail-closed external-token policy")
             try await app.execute()
         } catch {
+            logger.error("PAdES agent stopped after an execution error")
             try await app.asyncShutdown()
             throw error
         }

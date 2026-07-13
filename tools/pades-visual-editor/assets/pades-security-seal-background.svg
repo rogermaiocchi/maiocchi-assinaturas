@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4096 835" role="img" aria-labelledby="title desc">
-  <title id="title">Selo documental PAdES em linguagem visual de passaporte</title>
-  <desc id="desc">Composição de segurança sem marca institucional, com dados criptográficos à esquerda e medalhão técnico PAdES destacado.</desc>
+  <title id="title">Fundo de segurança documental em linguagem visual de passaporte</title>
+  <desc id="desc">Composição de segurança sem marca institucional, reservando dados criptográficos à esquerda e a credencial validada à direita.</desc>
   <defs>
     <linearGradient id="paper" x1="0" y1="0" x2="1" y2="0">
       <stop offset="0" stop-color="#edf8f3"/>
@@ -18,11 +18,6 @@
       <stop offset="0" stop-color="#ffe39b"/>
       <stop offset=".52" stop-color="#f5b51b"/>
       <stop offset="1" stop-color="#bd7900"/>
-    </linearGradient>
-    <linearGradient id="padesBadge" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#1d347f"/>
-      <stop offset=".56" stop-color="#2858b8"/>
-      <stop offset="1" stop-color="#14336f"/>
     </linearGradient>
     <radialGradient id="brandHalo" cx="50%" cy="50%" r="50%">
       <stop offset="0" stop-color="#fff" stop-opacity=".92"/>
@@ -42,9 +37,6 @@
     <pattern id="microtext" width="790" height="34" patternUnits="userSpaceOnUse">
       <text x="0" y="24" fill="#17231f" fill-opacity=".46" font-family="Arial,Helvetica,sans-serif" font-size="20" font-weight="700" letter-spacing="4">PAdES • ICP-BRASIL • VERIFICAR • AUTENTICIDADE • </text>
     </pattern>
-    <filter id="badgeShadow" x="-20%" y="-30%" width="140%" height="160%">
-      <feDropShadow dx="0" dy="8" stdDeviation="11" flood-color="#11214c" flood-opacity=".2"/>
-    </filter>
     <clipPath id="bodyClip"><rect x="25" y="25" width="4046" height="785" rx="24"/></clipPath>
   </defs>
 
@@ -109,17 +101,6 @@
   <rect x="200" y="177" width="11" height="482" rx="5" fill="url(#gold)" fill-opacity=".88"/>
   <rect x="222" y="177" width="3" height="482" fill="#0a8f63" fill-opacity=".62"/>
   <path d="M250 179h2950M250 657h2950" stroke="#0a8f63" stroke-width="2" stroke-opacity=".14" stroke-dasharray="5 10"/>
-
-  <g transform="translate(3608 418)">
-    <g filter="url(#badgeShadow)">
-      <rect x="-232" y="-137" width="464" height="274" rx="35" fill="url(#padesBadge)" stroke="#f5b51b" stroke-width="5"/>
-      <rect x="-218" y="-123" width="436" height="246" rx="25" fill="none" stroke="#fff" stroke-width="2" stroke-opacity=".35"/>
-      <text x="-181" y="-79" fill="#d9e5ff" font-family="Arial,Helvetica,sans-serif" font-size="24" font-weight="800" letter-spacing="7">PERFIL TÉCNICO</text>
-      <text x="-185" y="43" fill="#fff" font-family="Arial,Helvetica,sans-serif" font-size="116" font-weight="900" letter-spacing="0">PAdES</text>
-      <path d="M-181 69h362" stroke="#f5b51b" stroke-width="6"/>
-      <text x="-180" y="111" fill="#fff" fill-opacity=".92" font-family="Arial,Helvetica,sans-serif" font-size="26" font-weight="800" letter-spacing="4">AD-RB · ICP-BRASIL</text>
-    </g>
-  </g>
 
   <g font-family="Arial,Helvetica,sans-serif" font-weight="700" fill="#17231f" fill-opacity=".13">
     <text x="250" y="136" font-size="26" letter-spacing="8">DADOS CRIPTOGRÁFICOS DA ASSINATURA • SIGNATURE DATA</text>

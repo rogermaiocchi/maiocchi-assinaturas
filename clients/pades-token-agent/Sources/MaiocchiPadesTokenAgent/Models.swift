@@ -5,6 +5,9 @@ struct AgentStatus: Content {
     let status: String
     let version: String
     let provider: String
+    let architecture: String
+    let profile: String
+    let tokenPolicy: String
 }
 
 struct CertificateDescriptor: Content {
@@ -13,6 +16,10 @@ struct CertificateDescriptor: Content {
     let certificateBase64: String
     let chainBase64: [String]
     let keyAlgorithm: String
+    let keySizeInBits: Int
+    let tokenBacked: Bool
+    let keyOrigin: String
+    let trustClassification: String
 }
 
 struct CertificateList: Content {

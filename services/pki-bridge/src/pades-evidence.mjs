@@ -1,18 +1,15 @@
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import fontkit from "@pdf-lib/fontkit";
-import { LineCapStyle, PDFDocument, PDFName, PDFString, degrees, rgb } from "pdf-lib";
+import { PDFDocument, PDFName, PDFString, degrees, rgb } from "pdf-lib";
 import bwipjs from "bwip-js";
 import QRCode from "qrcode";
 import { assertPublicId } from "./authenticity-contract.mjs";
 import {
-  FINGERPRINT_PATTERN_PATHS,
-  FINGERPRINT_PATTERN_VIEWBOX,
-} from "./fingerprint-pattern-icon.mjs";
-import {
   A4,
   BODY,
   EVIDENCE_BLOCKS,
+  PAGE_CHROME,
   PAGE_MARGINS,
   SIGNATURE_BOX,
   SIGNATURE_FRAME,
@@ -33,6 +30,7 @@ const SECURITY_SEAL_PATH = fileURLToPath(new URL("../assets/pades-security-seal.
 const REGULAR_FONT_PATH = fileURLToPath(new URL("../assets/inter-latin-400-normal.woff", import.meta.url));
 const BOLD_FONT_PATH = fileURLToPath(new URL("../assets/inter-latin-700-normal.woff", import.meta.url));
 const ITI_POLICY_OID = "2.16.76.1.7.1.11.1.3";
+const ITI_VALIDATOR_URL = "https://validar.iti.gov.br/";
 const ITI_OPTIONAL_ATTRIBUTES = Object.freeze({
   incorporated: Object.freeze([
     "signerAttr", "/Name", "/M", "/Location", "/Reason", "/ContactInfo", "/Prop_Build",
@@ -116,20 +114,6 @@ function rect(block) {
 
 function baseline(top) {
   return A4.height - top;
-}
-
-function drawFingerprintPattern(page, { x, top, size, color }) {
-  const scale = size / FINGERPRINT_PATTERN_VIEWBOX;
-  for (const path of FINGERPRINT_PATTERN_PATHS) {
-    page.drawSvgPath(path, {
-      x,
-      y: baseline(top),
-      scale,
-      borderColor: color,
-      borderWidth: 2 * scale,
-      borderLineCap: LineCapStyle.Round,
-    });
-  }
 }
 
 function drawLabelValue(page, fonts, label, value, x, top, width, valueSize = TYPOGRAPHY.value) {
@@ -274,27 +258,17 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
 
   const originalPages = document.getPages();
   const totalPages = originalPages.length + 1;
-  const drawPageChrome = (page, index) => {
+  const drawTopRule = (page) => {
+    page.drawRectangle({
+      x: 0,
+      y: page.getHeight() - PAGE_CHROME.topRuleHeight,
+      width: page.getWidth(),
+      height: PAGE_CHROME.topRuleHeight,
+      color: GOLD,
+    });
+  };
+  const drawPageFooter = (page, index) => {
     const width = page.getWidth();
-    const height = page.getHeight();
-    const marginCenterX = width - PAGE_MARGINS.right / 2;
-    const markSize = 16;
-    page.drawImage(maiocchiMark, {
-      x: marginCenterX - markSize / 2,
-      y: height - 39,
-      width: markSize,
-      height: markSize,
-      opacity: 0.82,
-    });
-    page.drawText(manifest.publicId, {
-      x: marginCenterX + 3,
-      y: height - 48,
-      font: fonts.regular,
-      size: 6.4,
-      color: MUTED,
-      opacity: 0.82,
-      rotate: degrees(-90),
-    });
     const count = `Página ${index + 1} de ${totalPages}`;
     page.drawText(count, {
       x: width - PAGE_MARGINS.right - fonts.bold.widthOfTextAtSize(count, TYPOGRAPHY.footer),
@@ -304,20 +278,51 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
       color: INK,
     });
   };
-  originalPages.forEach(drawPageChrome);
+  const drawContentRegistry = (page) => {
+    const width = page.getWidth();
+    const height = page.getHeight();
+    const marginCenterX = width - PAGE_MARGINS.right / 2;
+    const registry = `${manifest.publicId} · SHA-256 ${manifest.source.sha256} · ATESTADO PÓS-QUÂNTICO ML-DSA-65 ${attestation.code}`;
+    const availableLength = height - PAGE_MARGINS.top - PAGE_MARGINS.bottom
+      - PAGE_CHROME.sideMarkSize - PAGE_CHROME.sideRegistryGap;
+    const fitted = fitValue(
+      fonts.bold,
+      registry,
+      PAGE_CHROME.sideRegistryFontSize,
+      availableLength,
+      PAGE_CHROME.sideRegistryMinimumFontSize,
+    );
+    const registryLength = fonts.bold.widthOfTextAtSize(fitted.text, fitted.size);
+    const groupLength = PAGE_CHROME.sideMarkSize + PAGE_CHROME.sideRegistryGap + registryLength;
+    const groupTop = (height - groupLength) / 2;
+    const markY = height - groupTop - PAGE_CHROME.sideMarkSize;
+    page.drawImage(maiocchiMark, {
+      x: marginCenterX - PAGE_CHROME.sideMarkSize / 2,
+      y: markY,
+      width: PAGE_CHROME.sideMarkSize,
+      height: PAGE_CHROME.sideMarkSize,
+      opacity: 0.82,
+    });
+    page.drawText(fitted.text, {
+      x: marginCenterX + fitted.size / 2,
+      y: markY - PAGE_CHROME.sideRegistryGap,
+      font: fonts.bold,
+      size: fitted.size,
+      color: MUTED,
+      opacity: 0.82,
+      rotate: degrees(-90),
+    });
+  };
+  originalPages.forEach((originalPage, index) => {
+    drawTopRule(originalPage);
+    drawContentRegistry(originalPage);
+    drawPageFooter(originalPage, index);
+  });
 
   const page = document.addPage([A4.width, A4.height]);
-  page.drawRectangle({ x: 0, y: A4.height - 6, width: A4.width, height: 6, color: GOLD });
-
-  const evidenceHeaderIconSize = 13;
-  drawFingerprintPattern(page, {
-    x: EVIDENCE_BLOCKS.header.left,
-    top: EVIDENCE_BLOCKS.header.top + 2,
-    size: evidenceHeaderIconSize,
-    color: MUTED,
-  });
+  drawTopRule(page);
   page.drawText("EVIDÊNCIAS DA ASSINATURA DIGITAL", {
-    x: EVIDENCE_BLOCKS.header.left + evidenceHeaderIconSize + 6,
+    x: EVIDENCE_BLOCKS.header.left,
     y: baseline(EVIDENCE_BLOCKS.header.top + 15),
     font: fonts.bold,
     size: 8.2,
@@ -525,6 +530,12 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
   };
   if (securitySeal) {
     page.drawImage(securitySeal, signatureFrameRect);
+    page.drawImage(icpLogo, {
+      x: SIGNATURE_FRAME.left + SIGNATURE_FRAME.width - 103,
+      y: SIGNATURE_FRAME.bottom + 33,
+      width: 86,
+      height: 29,
+    });
   } else {
     page.drawRectangle({ ...signatureFrameRect, color: PALE, borderColor: LINE, borderWidth: 0.7 });
     page.drawText("ASSINATURA ELETRÔNICA", {
@@ -557,26 +568,37 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
     });
   }
 
-  const legalTextX = icpLogo ? BODY.left + 63 : BODY.left;
-  if (icpLogo) {
-    page.drawImage(icpLogo, {
-      x: BODY.left,
-      y: pdfY(EVIDENCE_BLOCKS.legal.top + 3, 18),
-      width: 54,
-      height: 18.22,
-    });
-  }
   const legalText = icpBrasil
-    ? "Assinatura qualificada ICP-Brasil · MP 2.200-2/2001, art. 10, §1º · Lei 14.063/2020, art. 4º, III."
-    : "Fundamento jurídico conforme a modalidade indicada · Lei 14.063/2020, art. 4º.";
-  wrap(fonts.regular, legalText, 7.5, BODY.right - legalTextX, 2).forEach((line, index) => page.drawText(line, {
-    x: legalTextX,
-    y: baseline(EVIDENCE_BLOCKS.legal.top + 10 + index * 10),
+    ? "Assinatura eletrônica qualificada · MP 2.200-2/2001, art. 10, § 1º · Lei 14.063/2020, art. 4º, III."
+    : "Assinatura eletrônica conforme a modalidade registrada · MP 2.200-2/2001, art. 10, § 2º · Lei 14.063/2020, art. 4º.";
+  const itiLabel = "Validação externa: validar.iti.gov.br";
+  const itiLabelWidth = fonts.bold.widthOfTextAtSize(itiLabel, 7.2);
+  const legalTextWidth = icpBrasil ? BODY.width - itiLabelWidth - 18 : BODY.width;
+  wrap(fonts.regular, legalText, 7.2, legalTextWidth, 2).forEach((line, index) => page.drawText(line, {
+    x: EVIDENCE_BLOCKS.legal.left,
+    y: baseline(EVIDENCE_BLOCKS.legal.top + 14 + index * 10),
     font: fonts.regular,
-    size: 7.5,
+    size: 7.2,
     color: MUTED,
   }));
-  drawPageChrome(page, totalPages - 1);
+  if (icpBrasil) {
+    const itiLabelX = EVIDENCE_BLOCKS.legal.left + EVIDENCE_BLOCKS.legal.width - itiLabelWidth;
+    page.drawText(itiLabel, {
+      x: itiLabelX,
+      y: baseline(EVIDENCE_BLOCKS.legal.top + 18),
+      font: fonts.bold,
+      size: 7.2,
+      color: BLUE,
+    });
+    addLink(document, page, {
+      x: itiLabelX,
+      y: baseline(EVIDENCE_BLOCKS.legal.top + 21),
+      width: itiLabelWidth,
+      height: 11,
+      url: ITI_VALIDATOR_URL,
+    });
+  }
+  drawPageFooter(page, totalPages - 1);
 
   document.catalog.set(PDFName.of("Lang"), PDFString.of("pt-BR"));
   document.setTitle(manifest.source.name.replace(/\.pdf$/i, ""));
@@ -610,6 +632,7 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
     signatureFrame: SIGNATURE_FRAME,
     pageMargins: PAGE_MARGINS,
     icpBrasilSealIncluded: icpBrasil,
+    itiValidatorUrl: icpBrasil ? ITI_VALIDATOR_URL : null,
   };
 }
 

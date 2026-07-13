@@ -1,4 +1,5 @@
 import Foundation
+import Security
 import Testing
 @testable import MaiocchiPadesTokenAgent
 
@@ -26,5 +27,115 @@ import Testing
     #expect(AuthorizationPage.javascript.contains("/api/pades/prepare"))
     #expect(AuthorizationPage.javascript.contains("prepared.sourceDocumentSha256 !== ticket.documentSha256"))
     #expect(AuthorizationPage.javascript.contains("prepared.documentSha256 !== prepared.presentationSha256"))
+    #expect(AuthorizationPage.javascript.contains("certificate.tokenBacked === true"))
+    #expect(AuthorizationPage.javascript.contains("certificate.keyOrigin === 'CryptoTokenKit'"))
+    #expect(AuthorizationPage.javascript.contains("certificate.trustClassification === 'external-token-unverified'"))
+    #expect(AuthorizationPage.html.contains("A conformidade ICP-Brasil será confirmada pelo servidor"))
+    #expect(AuthorizationPage.javascript.contains("Conformidade ICP-Brasil confirmada pelo servidor"))
     #expect(!AuthorizationPage.html.contains("ticket="))
+}
+
+@Test func externalRsaPrivateKeyIsEligibleForLocalTokenUse() {
+    let evidence = TokenKeyEvidence(
+        tokenBacked: true,
+        secureEnclave: false,
+        privateKey: true,
+        rsa: true,
+        canSign: true,
+        keySizeInBits: 2048
+    )
+    #expect(evidence.isEligibleExternalTokenKey)
+}
+
+@Test func securityFrameworkAttributesProduceTokenBackedEvidence() {
+    let attributes: [CFString: Any] = [
+        kSecAttrTokenID: "br.adv.maiocchi.test.external-token",
+        kSecAttrKeyClass: kSecAttrKeyClassPrivate,
+        kSecAttrKeyType: kSecAttrKeyTypeRSA,
+        kSecAttrCanSign: true,
+        kSecAttrKeySizeInBits: 2048
+    ]
+    let evidence = TokenKeyEvidence(attributes: attributes)
+    #expect(evidence.tokenBacked)
+    #expect(!evidence.secureEnclave)
+    #expect(evidence.isEligibleExternalTokenKey)
+}
+
+@Test func softwareKeyIsRejectedForExternalTokenUse() {
+    let evidence = TokenKeyEvidence(
+        tokenBacked: false,
+        secureEnclave: false,
+        privateKey: true,
+        rsa: true,
+        canSign: true,
+        keySizeInBits: 2048
+    )
+    #expect(!evidence.isEligibleExternalTokenKey)
+}
+
+@Test func generatedSecurityFrameworkSoftwareKeyIsRejectedForExternalTokenUse() throws {
+    let parameters: [CFString: Any] = [
+        kSecAttrKeyType: kSecAttrKeyTypeRSA,
+        kSecAttrKeySizeInBits: 2048
+    ]
+    var error: Unmanaged<CFError>?
+    let key = try #require(SecKeyCreateRandomKey(parameters as CFDictionary, &error))
+    let attributes = try #require(SecKeyCopyAttributes(key) as? [CFString: Any])
+    let evidence = TokenKeyEvidence(attributes: attributes)
+    #expect(!evidence.tokenBacked)
+    #expect(!evidence.isEligibleExternalTokenKey)
+}
+
+@Test func secureEnclaveKeyIsRejectedForExternalTokenUse() {
+    let evidence = TokenKeyEvidence(
+        tokenBacked: true,
+        secureEnclave: true,
+        privateKey: true,
+        rsa: true,
+        canSign: true,
+        keySizeInBits: 2048
+    )
+    #expect(!evidence.isEligibleExternalTokenKey)
+}
+
+@Test func publicOrNonSigningKeyIsRejectedForExternalTokenUse() {
+    let publicKey = TokenKeyEvidence(
+        tokenBacked: true,
+        secureEnclave: false,
+        privateKey: false,
+        rsa: true,
+        canSign: true,
+        keySizeInBits: 2048
+    )
+    let nonSigningKey = TokenKeyEvidence(
+        tokenBacked: true,
+        secureEnclave: false,
+        privateKey: true,
+        rsa: true,
+        canSign: false,
+        keySizeInBits: 2048
+    )
+    #expect(!publicKey.isEligibleExternalTokenKey)
+    #expect(!nonSigningKey.isEligibleExternalTokenKey)
+}
+
+@Test func weakOrNonRsaKeyIsRejectedForExternalTokenUse() {
+    let weakKey = TokenKeyEvidence(
+        tokenBacked: true,
+        secureEnclave: false,
+        privateKey: true,
+        rsa: true,
+        canSign: true,
+        keySizeInBits: 1024
+    )
+    let nonRsaKey = TokenKeyEvidence(
+        tokenBacked: true,
+        secureEnclave: false,
+        privateKey: true,
+        rsa: false,
+        canSign: true,
+        keySizeInBits: 256
+    )
+    #expect(!weakKey.isEligibleExternalTokenKey)
+    #expect(!nonRsaKey.isEligibleExternalTokenKey)
 }

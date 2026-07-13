@@ -31,8 +31,16 @@ export const EVIDENCE_BLOCKS = Object.freeze({
   validation: Object.freeze({ left: 385, top: 578, width: BODY.right - 385, height: 52 }),
   barcode: Object.freeze({ left: BODY.left, top: 639, width: BODY.width, height: 34 }),
   seal: Object.freeze({ left: BODY.left, top: 682, width: BODY.width, height: 92 }),
-  legal: Object.freeze({ left: BODY.left, top: 784, width: BODY.width, height: 25 }),
-  footer: Object.freeze({ left: BODY.left, top: 811, width: BODY.width, height: 15 }),
+  legal: Object.freeze({ left: BODY.left, top: 780, width: BODY.width, height: 36 }),
+  footer: Object.freeze({ left: BODY.left, top: 817, width: BODY.width, height: 15 }),
+});
+
+export const PAGE_CHROME = Object.freeze({
+  topRuleHeight: 2,
+  sideMarkSize: 16,
+  sideRegistryFontSize: 5.2,
+  sideRegistryMinimumFontSize: 4.4,
+  sideRegistryGap: 8,
 });
 
 export const SIGNATURE_FRAME = Object.freeze({

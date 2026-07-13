@@ -13,7 +13,7 @@ enum AuthorizationPage {
       </style>
       <script src="/v1/authorize.js" defer></script>
     </head>
-    <body><main><div class="brand"><span>m.</span> MAIOCCHI ASSINATURAS</div><section class="panel"><div class="eyebrow"><span class="dot"></span>Agente local protegido</div><h1>Autorizar com ICP-Brasil</h1><p>Confira o documento e selecione a identidade do token A3. A chave privada permanece no dispositivo.</p><dl><dt>Documento</dt><dd id="document">Verificando...</dd><dt>SHA-256 recebido</dt><dd class="hash" id="hash">-</dd></dl><label for="certificate">Certificado</label><select id="certificate" disabled><option>Consultando token...</option></select><button id="sign" disabled>Autorizar assinatura no token</button><div id="status" class="status" role="status" aria-live="polite"></div><p class="security">O portal prepara o PAdES; este agente assina somente os bytes vinculados ao hash exibido e devolve a assinatura ao serviço privado. Se a localização for autorizada, ela será incorporada à página final e ficará visível a quem receber o documento ou seu código.</p></section></main></body>
+    <body><main><div class="brand"><span>m.</span> MAIOCCHI ASSINATURAS</div><section class="panel"><div class="eyebrow"><span class="dot"></span>Agente local protegido</div><h1>Autorizar com ICP-Brasil</h1><p>Confira o documento e selecione a identidade do dispositivo criptográfico. A conformidade ICP-Brasil será confirmada pelo servidor antes de a assinatura ser liberada; a chave privada permanece no dispositivo.</p><dl><dt>Documento</dt><dd id="document">Verificando...</dd><dt>SHA-256 recebido</dt><dd class="hash" id="hash">-</dd></dl><label for="certificate">Credencial externa</label><select id="certificate" disabled><option>Consultando dispositivo...</option></select><button id="sign" disabled>Autorizar assinatura no token</button><div id="status" class="status" role="status" aria-live="polite"></div><p class="security">O portal prepara o PAdES; este agente assina somente os bytes vinculados ao hash exibido e devolve a assinatura ao serviço privado. Se a localização for autorizada, ela será incorporada à página final e ficará visível a quem receber o documento ou seu código.</p></section></main></body>
     </html>
     """#
 
@@ -73,17 +73,25 @@ enum AuthorizationPage {
       async function initialize() {
         if (!/^[A-Za-z0-9_-]{43}$/.test(token)) throw new Error('Ticket de autorização inválido.');
         history.replaceState(null, '', location.pathname);
-        [ticket, { certificates }] = await Promise.all([
+        const initialized = await Promise.all([
           readJson(await fetch(`${portal}/api/pades/ticket`, { headers: authorization(), cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer' })),
           readJson(await fetch('/v1/certificates', { cache: 'no-store', credentials: 'omit' })),
         ]);
+        ticket = initialized[0];
+        certificates = (initialized[1].certificates || []).filter((certificate) =>
+          certificate.tokenBacked === true &&
+          certificate.keyOrigin === 'CryptoTokenKit' &&
+          certificate.trustClassification === 'external-token-unverified' &&
+          certificate.keyAlgorithm === 'RSA' &&
+          certificate.keySizeInBits >= 2048
+        );
         documentNode.textContent = ticket.documentName;
         hashNode.textContent = ticket.documentSha256;
         certificateNode.replaceChildren();
         for (const certificate of certificates) {
           const option = document.createElement('option');
           option.value = certificate.fingerprintSha256;
-          option.textContent = `${certificate.subject} · ${certificate.fingerprintSha256.slice(0, 16)}...`;
+          option.textContent = `${certificate.subject} · credencial externa · ${certificate.fingerprintSha256.slice(0, 16)}...`;
           certificateNode.append(option);
         }
         if (ticket.status === 'completed') {
@@ -91,10 +99,10 @@ enum AuthorizationPage {
           return setTimeout(() => location.replace(`${portal}/assinar-icp#ticket=${token}`), 700);
         }
         if (ticket.status !== 'pending') throw new Error('O ticket não está disponível para uma nova assinatura.');
-        if (!certificates.length) throw new Error('Nenhum certificado RSA disponível no token.');
+        if (!certificates.length) throw new Error('Nenhum certificado RSA com chave externa aprovada foi encontrado no token.');
         certificateNode.disabled = false;
         signNode.disabled = false;
-        status('Documento e token prontos para autorização.');
+        status('Documento e credencial externa prontos; a cadeia será validada pelo servidor.');
       }
 
       async function sign() {
@@ -102,7 +110,10 @@ enum AuthorizationPage {
         certificateNode.disabled = true;
         try {
           const chosen = certificates.find((item) => item.fingerprintSha256 === certificateNode.value);
-          if (!chosen) throw new Error('Selecione um certificado válido.');
+          if (!chosen || chosen.tokenBacked !== true || chosen.keyOrigin !== 'CryptoTokenKit' ||
+              chosen.trustClassification !== 'external-token-unverified') {
+            throw new Error('Selecione um certificado válido do token externo.');
+          }
           status('Preparando o PAdES no serviço privado...');
           const metadata = await clientMetadata();
           const prepared = await readJson(await fetch(`${portal}/api/pades/prepare`, {
@@ -115,7 +126,7 @@ enum AuthorizationPage {
             throw new Error('A tarefa criptográfica não corresponde ao documento ou certificado selecionado.');
           }
           hashNode.textContent = prepared.documentSha256;
-          status('Aguardando confirmação local e autorização do token...');
+          status('Conformidade ICP-Brasil confirmada pelo servidor. Aguardando autorização do token...');
           const signature = await readJson(await fetch('/v1/sign', {
             method: 'POST', headers: { 'content-type': 'application/json' }, credentials: 'omit', body: JSON.stringify(prepared),
           }));

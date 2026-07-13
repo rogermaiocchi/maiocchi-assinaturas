@@ -15,6 +15,15 @@ import { createPostQuantumSigner, verifyPostQuantumAttestation } from "../src/po
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 
+function annotationUris(page) {
+  const annotations = page.node.lookup(PDFName.of("Annots"), PDFArray);
+  return Array.from({ length: annotations.size() }, (_, index) => {
+    const annotation = annotations.lookup(index, PDFDict);
+    const action = annotation.lookup(PDFName.of("A"), PDFDict);
+    return action.get(PDFName.of("URI")).decodeText();
+  });
+}
+
 async function sourceDocument(pageCount = 2) {
   const pdf = await PDFDocument.create();
   const font = await pdf.embedFont(StandardFonts.Helvetica);
@@ -54,7 +63,7 @@ function manifestFor(source, pageCount = 2, infrastructure = "ICP-Brasil") {
   });
 }
 
-test("acrescenta pagina de evidencias e carimba todas as paginas antes do PAdES", async () => {
+test("acrescenta evidências, registra apenas páginas de conteúdo e vincula o VALIDAR ITI", async () => {
   const source = await sourceDocument();
   assert.deepEqual(await inspectUnsignedPdf(source), { pageCount: 2 });
   const manifest = manifestFor(source);
@@ -74,18 +83,24 @@ test("acrescenta pagina de evidencias e carimba todas as paginas antes do PAdES"
   assert.deepEqual(PAGE_MARGINS, { top: 85.04, right: 56.69, bottom: 56.69, left: 85.04 });
   assert.equal(SIGNATURE_FRAME.left, PAGE_MARGINS.left);
   assert.ok(Math.abs(SIGNATURE_FRAME.width - (595.28 - PAGE_MARGINS.left - PAGE_MARGINS.right)) < 1e-9);
-  for (const page of composed.getPages()) {
-    const xObjects = page.node.Resources().lookup(PDFName.of("XObject"), PDFDict);
-    assert.ok(xObjects.keys().length >= 1, "cada página deve conter o micro logo marginal");
+  for (const contentPage of composed.getPages().slice(0, -1)) {
+    const xObjects = contentPage.node.Resources().lookup(PDFName.of("XObject"), PDFDict);
+    assert.equal(xObjects.keys().length, 1, "cada página original deve conter somente o micro logo marginal");
   }
   const evidence = composed.getPage(2);
   const evidenceImages = evidence.node.Resources().lookup(PDFName.of("XObject"), PDFDict);
-  assert.ok(evidenceImages.keys().length >= 5, "a folha ICP deve conter marca, QR, Code128, fundo PAdES e logo ICP-Brasil");
+  assert.equal(evidenceImages.keys().length, 4, "a folha ICP deve conter QR, Code128, fundo de segurança e logo ICP-Brasil");
   const annotations = evidence.node.lookup(PDFName.of("Annots"), PDFArray);
-  assert.equal(annotations.size(), 2, "QR e bloco textual devem ser links completos");
+  assert.equal(annotations.size(), 3, "QR, bloco textual e VALIDAR ITI devem ser links completos");
+  assert.deepEqual(annotationUris(evidence).sort(), [
+    "https://assinatura.maiocchi.adv.br/v/MAI-2026-1111-2222-3333-4444",
+    "https://assinatura.maiocchi.adv.br/v/MAI-2026-1111-2222-3333-4444",
+    "https://validar.iti.gov.br/",
+  ].sort());
   assert.match(result.verificationUrl, /\/v\/MAI-2026-1111-2222-3333-4444$/);
   assert.equal(result.barcodeValue, "MAI|MAI-2026-1111-2222-3333-4444|R1");
   assert.equal(result.icpBrasilSealIncluded, true);
+  assert.equal(result.itiValidatorUrl, "https://validar.iti.gov.br/");
   assert.equal(isIcpBrasilSignature(manifest.signature), true);
   assert.equal(composed.getTitle(), "relatorio");
   assert.match(composed.getSubject(), /ICP-Brasil/);
@@ -120,7 +135,10 @@ test("omite sinais ICP-Brasil quando a modalidade não é ICP-Brasil", async () 
   assert.equal(manifest.signature.policyOid, null);
   assert.equal(manifest.signature.optionalAttributes, null);
   assert.doesNotMatch(composed.getSubject(), /ICP-Brasil/);
-  assert.equal(evidenceImages.keys().length, 3, "modalidade não ICP deve conter somente marca, QR e Code128");
+  assert.equal(evidenceImages.keys().length, 2, "modalidade não ICP deve conter somente QR e Code128");
+  assert.equal(evidence.node.lookup(PDFName.of("Annots"), PDFArray).size(), 2);
+  assert.equal(result.itiValidatorUrl, null);
+  assert.doesNotMatch(annotationUris(evidence).join(" "), /validar[.]iti[.]gov[.]br/);
 });
 
 test("recusa PDF que já contém ByteRange de assinatura", async () => {

@@ -9,18 +9,40 @@ plist="$launch_agents/br.adv.maiocchi.pades-agent.plist"
 binary="$install_dir/maiocchi-pades-agent"
 
 cd "$project_dir"
-swift build -c release
-mkdir -p "$install_dir" "$launch_agents" "$logs"
-install -m 0755 .build/release/maiocchi-pades-agent "$binary"
+"$project_dir/scripts/preflight-macos.sh" --require-m5-max
+swift package resolve
+swift build -c release --arch arm64
+bin_dir=$(swift build -c release --arch arm64 --show-bin-path)
+install -d -m 0700 "$install_dir" "$logs"
+install -d -m 0755 "$launch_agents"
+install -m 0755 "$bin_dir/maiocchi-pades-agent" "$binary"
 codesign --force --sign - --identifier br.adv.maiocchi.pades-agent "$binary"
-install -m 0644 Resources/br.adv.maiocchi.pades-agent.plist "$plist"
+codesign --verify --strict "$binary"
+case "$(file "$binary")" in
+  *"Mach-O 64-bit executable arm64"*) ;;
+  *)
+    echo "A compilação não gerou um binário Mach-O arm64." >&2
+    exit 1
+    ;;
+esac
+install -m 0600 Resources/br.adv.maiocchi.pades-agent.plist "$plist"
 /usr/libexec/PlistBuddy -c "Set :ProgramArguments:0 $binary" "$plist"
 /usr/libexec/PlistBuddy -c "Set :StandardOutPath $logs/agent.log" "$plist"
 /usr/libexec/PlistBuddy -c "Set :StandardErrorPath $logs/agent-error.log" "$plist"
+touch "$logs/agent.log" "$logs/agent-error.log"
+chmod 0600 "$logs/agent.log" "$logs/agent-error.log"
 plutil -lint "$plist"
 
 launchctl bootout "gui/$(id -u)/br.adv.maiocchi.pades-agent" 2>/dev/null || true
-launchctl bootstrap "gui/$(id -u)" "$plist"
+bootstrap_attempt=0
+until launchctl bootstrap "gui/$(id -u)" "$plist"; do
+  bootstrap_attempt=$((bootstrap_attempt + 1))
+  if [ "$bootstrap_attempt" -ge 8 ]; then
+    echo "O LaunchAgent não pôde ser carregado após a substituição controlada." >&2
+    exit 1
+  fi
+  sleep 0.25
+done
 launchctl enable "gui/$(id -u)/br.adv.maiocchi.pades-agent"
 launchctl kickstart -k "gui/$(id -u)/br.adv.maiocchi.pades-agent"
 
@@ -36,3 +58,5 @@ until curl --fail --silent \
   fi
   sleep 0.25
 done
+
+"$project_dir/scripts/preflight-macos.sh" --require-m5-max --require-agent --require-token

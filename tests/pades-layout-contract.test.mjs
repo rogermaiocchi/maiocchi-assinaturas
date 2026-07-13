@@ -20,11 +20,11 @@ function javaNumber(source, name) {
 }
 
 test("mantém uma única geometria entre renderer, editor e provider PAdES", async () => {
-  const [editor, renderer, fingerprintIcon, javaProvider] = await Promise.all([
+  const [editor, renderer, javaProvider, securityBackground] = await Promise.all([
     readFile(new URL("tools/pades-visual-editor/main.tsx", repositoryRoot), "utf8"),
     readFile(new URL("services/pki-bridge/src/pades-evidence.mjs", repositoryRoot), "utf8"),
-    import(new URL("services/pki-bridge/src/fingerprint-pattern-icon.mjs", repositoryRoot)),
     readFile(new URL("services/pades-provider/src/main/java/br/adv/maiocchi/pades/PadesEngine.java", repositoryRoot), "utf8"),
+    readFile(new URL("tools/pades-visual-editor/assets/pades-security-seal-background.svg", repositoryRoot), "utf8"),
   ]);
 
   assert.deepEqual(A4, { width: 595.28, height: 841.89 });
@@ -35,16 +35,24 @@ test("mantém uma única geometria entre renderer, editor e provider PAdES", asy
   assert.equal(Math.round(A4.height * EDITOR_SCALE), 1123);
 
   assert.match(editor, /pades-evidence-layout\.mjs/);
-  assert.match(editor, /maiocchi-pades-layout-v4/);
+  assert.match(editor, /maiocchi-pades-layout-v5/);
   assert.match(editor, /icpBrasilCredentialIncluded: icpBrasil/);
-  assert.match(editor, /Fingerprint as FingerprintPattern/);
-  assert.match(editor, /<FingerprintPattern aria-hidden="true"/);
+  assert.doesNotMatch(editor, /FingerprintPattern/);
+  assert.doesNotMatch(editor, /margin-verification/);
+  assert.match(editor, /seal-icp-mark/);
+  assert.match(editor, /https:\/\/validar[.]iti[.]gov[.]br\//);
   assert.doesNotMatch(editor, /Resumo visual da assinatura/);
-  assert.match(renderer, /drawFingerprintPattern/);
+  assert.doesNotMatch(renderer, /drawFingerprintPattern/);
+  assert.match(renderer, /drawContentRegistry\(originalPage\)/);
+  assert.doesNotMatch(renderer, /drawContentRegistry\(page\)/);
+  assert.match(renderer, /drawTopRule\(originalPage\)/);
+  assert.match(renderer, /drawTopRule\(page\)/);
+  assert.match(renderer, /Validação externa: validar[.]iti[.]gov[.]br/);
+  assert.doesNotMatch(renderer, /FUNDAMENTO JURÍDICO/);
+  assert.doesNotMatch(editor, />Fundamento jurídico</);
   assert.doesNotMatch(renderer, /RESUMO VISUAL DA ASSINATURA/);
-  assert.equal(fingerprintIcon.FINGERPRINT_PATTERN_SOURCE, "https://lucide.dev/icons/fingerprint-pattern");
-  assert.equal(fingerprintIcon.FINGERPRINT_PATTERN_VIEWBOX, 24);
-  assert.equal(fingerprintIcon.FINGERPRINT_PATTERN_PATHS.length, 9);
+  assert.doesNotMatch(securityBackground, /PERFIL TÉCNICO/);
+  assert.doesNotMatch(securityBackground, /font-size="116"[^>]*>PAdES</);
 
   assert.equal(javaNumber(javaProvider, "VISIBLE_SIGNATURE_X"), SIGNATURE_BOX.left);
   assert.equal(javaNumber(javaProvider, "VISIBLE_SIGNATURE_BOTTOM"), SIGNATURE_BOX.bottom);

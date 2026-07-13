@@ -8,6 +8,8 @@ const editorDirectory = path.resolve(scriptDirectory, "..");
 const sourceSvgPath = path.join(editorDirectory, "assets", "pades-security-seal-background.svg");
 const publicSvgPath = path.join(editorDirectory, "public", "assets", "pades-security-seal-background.svg");
 const outputPath = path.join(editorDirectory, "public", "assets", "pades-security-seal-4k.png");
+const rendererOutputPath = path.resolve(editorDirectory, "../../services/pki-bridge/assets/pades-security-seal.png");
+const icpLogoPath = path.join(editorDirectory, "public", "assets", "icp-brasil-oficial.png");
 const previewPath = path.join(editorDirectory, "output", "pades-security-seal-composite.png");
 
 const canvas = { width: 4096, height: 835 };
@@ -46,12 +48,20 @@ const background = await sharp(Buffer.from(sourceSvg), { density: 288 })
   .resize(canvas.width, canvas.height, { fit: "fill" })
   .png({ compressionLevel: 9 })
   .toBuffer();
+const previewIcpLogo = await sharp(await fs.readFile(icpLogoPath))
+  .resize({ width: 680 })
+  .png({ compressionLevel: 9 })
+  .toBuffer();
 
 await Promise.all([
   fs.writeFile(outputPath, background),
+  fs.writeFile(rendererOutputPath, background),
   fs.copyFile(sourceSvgPath, publicSvgPath),
   sharp(background)
-    .composite([{ input: buildPreviewOverlay(), left: 0, top: 0 }])
+    .composite([
+      { input: buildPreviewOverlay(), left: 0, top: 0 },
+      { input: previewIcpLogo, left: 3268, top: 303 },
+    ])
     .flatten({ background: "#ffffff" })
     .png({ compressionLevel: 9 })
     .toFile(previewPath),

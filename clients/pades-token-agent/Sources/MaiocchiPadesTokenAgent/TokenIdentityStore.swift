@@ -62,9 +62,12 @@ final class TokenIdentityStore: @unchecked Sendable {
               SecIdentityCopyPrivateKey(identity, &keyRef) == errSecSuccess,
               let certificate = certificateRef,
               let privateKey = keyRef,
+              let attributes = SecKeyCopyAttributes(privateKey) as? [CFString: Any],
+              TokenKeyEvidence(attributes: attributes).isEligibleExternalTokenKey,
               SecKeyIsAlgorithmSupported(privateKey, .sign, .rsaSignatureMessagePKCS1v15SHA256) else {
             return nil
         }
+        let evidence = TokenKeyEvidence(attributes: attributes)
         let der = SecCertificateCopyData(certificate) as Data
         let fingerprint = SHA256.hash(data: der).map { String(format: "%02x", $0) }.joined()
         let subject = SecCertificateCopySubjectSummary(certificate) as String? ?? "Certificado sem nome"
@@ -73,7 +76,11 @@ final class TokenIdentityStore: @unchecked Sendable {
             subject: subject,
             certificateBase64: der.base64EncodedString(),
             chainBase64: certificateChain(for: certificate),
-            keyAlgorithm: "RSA"
+            keyAlgorithm: "RSA",
+            keySizeInBits: evidence.keySizeInBits,
+            tokenBacked: true,
+            keyOrigin: "CryptoTokenKit",
+            trustClassification: "external-token-unverified"
         )
         return TokenIdentity(identity: identity, certificate: certificate, privateKey: privateKey, descriptor: descriptor)
     }
