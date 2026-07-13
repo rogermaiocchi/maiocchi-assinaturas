@@ -10,6 +10,7 @@ import {
   ArrowRight,
   ArrowUp,
   Download,
+  Fingerprint as FingerprintPattern,
   Grid3X3,
   Maximize2,
   MousePointer2,
@@ -55,7 +56,7 @@ const labels: Record<string, string> = {
   pqc: "Atestado pós-quântico",
   validation: "Validação",
   barcode: "Código de barras",
-  seal: "Resumo visual da assinatura",
+  seal: "Assinatura",
   legal: "Fundamento jurídico",
   footer: "Rodapé",
 };
@@ -167,7 +168,10 @@ function DocumentCanvas({
 
       <Block {...props("header", "header-block")}>
         <div className="header-brand-row">
-          <span className="header-record">Evidências da assinatura digital</span>
+          <span className="header-record">
+            <FingerprintPattern aria-hidden="true" size={14} strokeWidth={1.8} />
+            <span>Evidências da assinatura digital</span>
+          </span>
           <span className={icpBrasil ? "header-mode is-icp" : "header-mode"}>
             Modalidade · {icpBrasil ? "ICP-Brasil" : "assinatura eletrônica"}
           </span>
@@ -244,7 +248,6 @@ function DocumentCanvas({
       </Block>
 
       <Block {...props("seal", "seal-block")}>
-        <span className="seal-heading">Resumo visual da assinatura · confira pelo QR ou código</span>
         <SecuritySeal icpBrasil={icpBrasil} />
       </Block>
 

@@ -55,6 +55,8 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 - A fotografia institucional no hero usa sombra direcional e degradê inferior para fusão com o fundo da página; a imagem tecnológica de assinatura é reaproveitada em bloco funcional contextual, nunca como decoração desconectada.
 - Profundidade e movimento usam apenas transformações CSS leves, com desativação integral em `prefers-reduced-motion`.
 - Ícones Lucide acompanham rótulos textuais em ações e navegação. Ícones decorativos permanecem ocultos da árvore de acessibilidade.
+- A folha final usa o ícone oficial Lucide `fingerprint-pattern`, em traço vetorial, imediatamente antes de “Evidências da assinatura digital”. A geometria canônica é registrada em `services/pki-bridge/src/fingerprint-pattern-icon.mjs` e compartilhada por contrato com o laboratório visual; fonte: `https://lucide.dev/icons/fingerprint-pattern`.
+- O campo gráfico da assinatura não exibe os rótulos redundantes “Resumo visual da assinatura” ou “Resumo visual da assinatura · confira pelo QR ou código”. A identificação operacional desse bloco é somente “Assinatura”, sem alteração de geometria, conteúdo criptográfico ou estado de confiança.
 - Controles têm alvo mínimo de 44 por 44 pixels, foco visível e ordem de teclado verificável.
 - A largura móvel usa a viewport disponível com margem lateral de 16 pixels; não se fixa conteúdo em uma coluna artificialmente estreita.
 - O aceite visual exige screenshots em 1440 por 900, 820 por 1180 e 390 por 844, sem sobreposição, corte, overflow horizontal ou texto fora do contêiner; o hero deve deixar visível o início da próxima seção.

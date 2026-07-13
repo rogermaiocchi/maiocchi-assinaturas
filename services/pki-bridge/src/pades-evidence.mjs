@@ -1,10 +1,14 @@
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import fontkit from "@pdf-lib/fontkit";
-import { PDFDocument, PDFName, PDFString, degrees, rgb } from "pdf-lib";
+import { LineCapStyle, PDFDocument, PDFName, PDFString, degrees, rgb } from "pdf-lib";
 import bwipjs from "bwip-js";
 import QRCode from "qrcode";
 import { assertPublicId } from "./authenticity-contract.mjs";
+import {
+  FINGERPRINT_PATTERN_PATHS,
+  FINGERPRINT_PATTERN_VIEWBOX,
+} from "./fingerprint-pattern-icon.mjs";
 import {
   A4,
   BODY,
@@ -112,6 +116,20 @@ function rect(block) {
 
 function baseline(top) {
   return A4.height - top;
+}
+
+function drawFingerprintPattern(page, { x, top, size, color }) {
+  const scale = size / FINGERPRINT_PATTERN_VIEWBOX;
+  for (const path of FINGERPRINT_PATTERN_PATHS) {
+    page.drawSvgPath(path, {
+      x,
+      y: baseline(top),
+      scale,
+      borderColor: color,
+      borderWidth: 2 * scale,
+      borderLineCap: LineCapStyle.Round,
+    });
+  }
 }
 
 function drawLabelValue(page, fonts, label, value, x, top, width, valueSize = TYPOGRAPHY.value) {
@@ -291,8 +309,15 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
   const page = document.addPage([A4.width, A4.height]);
   page.drawRectangle({ x: 0, y: A4.height - 6, width: A4.width, height: 6, color: GOLD });
 
-  page.drawText("EVIDÊNCIAS DA ASSINATURA DIGITAL", {
+  const evidenceHeaderIconSize = 13;
+  drawFingerprintPattern(page, {
     x: EVIDENCE_BLOCKS.header.left,
+    top: EVIDENCE_BLOCKS.header.top + 2,
+    size: evidenceHeaderIconSize,
+    color: MUTED,
+  });
+  page.drawText("EVIDÊNCIAS DA ASSINATURA DIGITAL", {
+    x: EVIDENCE_BLOCKS.header.left + evidenceHeaderIconSize + 6,
     y: baseline(EVIDENCE_BLOCKS.header.top + 15),
     font: fonts.bold,
     size: 8.2,
@@ -492,13 +517,6 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
     color: MUTED,
   });
 
-  page.drawText("RESUMO VISUAL DA ASSINATURA · CONFIRA PELO QR OU CÓDIGO", {
-    x: BODY.left,
-    y: baseline(EVIDENCE_BLOCKS.seal.top - 2),
-    font: fonts.bold,
-    size: 8,
-    color: MUTED,
-  });
   const signatureFrameRect = {
     x: SIGNATURE_FRAME.left,
     y: SIGNATURE_FRAME.bottom,

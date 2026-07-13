@@ -18,6 +18,8 @@ isso a composição visual corresponde ao PDF preparado para assinatura.
 ## Ativos
 
 - folha A4: margens de 3 cm no topo e à esquerda, e 2 cm na base e à direita.
+- cabeçalho: ícone vetorial Lucide `fingerprint-pattern` imediatamente antes de
+  “Evidências da assinatura digital”, com a mesma geometria no editor e no PDF.
 - credencial ICP-Brasil: fundo de segurança sem marca institucional, com dados
   da assinatura alinhados à esquerda; só aparece no modo ICP-Brasil.
 - modalidade não ICP-Brasil: quadro neutro, sem logo oficial, medalhão PAdES ou
@@ -25,6 +27,8 @@ isso a composição visual corresponde ao PDF preparado para assinatura.
 - `PAdES AD-RB`: medalhão técnico reto, em azul-cobalto com filetes dourados,
   integrado às rosetas de passaporte na extremidade direita.
 - selo: SVG-fonte e PNG `4096x835`, proporção do campo PAdES `453,55x92` pontos.
+- o campo da assinatura não recebe título externo; os rótulos redundantes de
+  “Resumo visual da assinatura” foram removidos do editor e do renderer.
 - QR e Code 128: amostras do contrato canônico `/v/:publicId` e
   `MAI|<publicId>|R1`.
 
