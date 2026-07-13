@@ -100,6 +100,7 @@ test("acrescenta evidências, registra apenas páginas de conteúdo e vincula o 
   assert.match(result.verificationUrl, /\/v\/MAI-2026-1111-2222-3333-4444$/);
   assert.equal(result.barcodeValue, "MAI|MAI-2026-1111-2222-3333-4444|R1");
   assert.equal(result.icpBrasilSealIncluded, true);
+  assert.equal(result.visualSealMark, "ICP-Brasil");
   assert.equal(result.itiValidatorUrl, "https://validar.iti.gov.br/");
   assert.equal(isIcpBrasilSignature(manifest.signature), true);
   assert.equal(composed.getTitle(), "relatorio");
@@ -119,26 +120,29 @@ test("acrescenta evidências, registra apenas páginas de conteúdo e vincula o 
   assert.doesNotMatch(manifest.purpose, /⚖/u);
 });
 
-test("omite sinais ICP-Brasil quando a modalidade não é ICP-Brasil", async () => {
-  const source = await sourceDocument(1);
-  const manifest = manifestFor(source, 1, "Assinatura eletrônica avançada");
-  const attestation = {
-    algorithm: "ML-DSA-65", keyId: "ml-dsa-65-test",
-    code: "PQC-MLDSA65-1111-2222-3333-4444", manifestSha256: sha256(JSON.stringify(manifest)),
-  };
-  const result = await composePadesEvidence({ sourcePdf: source, manifest, attestation });
-  const composed = await PDFDocument.load(result.presentation);
-  const evidence = composed.getPage(1);
-  const evidenceImages = evidence.node.Resources().lookup(PDFName.of("XObject"), PDFDict);
-  assert.equal(result.icpBrasilSealIncluded, false);
-  assert.equal(isIcpBrasilSignature(manifest.signature), false);
-  assert.equal(manifest.signature.policyOid, null);
-  assert.equal(manifest.signature.optionalAttributes, null);
-  assert.doesNotMatch(composed.getSubject(), /ICP-Brasil/);
-  assert.equal(evidenceImages.keys().length, 2, "modalidade não ICP deve conter somente QR e Code128");
-  assert.equal(evidence.node.lookup(PDFName.of("Annots"), PDFArray).size(), 2);
-  assert.equal(result.itiValidatorUrl, null);
-  assert.doesNotMatch(annotationUris(evidence).join(" "), /validar[.]iti[.]gov[.]br/);
+test("usa marca PAdES e omite sinais ICP-Brasil nas modalidades simples e avançada", async () => {
+  for (const infrastructure of ["Assinatura eletrônica simples", "Assinatura eletrônica avançada"]) {
+    const source = await sourceDocument(1);
+    const manifest = manifestFor(source, 1, infrastructure);
+    const attestation = {
+      algorithm: "ML-DSA-65", keyId: "ml-dsa-65-test",
+      code: "PQC-MLDSA65-1111-2222-3333-4444", manifestSha256: sha256(JSON.stringify(manifest)),
+    };
+    const result = await composePadesEvidence({ sourcePdf: source, manifest, attestation });
+    const composed = await PDFDocument.load(result.presentation);
+    const evidence = composed.getPage(1);
+    const evidenceImages = evidence.node.Resources().lookup(PDFName.of("XObject"), PDFDict);
+    assert.equal(result.icpBrasilSealIncluded, false);
+    assert.equal(result.visualSealMark, "PAdES");
+    assert.equal(isIcpBrasilSignature(manifest.signature), false);
+    assert.equal(manifest.signature.policyOid, null);
+    assert.equal(manifest.signature.optionalAttributes, null);
+    assert.doesNotMatch(composed.getSubject(), /ICP-Brasil/);
+    assert.equal(evidenceImages.keys().length, 3, "modalidade não ICP deve conter QR, Code128 e fundo de segurança");
+    assert.equal(evidence.node.lookup(PDFName.of("Annots"), PDFArray).size(), 2);
+    assert.equal(result.itiValidatorUrl, null);
+    assert.doesNotMatch(annotationUris(evidence).join(" "), /validar[.]iti[.]gov[.]br/);
+  }
 });
 
 test("recusa PDF que já contém ByteRange de assinatura", async () => {

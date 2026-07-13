@@ -17,7 +17,7 @@ Arquitetura e gates: [`docs/architecture/private-pades-provider.md`](../../docs/
 - Webhook `submission.completed` normalizado e identificado por hash idempotente.
 - Máquina de estados que impede conclusão fora de ordem.
 - Registro externo do SHA-256 do PDF final já assinado.
-- Página final de evidências incorporada antes do PAdES, com identidade, número, hash da entrada, QR, Code 128, metadados e área reservada ao signatário. Marca oficial e fundo visual ICP-Brasil são incluídos somente quando o manifesto declara infraestrutura `ICP-Brasil`; outras modalidades recebem composição neutra.
+- Página final de evidências incorporada antes do PAdES, com identidade, número, hash da entrada, QR, Code 128, metadados e área reservada ao signatário. O cabeçalho mantém o título à esquerda e a modalidade à direita. A marca oficial ICP-Brasil é incluída somente quando o manifesto declara infraestrutura `ICP-Brasil`; assinaturas simples e avançadas recebem, na mesma área do selo, a marca tipográfica PAdES sem alegação ICP-Brasil.
 - Carimbo discreto em todas as páginas com `m.`, código de verificação, domínio e paginação final.
 - Atestado ML-DSA-65 do manifesto pré-assinatura, com chave pública publicada e código `PQC-MLDSA65-*`.
 - Segundo atestado ML-DSA-65 externo, emitido após a conclusão, cobre o hash do PDF PAdES final e o hash do relatório de validação.

@@ -20,11 +20,13 @@ function javaNumber(source, name) {
 }
 
 test("mantém uma única geometria entre renderer, editor e provider PAdES", async () => {
-  const [editor, renderer, javaProvider, securityBackground] = await Promise.all([
+  const [editor, renderer, javaProvider, securityBackground, rendererSeal, editorSeal] = await Promise.all([
     readFile(new URL("tools/pades-visual-editor/main.tsx", repositoryRoot), "utf8"),
     readFile(new URL("services/pki-bridge/src/pades-evidence.mjs", repositoryRoot), "utf8"),
     readFile(new URL("services/pades-provider/src/main/java/br/adv/maiocchi/pades/PadesEngine.java", repositoryRoot), "utf8"),
     readFile(new URL("tools/pades-visual-editor/assets/pades-security-seal-background.svg", repositoryRoot), "utf8"),
+    readFile(new URL("services/pki-bridge/assets/pades-security-seal.png", repositoryRoot)),
+    readFile(new URL("tools/pades-visual-editor/public/assets/pades-security-seal-4k.png", repositoryRoot)),
   ]);
 
   assert.deepEqual(A4, { width: 595.28, height: 841.89 });
@@ -40,6 +42,7 @@ test("mantém uma única geometria entre renderer, editor e provider PAdES", asy
   assert.doesNotMatch(editor, /FingerprintPattern/);
   assert.doesNotMatch(editor, /margin-verification/);
   assert.match(editor, /seal-icp-mark/);
+  assert.match(editor, /seal-pades-mark/);
   assert.match(editor, /https:\/\/validar[.]iti[.]gov[.]br\//);
   assert.doesNotMatch(editor, /Resumo visual da assinatura/);
   assert.doesNotMatch(renderer, /drawFingerprintPattern/);
@@ -47,13 +50,22 @@ test("mantém uma única geometria entre renderer, editor e provider PAdES", asy
   assert.doesNotMatch(renderer, /drawContentRegistry\(page\)/);
   assert.match(renderer, /drawTopRule\(originalPage\)/);
   assert.match(renderer, /drawTopRule\(page\)/);
+  assert.match(renderer, /page[.]drawRectangle\(\{ x: 0, y: 0, width: A4[.]width, height: A4[.]height, color: rgb\(1, 1, 1\) \}\)/);
   assert.match(renderer, /Validação externa: validar[.]iti[.]gov[.]br/);
+  assert.match(renderer, /function drawPadesMark/);
+  assert.match(renderer, /visualSealMark: icpBrasil \? "ICP-Brasil" : "PAdES"/);
   assert.doesNotMatch(renderer, /FUNDAMENTO JURÍDICO/);
-  assert.doesNotMatch(editor, />Fundamento jurídico</);
+  assert.doesNotMatch(editor, /Fundamento jurídico/);
   assert.doesNotMatch(renderer, /RESUMO VISUAL DA ASSINATURA/);
   assert.doesNotMatch(securityBackground, /PERFIL TÉCNICO/);
   assert.doesNotMatch(securityBackground, /font-size="116"[^>]*>PAdES</);
+  assert.equal(rendererSeal[25], 2, "o PNG do selo deve ser RGB sem canal alfa");
+  assert.deepEqual(rendererSeal, editorSeal, "renderer e laboratório devem usar o mesmo bitmap do selo");
 
+  assert.match(javaProvider, /renderVisibleSignature/);
+  assert.match(javaProvider, /assinatura-visual-icp-brasil[.]png/);
+  assert.match(javaProvider, /VISIBLE_SIGNATURE_IMAGE_WIDTH/);
+  assert.doesNotMatch(javaProvider, /setBackgroundColor\(Color[.]WHITE\)/);
   assert.equal(javaNumber(javaProvider, "VISIBLE_SIGNATURE_X"), SIGNATURE_BOX.left);
   assert.equal(javaNumber(javaProvider, "VISIBLE_SIGNATURE_BOTTOM"), SIGNATURE_BOX.bottom);
   assert.equal(javaNumber(javaProvider, "VISIBLE_SIGNATURE_WIDTH"), SIGNATURE_BOX.width);

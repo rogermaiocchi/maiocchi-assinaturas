@@ -38,10 +38,11 @@ nativas, isolamento em loopback e cerimônia serial para evitar contenção do A
 - [x] Remover estritamente “Resumo visual da assinatura · confira pelo QR ou código”.
 - [x] Preservar geometria, sinais físicos e conteúdo restante.
 - [x] Remover o ícone Lucide de “Evidências da assinatura digital”.
-- [x] Reservar a marca ICP-Brasil ao selo qualificado e omiti-la no modelo neutro.
+- [x] Reservar a marca ICP-Brasil ao selo qualificado; usar marca PAdES, sem alegação ICP, nos modelos simples e avançado.
 - [x] Remover o registro lateral da última página e enriquecê-lo nas originais.
 - [x] Aplicar a linha dourada superior em todas as páginas.
 - [x] Validar primeira e última páginas do PDF em imagem.
+- [x] Fazer a aparência dinâmica do provider preservar o fundo de segurança e reproduzir os dados do laboratório.
 
 Aceite: as duas frases têm zero ocorrências no texto extraído e a página final
 mantém os demais blocos sem corte ou sobreposição.

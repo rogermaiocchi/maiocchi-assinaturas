@@ -132,6 +132,39 @@ function drawAttributeSignal(page, fonts, { label, value, top, color }) {
   });
 }
 
+function drawPadesMark(page, fonts) {
+  const markWidth = 86;
+  const markX = SIGNATURE_FRAME.left + SIGNATURE_FRAME.width - 103;
+  const label = "PAdES";
+  const labelSize = 22;
+  const labelWidth = fonts.bold.widthOfTextAtSize(label, labelSize);
+  const subtitle = "PDF SIGNATURE";
+  const subtitleSize = 6.2;
+  const subtitleWidth = fonts.bold.widthOfTextAtSize(subtitle, subtitleSize);
+
+  page.drawText(label, {
+    x: markX + (markWidth - labelWidth) / 2,
+    y: SIGNATURE_FRAME.bottom + 43,
+    font: fonts.bold,
+    size: labelSize,
+    color: BLUE,
+  });
+  page.drawRectangle({
+    x: markX + 8,
+    y: SIGNATURE_FRAME.bottom + 36,
+    width: markWidth - 16,
+    height: 1.5,
+    color: GOLD,
+  });
+  page.drawText(subtitle, {
+    x: markX + (markWidth - subtitleWidth) / 2,
+    y: SIGNATURE_FRAME.bottom + 25,
+    font: fonts.bold,
+    size: subtitleSize,
+    color: MUTED,
+  });
+}
+
 function splitHash(value) {
   return value.match(/.{1,32}/g) || [];
 }
@@ -241,12 +274,10 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
   const document = await PDFDocument.load(sourcePdf, { updateMetadata: false });
   const fonts = await embeddedFonts(document);
   const maiocchiMark = await document.embedPng(await readFile(MAIOCCHI_MARK_PATH));
-  const [icpLogo, securitySeal] = icpBrasil
-    ? await Promise.all([
-      document.embedPng(await readFile(ICP_LOGO_PATH)),
-      document.embedPng(await readFile(SECURITY_SEAL_PATH)),
-    ])
-    : [null, null];
+  const securitySeal = await document.embedPng(await readFile(SECURITY_SEAL_PATH));
+  const icpLogo = icpBrasil
+    ? await document.embedPng(await readFile(ICP_LOGO_PATH))
+    : null;
   const qr = await document.embedPng(await QRCode.toBuffer(verificationUrl, {
     type: "png", width: 600, margin: 4, errorCorrectionLevel: "H",
   }));
@@ -320,19 +351,26 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
   });
 
   const page = document.addPage([A4.width, A4.height]);
+  page.drawRectangle({ x: 0, y: 0, width: A4.width, height: A4.height, color: rgb(1, 1, 1) });
   drawTopRule(page);
-  page.drawText("EVIDÊNCIAS DA ASSINATURA DIGITAL", {
+  const evidenceHeader = "EVIDÊNCIAS DA ASSINATURA DIGITAL";
+  const modalityHeader = icpBrasil
+    ? "MODALIDADE · ICP-BRASIL"
+    : `MODALIDADE · ${manifest.signature.infrastructure.toUpperCase()}`;
+  const fittedModalityHeader = fitValue(fonts.regular, modalityHeader, 8, EVIDENCE_BLOCKS.header.width / 2, 6.8);
+  page.drawText(evidenceHeader, {
     x: EVIDENCE_BLOCKS.header.left,
     y: baseline(EVIDENCE_BLOCKS.header.top + 15),
     font: fonts.bold,
     size: 8.2,
     color: MUTED,
   });
-  page.drawText(icpBrasil ? "MODALIDADE · ICP-BRASIL" : `MODALIDADE · ${manifest.signature.infrastructure.toUpperCase()}`, {
-    x: EVIDENCE_BLOCKS.header.left,
-    y: baseline(EVIDENCE_BLOCKS.header.top + 30),
+  page.drawText(fittedModalityHeader.text, {
+    x: EVIDENCE_BLOCKS.header.left + EVIDENCE_BLOCKS.header.width
+      - fonts.regular.widthOfTextAtSize(fittedModalityHeader.text, fittedModalityHeader.size),
+    y: baseline(EVIDENCE_BLOCKS.header.top + 15),
     font: fonts.regular,
-    size: 8,
+    size: fittedModalityHeader.size,
     color: icpBrasil ? GREEN : MUTED,
   });
 
@@ -528,8 +566,8 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
     width: SIGNATURE_FRAME.width,
     height: SIGNATURE_FRAME.height,
   };
-  if (securitySeal) {
-    page.drawImage(securitySeal, signatureFrameRect);
+  page.drawImage(securitySeal, signatureFrameRect);
+  if (icpBrasil) {
     page.drawImage(icpLogo, {
       x: SIGNATURE_FRAME.left + SIGNATURE_FRAME.width - 103,
       y: SIGNATURE_FRAME.bottom + 33,
@@ -537,35 +575,7 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
       height: 29,
     });
   } else {
-    page.drawRectangle({ ...signatureFrameRect, color: PALE, borderColor: LINE, borderWidth: 0.7 });
-    page.drawText("ASSINATURA ELETRÔNICA", {
-      x: SIGNATURE_FRAME.left + 15,
-      y: SIGNATURE_FRAME.bottom + 62,
-      font: fonts.bold,
-      size: 8,
-      color: BLUE,
-    });
-    page.drawText("REGISTRO ELETRÔNICO", {
-      x: SIGNATURE_FRAME.left + 15,
-      y: SIGNATURE_FRAME.bottom + 42,
-      font: fonts.bold,
-      size: 13,
-      color: INK,
-    });
-    page.drawText("Identidade e instante: consulte o endereço de validação.", {
-      x: SIGNATURE_FRAME.left + 15,
-      y: SIGNATURE_FRAME.bottom + 26,
-      font: fonts.regular,
-      size: 8,
-      color: MUTED,
-    });
-    page.drawText(manifest.publicId, {
-      x: SIGNATURE_FRAME.left + 15,
-      y: SIGNATURE_FRAME.bottom + 11,
-      font: fonts.bold,
-      size: 8,
-      color: INK,
-    });
+    drawPadesMark(page, fonts);
   }
 
   const legalText = icpBrasil
@@ -632,6 +642,7 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
     signatureFrame: SIGNATURE_FRAME,
     pageMargins: PAGE_MARGINS,
     icpBrasilSealIncluded: icpBrasil,
+    visualSealMark: icpBrasil ? "ICP-Brasil" : "PAdES",
     itiValidatorUrl: icpBrasil ? ITI_VALIDATOR_URL : null,
   };
 }

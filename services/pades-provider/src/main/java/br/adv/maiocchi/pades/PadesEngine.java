@@ -11,10 +11,8 @@ import eu.europa.esig.dss.model.SignatureValue;
 import eu.europa.esig.dss.model.ToBeSigned;
 import eu.europa.esig.dss.model.x509.CertificateToken;
 import eu.europa.esig.dss.pades.PAdESSignatureParameters;
-import eu.europa.esig.dss.pades.DSSJavaFont;
 import eu.europa.esig.dss.pades.SignatureFieldParameters;
 import eu.europa.esig.dss.pades.SignatureImageParameters;
-import eu.europa.esig.dss.pades.SignatureImageTextParameters;
 import eu.europa.esig.dss.pades.signature.PAdESService;
 import eu.europa.esig.dss.service.crl.OnlineCRLSource;
 import eu.europa.esig.dss.service.http.commons.CommonsDataLoader;
@@ -30,6 +28,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.awt.Color;
 import java.awt.Font;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
 import java.security.MessageDigest;
 import java.security.Signature;
 import java.time.Clock;
@@ -47,6 +48,8 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import javax.imageio.ImageIO;
 
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -95,6 +98,12 @@ final class PadesEngine {
     private static final float VISIBLE_SIGNATURE_BOTTOM = 82.89f;
     private static final float VISIBLE_SIGNATURE_WIDTH = 320f;
     private static final float VISIBLE_SIGNATURE_HEIGHT = 66f;
+    private static final int VISIBLE_SIGNATURE_SCALE = 4;
+    private static final int VISIBLE_SIGNATURE_IMAGE_WIDTH = Math.round(VISIBLE_SIGNATURE_WIDTH * VISIBLE_SIGNATURE_SCALE);
+    private static final int VISIBLE_SIGNATURE_IMAGE_HEIGHT = Math.round(VISIBLE_SIGNATURE_HEIGHT * VISIBLE_SIGNATURE_SCALE);
+    private static final Color VISIBLE_SIGNATURE_GREEN = new Color(0, 126, 73);
+    private static final Color VISIBLE_SIGNATURE_INK = new Color(17, 18, 16);
+    private static final Color VISIBLE_SIGNATURE_MUTED = new Color(74, 81, 78);
     private static final Pattern NATIONAL_ID = Pattern.compile("(?<!\\d)(\\d{3}[.]?\\d{3}[.]?\\d{3}-?\\d{2})(?!\\d)");
     private static final DateTimeFormatter VISIBLE_SIGNING_TIME = DateTimeFormatter
             .ofPattern("dd/MM/uuuu HH:mm:ss 'UTC'").withZone(ZoneOffset.UTC);
@@ -210,7 +219,9 @@ final class PadesEngine {
         parameters.setSignerName(signerIdentity.signedBy());
         parameters.setReason(reason);
         parameters.setAppName(ItiPadesAdRbAttributes.APPLICATION_NAME);
-        configureVisibleSignature(parameters, pdf, signerIdentity, now, signerRole, reason, timestampsRequired);
+        String certificateFingerprint = sha256(certificate.getEncoded());
+        configureVisibleSignature(parameters, pdf, signerIdentity, now, signerRole, reason,
+                certificateFingerprint, timestampsRequired);
 
         DSSDocument document = new InMemoryDocument(pdf, safeName(request.name()));
         if (timestampsRequired) {
@@ -226,7 +237,6 @@ final class PadesEngine {
         String id = UUID.randomUUID().toString();
         Instant expiresAt = now.plus(SESSION_TTL);
         String documentSha256 = sha256(pdf);
-        String certificateFingerprint = sha256(certificate.getEncoded());
         Session session = new Session(pdf, safeName(request.name()), certificate, List.copyOf(chain), parameters,
                 tbs, documentSha256, certificateFingerprint, signerIdentity, now, expiresAt);
         sessions.put(id, session);
@@ -406,7 +416,8 @@ final class PadesEngine {
 
     private static void configureVisibleSignature(PAdESSignatureParameters parameters, byte[] pdf,
                                                   SignerIdentity signerIdentity, Instant signingTime,
-                                                  String signerRole, String reason, boolean hasActTimestamps) {
+                                                  String signerRole, String reason, String certificateFingerprint,
+                                                  boolean hasActTimestamps) {
         int page;
         float pageHeight;
         try (PDDocument document = Loader.loadPDF(pdf)) {
@@ -429,29 +440,79 @@ final class PadesEngine {
         field.setWidth(VISIBLE_SIGNATURE_WIDTH);
         field.setHeight(VISIBLE_SIGNATURE_HEIGHT);
 
-        SignatureImageTextParameters text = new SignatureImageTextParameters();
-        text.setFont(new DSSJavaFont(Font.SANS_SERIF, Font.PLAIN, 8));
-        text.setTextColor(new Color(17, 18, 16));
-        text.setBackgroundColor(Color.WHITE);
-        text.setPadding(3f);
-        String signerLine = signerIdentity.signedBy() + (signerIdentity.nationalIdMasked() == null
-                ? "" : " · CPF " + signerIdentity.nationalIdMasked());
-        String actLine = hasActTimestamps
-                ? "ACT: carimbos incorporados"
-                : "ACT: carimbos condicionais não aplicados";
-        text.setText("ASSINATURA DIGITAL ICP-BRASIL · PAdES AD-RB"
-                + "\n" + signerLine
-                + "\n" + VISIBLE_SIGNING_TIME.format(signingTime) + " · certificado A3"
-                + "\nsignerAttr: " + safeMetadata(signerRole, ItiPadesAdRbAttributes.DEFAULT_SIGNER_ROLE, 42)
-                + "\n/Location: " + PDF_LOCATION + " · /Reason: "
-                + safeMetadata(reason, ItiPadesAdRbAttributes.DEFAULT_REASON, 26)
-                + "\nAtributos PAdES incorporados · " + actLine);
-
         SignatureImageParameters image = new SignatureImageParameters();
         image.setFieldParameters(field);
-        image.setBackgroundColor(Color.WHITE);
-        image.setTextParameters(text);
+        image.setImage(new InMemoryDocument(renderVisibleSignature(
+                signerIdentity, signingTime, signerRole, reason, certificateFingerprint, hasActTimestamps),
+                "assinatura-visual-icp-brasil.png"));
+        image.setDpi(288);
         parameters.setImageParameters(image);
+    }
+
+    private static byte[] renderVisibleSignature(SignerIdentity signerIdentity, Instant signingTime,
+                                                 String signerRole, String reason, String certificateFingerprint,
+                                                 boolean hasActTimestamps) {
+        BufferedImage canvas = new BufferedImage(
+                VISIBLE_SIGNATURE_IMAGE_WIDTH, VISIBLE_SIGNATURE_IMAGE_HEIGHT, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D graphics = canvas.createGraphics();
+        try {
+            graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            graphics.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
+
+            int left = 18;
+            int width = VISIBLE_SIGNATURE_IMAGE_WIDTH - 36;
+            String nationalId = signerIdentity.nationalIdMasked() == null
+                    ? "CPF não informado no certificado"
+                    : "CPF " + signerIdentity.nationalIdMasked();
+            String act = hasActTimestamps ? "ACT: carimbos incorporados" : "ACT: condicionais não aplicados";
+            String fingerprint = certificateFingerprint.toUpperCase().replaceAll("(.{8})(?=.)", "$1 ");
+
+            drawFittedLine(graphics, "ASSINATURA QUALIFICADA CONFIRMADA · PAdES AD-RB",
+                    left, 30, width, 25, 18, Font.BOLD, VISIBLE_SIGNATURE_GREEN);
+            drawFittedLine(graphics, safeMetadata(signerIdentity.signedBy(), "Signatário ICP-Brasil", 100).toUpperCase(),
+                    left, 82, width, 42, 24, Font.BOLD, VISIBLE_SIGNATURE_INK);
+            drawFittedLine(graphics, nationalId + " · " + VISIBLE_SIGNING_TIME.format(signingTime),
+                    left, 123, width, 25, 18, Font.PLAIN, VISIBLE_SIGNATURE_INK);
+            drawFittedLine(graphics, "CERTIFICADO A3 · signerAttr: "
+                            + safeMetadata(signerRole, ItiPadesAdRbAttributes.DEFAULT_SIGNER_ROLE, 54),
+                    left, 160, width, 23, 17, Font.PLAIN, VISIBLE_SIGNATURE_MUTED);
+            drawFittedLine(graphics, "/Location: " + PDF_LOCATION + " · /Reason: "
+                            + safeMetadata(reason, ItiPadesAdRbAttributes.DEFAULT_REASON, 54) + " · " + act,
+                    left, 197, width, 21, 15, Font.PLAIN, VISIBLE_SIGNATURE_MUTED);
+            drawFittedLine(graphics, "CERT SHA-256 " + fingerprint,
+                    left, 235, width, 19, 14, Font.PLAIN, VISIBLE_SIGNATURE_MUTED);
+        } finally {
+            graphics.dispose();
+        }
+
+        try (ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            if (!ImageIO.write(canvas, "png", output)) {
+                throw new IOException("Nenhum encoder PNG está disponível.");
+            }
+            return output.toByteArray();
+        } catch (IOException error) {
+            throw new ProviderException(500, "visible_signature_failed",
+                    "Não foi possível construir a aparência visual da assinatura.");
+        }
+    }
+
+    private static void drawFittedLine(Graphics2D graphics, String value, int x, int baseline, int maxWidth,
+                                       int initialSize, int minimumSize, int style, Color color) {
+        int size = initialSize;
+        Font font = new Font(Font.SANS_SERIF, style, size);
+        while (size > minimumSize && graphics.getFontMetrics(font).stringWidth(value) > maxWidth) {
+            font = font.deriveFont((float) --size);
+        }
+        String fitted = value;
+        while (fitted.length() > 1
+                && graphics.getFontMetrics(font).stringWidth(fitted + "...") > maxWidth) {
+            fitted = fitted.substring(0, fitted.length() - 1);
+        }
+        if (!fitted.equals(value)) fitted += "...";
+        graphics.setFont(font);
+        graphics.setColor(color);
+        graphics.drawString(fitted, x, baseline);
     }
 
     private static SignerIdentity signerIdentity(CertificateToken certificate) {

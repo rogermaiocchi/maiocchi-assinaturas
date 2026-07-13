@@ -22,6 +22,8 @@ import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.cos.COSName;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.rendering.PDFRenderer;
 import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotationWidget;
 import org.apache.pdfbox.pdmodel.interactive.form.PDField;
 import org.apache.pdfbox.pdmodel.interactive.form.PDSignatureField;
@@ -29,7 +31,11 @@ import org.bouncycastle.cms.CMSSignedData;
 import org.bouncycastle.cms.SignerInformation;
 
 import java.io.ByteArrayOutputStream;
+import java.awt.Color;
+import java.awt.image.BufferedImage;
 import java.math.BigInteger;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.PrivateKey;
@@ -65,7 +71,8 @@ class PadesEngineTest {
         trust.addCertificate(DSSUtils.loadCertificate(root.getEncoded()));
         PadesEngine engine = new PadesEngine(trust, Clock.fixed(NOW, ZoneOffset.UTC), POLICY, false);
 
-        byte[] pdf = pdf(2);
+        String visualInput = System.getProperty("maiocchi.visualInputPdf");
+        byte[] pdf = visualInput == null ? pdfWithVisibleSignatureBackground(2) : Files.readAllBytes(Path.of(visualInput));
         var prepared = engine.prepare(new PadesEngine.PrepareRequest(
                 Base64.getEncoder().encodeToString(pdf), "contrato.pdf",
                 Base64.getEncoder().encodeToString(signer.getEncoded()),
@@ -84,6 +91,8 @@ class PadesEngineTest {
 
         var completed = engine.complete(prepared.sessionId(), new PadesEngine.CompleteRequest(signature));
         byte[] signedPdf = Base64.getDecoder().decode(completed.signedPdfBase64());
+        String visualOutput = System.getProperty("maiocchi.visualOutputPdf");
+        if (visualOutput != null) Files.write(Path.of(visualOutput), signedPdf);
         assertTrue(new String(signedPdf, 0, 5).startsWith("%PDF-"));
         assertEquals(PadesEngine.sha256(signedPdf), completed.signedPdfSha256());
         assertTrue(completed.validation().cryptographicIntegrity());
@@ -136,7 +145,8 @@ class PadesEngineTest {
             assertEquals(82.89f, widget.getRectangle().getLowerLeftY(), 0.1f);
             assertEquals(320f, widget.getRectangle().getWidth(), 0.1f);
             assertEquals(66f, widget.getRectangle().getHeight(), 0.1f);
-            assertTrue(parsed.getPage(1).getAnnotations().stream()
+            int finalPageIndex = parsed.getNumberOfPages() - 1;
+            assertTrue(parsed.getPage(finalPageIndex).getAnnotations().stream()
                     .anyMatch(annotation -> annotation.getCOSObject() == widget.getCOSObject()),
                     "O campo visual deve ficar na última página.");
             assertFalse(parsed.getPage(0).getAnnotations().stream()
@@ -144,6 +154,12 @@ class PadesEngineTest {
                     "A primeira página não deve receber o campo visual.");
             assertNotNull(widget.getAppearance());
             assertNotNull(widget.getAppearance().getNormalAppearance());
+            if (visualInput == null) {
+                BufferedImage rendered = new PDFRenderer(parsed).renderImageWithDPI(finalPageIndex, 72);
+                Color preservedBackground = new Color(rendered.getRGB(107, rendered.getHeight() - 85));
+                assertTrue(preservedBackground.getRed() < 220 && preservedBackground.getBlue() > 200,
+                        "A aparência dinâmica deve preservar o fundo existente sob o campo de assinatura.");
+            }
         }
         ProviderException replay = assertThrows(ProviderException.class,
                 () -> engine.complete(prepared.sessionId(), new PadesEngine.CompleteRequest(signature)));
@@ -231,6 +247,19 @@ class PadesEngineTest {
     private static byte[] pdf(int pages) throws Exception {
         try (PDDocument document = new PDDocument(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
             for (int page = 0; page < pages; page++) document.addPage(new PDPage());
+            document.save(output);
+            return output.toByteArray();
+        }
+    }
+
+    private static byte[] pdfWithVisibleSignatureBackground(int pages) throws Exception {
+        try (PDDocument document = new PDDocument(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            for (int page = 0; page < pages; page++) document.addPage(new PDPage());
+            try (PDPageContentStream content = new PDPageContentStream(document, document.getPage(pages - 1))) {
+                content.setNonStrokingColor(new Color(180, 210, 230));
+                content.addRect(105.04f, 82.89f, 320f, 66f);
+                content.fill();
+            }
             document.save(output);
             return output.toByteArray();
         }

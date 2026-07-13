@@ -55,7 +55,7 @@ const labels: Record<string, string> = {
   validation: "Validação",
   barcode: "Código de barras",
   seal: "Assinatura",
-  legal: "Fundamento jurídico",
+  legal: "Base legal e validação",
   footer: "Rodapé",
 };
 
@@ -109,11 +109,17 @@ function SecuritySeal({ icpBrasil }: { icpBrasil: boolean }) {
   if (!icpBrasil) {
     return (
       <div className="security-seal is-neutral">
+        <img src="/assets/pades-security-seal-4k.png?v=10" alt="" />
+        <div className="seal-pades-mark" aria-label="PAdES">
+          <strong>PAdES</strong>
+          <i />
+          <small>PDF SIGNATURE</small>
+        </div>
         <div className="seal-copy">
-          <span className="seal-kicker">Assinatura eletrônica</span>
+          <span className="seal-kicker">Assinatura eletrônica · PAdES</span>
           <strong contentEditable suppressContentEditableWarning>REGISTRO ELETRÔNICO</strong>
           <div contentEditable suppressContentEditableWarning>Identidade e instante: consulte o endereço de validação.</div>
-          <small contentEditable suppressContentEditableWarning>Sem credencial ou alegação ICP-Brasil</small>
+          <small contentEditable suppressContentEditableWarning>Modalidade simples ou avançada · sem alegação ICP-Brasil</small>
           <code contentEditable suppressContentEditableWarning>MAI-2026-ESY0-6MPD-QQBP-RMG4</code>
         </div>
       </div>
@@ -129,7 +135,7 @@ function SecuritySeal({ icpBrasil }: { icpBrasil: boolean }) {
         <strong contentEditable suppressContentEditableWarning>ROGER MAIOCCHI</strong>
         <div contentEditable suppressContentEditableWarning>CPF 006.***.***-40 · 13/07/2026 15:57:40 UTC</div>
         <small contentEditable suppressContentEditableWarning>Certificado A3 · atributos incorporados · confira pelo QR ou código</small>
-        <code contentEditable suppressContentEditableWarning>FPR 020996E7 AA6CF44F 59AEFD21 DF96CA39</code>
+        <code contentEditable suppressContentEditableWarning>CERT SHA-256 020996E7 AA6CF44F 59AEFD21 DF96CA39 12A075C6 6D230987 9C8EB1C1 197C562D</code>
       </div>
     </div>
   );
@@ -224,7 +230,9 @@ function DocumentCanvas({
 
       <Block {...props("pqc", "panel pqc-block")}>
         <Field label="Atestado pós-quântico do manifesto"><code>PQC-MLDSA65-465P-VSS7-TP75-ZZC4</code></Field>
-        <small contentEditable suppressContentEditableWarning>ML-DSA-65 · evidência complementar; não substitui o PAdES ICP-Brasil.</small>
+        <small contentEditable suppressContentEditableWarning>{icpBrasil
+          ? "ML-DSA-65 · evidência complementar; não substitui o PAdES ICP-Brasil."
+          : "ML-DSA-65 · evidência complementar; não altera a modalidade eletrônica registrada."}</small>
       </Block>
 
       <Block {...props("validation", "validation-block")}>

@@ -119,8 +119,12 @@ button:focus-visible, input:focus-visible { outline: 3px solid #1769aa; outline-
 .security-seal { position: relative; width: 100%; height: 100%; overflow: hidden; border-radius: 2px; background: #f7f9f6; box-shadow: inset 0 0 0 1px rgba(17,18,16,.55); }
 .security-seal > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; opacity: 1; filter: saturate(.96) contrast(.99); }
 .security-seal > .seal-icp-mark { inset: 33% 3.7% auto auto; width: 19%; height: auto; object-fit: contain; filter: none; }
-.security-seal.is-neutral { background: linear-gradient(90deg, #f4f6f4, #fff); box-shadow: inset 0 0 0 1px var(--line); }
-.security-seal.is-neutral::after { content: "MODALIDADE NÃO ICP-BRASIL"; position: absolute; right: 20px; top: 50%; color: #9a9f9a; font-size: 8px; font-weight: 800; letter-spacing: .1em; transform: translateY(-50%); }
+.security-seal.is-neutral { box-shadow: inset 0 0 0 1px rgba(17,18,16,.55); }
+.security-seal.is-neutral .seal-kicker { color: #174a7e; }
+.seal-pades-mark { position: absolute; z-index: 2; right: 3.7%; top: 26%; width: 19%; display: grid; justify-items: center; color: #174a7e; }
+.seal-pades-mark strong { font-size: 23px; line-height: 1; letter-spacing: 0; }
+.seal-pades-mark i { width: 82%; height: 2px; margin: 5px 0 4px; background: var(--yellow); }
+.seal-pades-mark small { color: var(--muted); font-size: 5.8px; font-weight: 800; letter-spacing: .08em; }
 .seal-copy { position: absolute; left: 4%; top: 14%; z-index: 2; width: 67%; height: 72%; padding: 7px 11px; display: grid; align-content: center; gap: 3px; text-align: left; }
 .seal-kicker { display: flex; align-items: center; gap: 5px; color: var(--green); font-size: 7.7px; font-weight: 900; letter-spacing: .05em; text-transform: uppercase; }
 .seal-copy > strong { color: var(--ink); font-size: 15px; line-height: 1; letter-spacing: .015em; }
