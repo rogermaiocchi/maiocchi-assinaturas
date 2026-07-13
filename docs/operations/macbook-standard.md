@@ -36,6 +36,7 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 - O PDF PAdES final é imutável. Antes da assinatura, o bridge carimba todas as páginas e acrescenta uma página A4 final com ID, hash da entrada, QR, Code 128, metadados e área do signatário. O hash binário final permanece externo porque um arquivo não pode conter o próprio hash sem alterá-lo.
 - A página final apresenta os atributos opcionais ITI como sinais físicos separados em incorporados, condicionais de ACT e contextuais/default. A aparência deve refletir o estado criptográfico efetivo e nunca apresentar um atributo ausente como incorporado.
 - A página final recebe atestado ML-DSA-65 do manifesto pré-assinatura. Esse atestado é uma prova adicional do portal e não substitui nem renomeia a assinatura PAdES ICP-Brasil, que segue os algoritmos e políticas homologados.
+- A marca oficial ICP-Brasil, o fundo de segurança PAdES AD-RB, o OID e a qualificação jurídica só podem ser renderizados quando `signature.infrastructure` normalizada for exatamente `ICP-Brasil`. Qualquer outra modalidade recebe composição neutra, mesmo que texto de entrada ou escolha visual sugira ICP-Brasil.
 - O verificador público mostra apenas metadados mínimos; o original permanece restrito por padrão e a comparação de arquivo ocorre localmente no navegador.
 - O GOV.BR permanece um percurso externo para este escritório privado; o arquivo assinado deve ser preservado e validado no canal oficial.
 
@@ -63,15 +64,18 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 
 ## Perfil A3 homologado
 
-O padrão de sucesso atual do MacBook primário é portal `1.11.1`, bridge `1.3.3`,
-provider `1.2.1`, agente local em `127.0.0.1:35100`, token ICP-Brasil A3 via
-CryptoTokenKit e política PAdES AD-RB v1.3. O ensaio final de 13/07/2026 foi
+O padrão de sucesso atual do MacBook primário é portal `1.11.1`, bridge `1.3.4`,
+provider `1.2.2`, código `85fcdb841c8952f5dee04a14e5fdbfb1240ef5bc`,
+agente local em `127.0.0.1:35100`, token ICP-Brasil A3 via CryptoTokenKit e
+política PAdES AD-RB v1.3. O ensaio final de 13/07/2026 às 17:07:29 BRT foi
 aprovado novamente pelo VALIDAR ITI, com cadeia `Valid`, estrutura conforme,
 resumo criptográfico `true`, atributos obrigatórios aprovados e
 `IdAaEtsSignerAttr` opcional `Valid`.
 
-Os valores canônicos, os sinais físicos e os hashes da evidência estão na
-[baseline dos sinais físicos ITI](../baseline/2026-07-13-pades-iti-physical-signals-approved.md).
+Os valores canônicos, a composição final e os hashes da evidência estão na
+[baseline do layout aprovado pelo ITI](../baseline/2026-07-13-pades-canonical-layout-iti-approved.md).
+A [baseline dos sinais físicos ITI](../baseline/2026-07-13-pades-iti-physical-signals-approved.md)
+permanece como histórico da revisão anterior.
 A [baseline criptográfica original](../baseline/2026-07-13-pades-iti-approved.md)
 permanece como histórico. Para ajustes visuais, editar somente a composição
 pré-assinatura. Nunca abrir e salvar o PDF PAdES final em editor, compressor ou

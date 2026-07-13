@@ -39,7 +39,7 @@ O agente macOS privado fica em `clients/pades-token-agent`. O motor DSS fica em 
 
 O perfil A3 aprovado pelo VALIDAR ITI e os gates obrigatórios para qualquer
 mudança visual estão na
-[`baseline PAdES homologada`](docs/baseline/2026-07-13-pades-iti-approved.md).
+[`baseline do layout PAdES homologado`](docs/baseline/2026-07-13-pades-canonical-layout-iti-approved.md).
 
 Segredos não pertencem a este repositório. O painel DocuSeal, o PostgreSQL e as credenciais administrativas são geridos separadamente no VPS e no Keychain do operador.
 
