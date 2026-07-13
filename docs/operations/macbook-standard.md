@@ -40,7 +40,7 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 ## Padrão visual e de interação
 
 - A arquitetura nominal segue `Maiocchi. + atividade`: o produto chama-se **Maiocchi. Assinatura** e a marca compacta é `m.` em CSS, com fundo transparente e ponto em `#FFB800`; `public/icon-512.png` e os favicons reproduzem a mesma marca nas superfícies do navegador.
-- O hero inicial exibe a marca `m.` em escala de destaque; o nome completo permanece em metadados e texto acessível, sem duplicação visual.
+- O hero inicial segue a hierarquia editorial `serviço + atividade`: **Serviço de apoio ao cliente** e **Assinatura digital**; a marca compacta `m.` permanece em evidência na barra superior, sem duplicação no hero ou no rodapé.
 - O menu superior usa controles iconográficos circulares, com Lucide, tooltip, foco visível e efeito de profundidade. Caixas quadradas não são usadas para envolver ícones; comandos textuais continuam rotulados quando a ação não for universalmente reconhecível.
 - O primeiro viewport prioriza uma única tarefa: abrir o documento pelo link ou código recebido.
 - O cabeçalho principal exibe apenas a marca `m.` e as âncoras Assinar, Validar e Advogados. Não se repete “Maiocchi” ao lado do símbolo.
@@ -49,6 +49,7 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 - O e-mail público aparece somente na Central de ajuda. Demais páginas apontam para essa central, sem repetição do endereço.
 - “Informações, modalidades e políticas” usa três grupos identificados, com descrição curta e links institucionais; não é uma lista plana.
 - O padrão do portal principal preservado na VPS é a referência visual: hero editorial full-bleed, imagem de alta resolução, header transparente que se materializa no scroll, carvão, branco e dourado `#FFB800`.
+- A fotografia institucional no hero usa sombra direcional e degradê inferior para fusão com o fundo da página; a imagem tecnológica de assinatura é reaproveitada em bloco funcional contextual, nunca como decoração desconectada.
 - Profundidade e movimento usam apenas transformações CSS leves, com desativação integral em `prefers-reduced-motion`.
 - Ícones Lucide acompanham rótulos textuais em ações e navegação. Ícones decorativos permanecem ocultos da árvore de acessibilidade.
 - Controles têm alvo mínimo de 44 por 44 pixels, foco visível e ordem de teclado verificável.

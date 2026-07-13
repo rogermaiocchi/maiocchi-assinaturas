@@ -10,16 +10,17 @@ test("renderiza a porta de entrada Maiocchi", async () => {
   const html = await readFile(new URL("index.html", outputRoot), "utf8");
   assert.match(html, /<title>Maiocchi\. Assinatura \| Maiocchi Advogado<\/title>/i);
   assert.match(html, /Recebeu um documento\?/i);
-  assert.match(html, /Portal oficial de Maiocchi Advogado/i);
-  assert.match(html, /class="hero-logo-mark"[^>]*><span>m<\/span><i>\.<\/i>/i);
-  assert.match(html, /class="sr-only">Maiocchi\. Assinatura<\/span>/i);
+  assert.match(html, /Serviço de apoio ao cliente/i);
+  assert.match(html, /<h1 class="hero-title">Assinatura digital<\/h1>/i);
   assert.doesNotMatch(html, /Maiocchi<span>\.<\/span> <strong>Assinatura<\/strong>/i);
   assert.equal((html.match(/class="icon-nav-link"/g) || []).length, 3);
   assert.match(html, /class="brand__mark"/i);
   assert.doesNotMatch(html, /class="brand__mark"[^>]*src=/i);
   assert.doesNotMatch(html, /class="brand__name"/i);
-  assert.match(html, /Ir para o conteúdo principal/i);
+  assert.doesNotMatch(html, /Ir para o conteúdo principal/i);
   assert.match(html, /id="conteudo-principal"/i);
+  assert.match(html, /href="\/ajuda\/"[^>]*>[\s\S]*Acessar central de ajuda/i);
+  assert.doesNotMatch(html, /<div class="footer-summary">\s*<strong>Maiocchi\. Assinatura<\/strong>/i);
   assert.match(html, /Área dos advogados/i);
   assert.match(html, /Área dos advogados, sem página intermediária/i);
   assert.match(html, /Entrar com certificado digital/i);
@@ -70,8 +71,8 @@ test("publica páginas legais e de ajuda", async () => {
   assert.match(terms, /OAB\/DF/i);
   assert.match(help, /Assinatura com certificado ICP-Brasil/i);
   assert.match(source, /GNU Affero General Public License/i);
-  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/archive\/refs\/tags\/portal-v1\.9\.4\.zip/i);
-  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/tree\/portal-v1\.9\.4/i);
+  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/archive\/refs\/tags\/portal-v1\.9\.5\.zip/i);
+  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/tree\/portal-v1\.9\.5/i);
   assert.doesNotMatch(source, /href="\/codigo-fonte\/docuseal-maiocchi-3\.0\.1\.tar\.gz"/i);
   assert.doesNotMatch(source, /termos adicionais/i);
   for (const html of [privacy, terms, help]) {

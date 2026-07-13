@@ -111,7 +111,6 @@ export function SiteHeader() {
 
   return (
     <>
-      <a className="skip-link" href="#conteudo-principal">Ir para o conteúdo principal</a>
       <header className={`site-header${scrolled ? " is-scrolled" : ""}`}>
         <div className="shell header-inner">
           <Brand />
@@ -172,7 +171,6 @@ export function SiteFooter() {
       <div className="shell footer-main">
         <Brand compact />
         <div className="footer-summary">
-          <strong>Maiocchi. Assinatura</strong>
           <p>Documentos, assinaturas e validação em um único endereço.</p>
         </div>
         <nav className="footer-primary" aria-label="Acessos principais">

@@ -89,11 +89,8 @@ export function PortalHome() {
           <div className="hero__shade" aria-hidden="true" />
           <div className="shell hero__content">
             <div className="hero-copy">
-              <p className="eyebrow"><span className="status-dot" /> Portal oficial de Maiocchi Advogado</p>
-              <h1 className="hero-logo-title">
-                <span className="sr-only">Maiocchi. Assinatura</span>
-                <span className="hero-logo-mark" aria-hidden="true"><span>m</span><i>.</i></span>
-              </h1>
+              <p className="eyebrow"><span className="status-dot" /> Serviço de apoio ao cliente</p>
+              <h1 className="hero-title">Assinatura digital</h1>
               <p className="hero-lead">Abra, assine e valide documentos em um único endereço.</p>
 
               <form className="hero-access" id="acessar-documento" onSubmit={onSubmit} noValidate aria-labelledby="access-title">
@@ -251,12 +248,17 @@ export function PortalHome() {
           </div>
         </section>
 
-        <section className="help-cta">
+        <section className="help-cta" aria-labelledby="help-cta-title">
           <div className="shell help-cta__inner">
-            <div><p className="eyebrow">Atendimento direto</p><h2>Dúvida sobre acesso ou validade?</h2></div>
-            <div className="help-actions">
-              <Link className="button button--dark" href="/ajuda/"><CircleHelp aria-hidden="true" size={18} /><span>Central de ajuda</span></Link>
-              <Link className="text-link" href="/#advogados"><FolderKanban aria-hidden="true" size={17} /><span>Acesso profissional</span></Link>
+            <div className="help-cta__copy">
+              <p className="eyebrow">Atendimento direto</p>
+              <h2 id="help-cta-title">Orientação para acessar, assinar e validar.</h2>
+              <p>Encontre instruções objetivas sobre documentos recebidos, certificado digital, autenticidade e dificuldades de acesso.</p>
+              <Link className="button button--yellow" href="/ajuda/">
+                <CircleHelp aria-hidden="true" size={18} />
+                <span>Acessar central de ajuda</span>
+                <ArrowRight aria-hidden="true" size={16} />
+              </Link>
             </div>
           </div>
         </section>
