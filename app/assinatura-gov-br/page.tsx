@@ -11,7 +11,7 @@ export default function GovBrSignaturePage() {
       { title: "Baixar", description: "Obtenha o documento disponibilizado pelo escritório.", icon: Download },
       { title: "Enviar ao GOV.BR", description: "Acesse o assinador oficial e carregue o arquivo.", icon: Upload, href: "https://assinador.iti.br/assinatura/index.xhtml", linkLabel: "Abrir serviço" },
       { title: "Autorizar", description: "Confirme a operação no aplicativo GOV.BR.", icon: Smartphone, tone: "yellow" },
-      { title: "Validar e devolver", description: "Baixe, valide e entregue o PDF pelo canal indicado.", icon: BadgeCheck, href: "/validar/", linkLabel: "Validar arquivo" },
+      { title: "Validar e devolver", description: "Baixe, valide e entregue o PDF pelo canal indicado.", icon: BadgeCheck, href: "/#validar", linkLabel: "Validar arquivo" },
     ]} />
     <h2>Quem pode usar</h2><p>Pessoas com conta GOV.BR nível prata ou ouro podem usar o Portal de Assinaturas GOV.BR. O certificado avançado é emitido e armazenado na infraestrutura do ITI.</p>
     <h2>Como assinar</h2>

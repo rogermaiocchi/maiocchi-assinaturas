@@ -5,7 +5,9 @@ Porta de entrada institucional para o ambiente de documentos e assinaturas do Ma
 ## Arquitetura
 
 - `assinatura.maiocchi.adv.br`: entrada única para o portal estático e para as rotas operacionais do DocuSeal.
-- As rotas de signatários (`/s`, `/d`, `/e` e `/p`) e a área dos advogados (`/dashboard`, com autenticação em `/sign_in`) são encaminhadas ao DocuSeal no mesmo domínio.
+- As rotas de signatários (`/s`, `/d`, `/e` e `/p`) são encaminhadas ao DocuSeal no mesmo domínio.
+- A autenticação de advogados é iniciada na página inicial por endpoints internos de sessão; `/sign_in` e o `/dashboard` não autenticado reconduzem ao bloco `#advogados`. O dashboard operacional só é apresentado depois do login.
+- A validação Maiocchi e o VALIDAR ITI ficam incorporados no bloco `#validar`; a rota legada `/validar/` preserva consultas e reconduz à página inicial.
 - `documentos.assinatura.maiocchi.adv.br` existe somente para redirecionar links antigos ao domínio principal, preservando caminho e consulta.
 
 A marca `m.` é renderizada em CSS no portal para manter fundo transparente e baixo custo de transferência. Os ativos `public/icon-512.png` e favicons reproduzem a mesma marca para navegador e instalação.
@@ -28,7 +30,6 @@ O compose reproduzível do motor documental fica em `deploy/docuseal.yml`; valor
 Variáveis públicas de build:
 
 - `NEXT_PUBLIC_DOCUMENTS_URL`: origem do DocuSeal para links de documentos.
-- `NEXT_PUBLIC_LAWYERS_URL`: entrada da área de gestão.
 - `NEXT_PUBLIC_ICP_URL`: entrada da área dos advogados que oferece autenticação por certificado cliente.
 - `NEXT_PUBLIC_PKI_BRIDGE_URL`: origem pública do `pki-bridge`; vazio usa o mesmo domínio do portal.
 

@@ -41,13 +41,17 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 
 - A marca canônica do portal é `m.` em CSS, com fundo transparente e ponto em `#FFB800`; `public/icon-512.png` e os favicons reproduzem a mesma marca nas superfícies do navegador.
 - O primeiro viewport prioriza uma única tarefa: abrir o documento pelo link ou código recebido.
-- O cabeçalho principal expõe apenas Assinar, Validar e Área dos advogados. Ajuda, modalidades, ICP-Brasil, GOV.BR, Segurança e páginas institucionais permanecem no contexto da página e no rodapé recolhível.
+- O cabeçalho principal exibe apenas a marca `m.` e as âncoras Assinar, Validar e Advogados. Não se repete “Maiocchi” ao lado do símbolo.
+- Login, certificado digital, chave de autenticidade e VALIDAR ITI são iniciados na página inicial. `/sign_in`, `/dashboard` não autenticado e `/validar/` são compatibilidades de rota, não páginas públicas de navegação.
+- O dashboard operacional somente aparece depois da autenticação; credenciais são entregues ao DocuSeal na mesma origem, com CSRF efêmero, e não são processadas pelo portal estático.
+- O e-mail público aparece somente na Central de ajuda. Demais páginas apontam para essa central, sem repetição do endereço.
+- “Informações, modalidades e políticas” usa três grupos identificados, com descrição curta e links institucionais; não é uma lista plana.
 - O padrão do portal principal preservado na VPS é a referência visual: hero editorial full-bleed, imagem de alta resolução, header transparente que se materializa no scroll, carvão, branco e dourado `#FFB800`.
 - Profundidade e movimento usam apenas transformações CSS leves, com desativação integral em `prefers-reduced-motion`.
 - Ícones Lucide acompanham rótulos textuais em ações e navegação. Ícones decorativos permanecem ocultos da árvore de acessibilidade.
 - Controles têm alvo mínimo de 44 por 44 pixels, foco visível e ordem de teclado verificável.
 - A largura móvel usa a viewport disponível com margem lateral de 16 pixels; não se fixa conteúdo em uma coluna artificialmente estreita.
-- O aceite visual exige screenshots em 1440 por 900 e 390 por 844, sem sobreposição, corte, overflow horizontal ou texto fora do contêiner; o hero deve deixar visível o início da próxima seção.
+- O aceite visual exige screenshots em 1440 por 900, 820 por 1180 e 390 por 844, sem sobreposição, corte, overflow horizontal ou texto fora do contêiner; o hero deve deixar visível o início da próxima seção.
 - Nenhuma afirmação de acessibilidade ou conformidade é publicada sem auditoria da implementação real.
 - O agente PAdES privado escuta apenas em `127.0.0.1:35100`, aceita origens explícitas e acessa o A3 pelo CryptoTokenKit. O link documental contém ticket de uso único; PIN e chave nunca transitam pelo portal. A compatibilidade depende da combinação de mídia, driver, gerenciador e macOS registrada na matriz Certisign.
 

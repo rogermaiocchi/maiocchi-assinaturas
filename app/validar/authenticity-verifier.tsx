@@ -103,7 +103,7 @@ async function fileSha256(file: File) {
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-export function AuthenticityVerifier() {
+export function AuthenticityVerifier({ officialValidatorMode = "external" }: { officialValidatorMode?: "embedded" | "external" }) {
   const [code, setCode] = useState("");
   const [lookup, setLookup] = useState<LookupState>({ kind: "idle" });
   const [fileResult, setFileResult] = useState<"idle" | "checking" | "match" | "mismatch" | "error">("idle");
@@ -276,7 +276,11 @@ export function AuthenticityVerifier() {
                 <span className="auth-restricted">Original protegido por autorização adicional.</span>
               )}
               <a className="button button--dark" href={record.links.print}><Download aria-hidden="true" size={18} /><span>Baixar folha impressa</span></a>
-              <a className="button button--outline" href={record.links.officialValidator} target="_blank" rel="noreferrer"><ExternalLink aria-hidden="true" size={17} /><span>Abrir VALIDAR ITI</span></a>
+              {officialValidatorMode === "embedded" ? (
+                <a className="button button--outline" href="#validar-iti"><ExternalLink aria-hidden="true" size={17} /><span>Continuar no VALIDAR ITI</span></a>
+              ) : (
+                <a className="button button--outline" href={record.links.officialValidator} target="_blank" rel="noreferrer"><ExternalLink aria-hidden="true" size={17} /><span>Abrir VALIDAR ITI</span></a>
+              )}
             </div>
 
             <details className="auth-json">

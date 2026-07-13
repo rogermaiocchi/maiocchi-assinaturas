@@ -13,18 +13,42 @@ test("renderiza a porta de entrada Maiocchi", async () => {
   assert.match(html, /Maiocchi <span>Assinaturas\.<\/span>/i);
   assert.match(html, /class="brand__mark"/i);
   assert.doesNotMatch(html, /class="brand__mark"[^>]*src=/i);
+  assert.doesNotMatch(html, /class="brand__name"/i);
   assert.match(html, /Ir para o conteúdo principal/i);
   assert.match(html, /id="conteudo-principal"/i);
   assert.match(html, /Área dos advogados/i);
-  assert.match(html, /assinatura\.maiocchi\.adv\.br\/dashboard/i);
+  assert.match(html, /Área dos advogados, sem página intermediária/i);
+  assert.match(html, /Entrar com certificado digital/i);
+  assert.doesNotMatch(html, /href="[^"]*\/dashboard/i);
+  assert.doesNotMatch(html, /href="[^"]*\/sign_in/i);
   assert.doesNotMatch(html, /documentos\.assinatura\.maiocchi\.adv\.br/i);
   assert.match(html, /ICP-BRASIL/i);
   assert.match(html, /\/certificado-icp-brasil\//i);
-  assert.match(html, /roger@maiocchi\.adv\.br/i);
+  assert.doesNotMatch(html, /roger@maiocchi\.adv\.br/i);
+  assert.match(html, /src="https:\/\/validar\.iti\.gov\.br\/"/i);
+  assert.match(html, /Responsável: Roger Maiocchi, OAB\/DF 31\.249\./i);
   assert.match(html, /\/assinaturas-eletronicas\//i);
   assert.match(html, /\/assinatura-gov-br\//i);
   assert.doesNotMatch(html, /admin@maiocchi\.adv\.br|contato@maiocchi\.adv\.br|Maiocchi Advocacia/i);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
+});
+
+test("incorpora autenticação e reconduz páginas intermediárias à home", async () => {
+  const [accessSource, dashboardPatch, traefik, nginx] = await Promise.all([
+    readFile(new URL("../app/lawyer-access.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../patches/docuseal/0001-single-entry-home.patch", import.meta.url), "utf8"),
+    readFile(new URL("../deploy/traefik-assinatura.yml", import.meta.url), "utf8"),
+    readFile(new URL("../nginx.conf", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(accessSource, /fetch\("\/portal-auth\/session"/i);
+  assert.match(accessSource, /authenticity_token/i);
+  assert.match(accessSource, /\/portal-auth\/certificate/i);
+  assert.match(accessSource, /credentials: "same-origin"/i);
+  assert.match(dashboardPatch, /redirect_to.*#advogados/i);
+  assert.match(traefik, /replacePath:[\s\S]*path: \/sign_in/i);
+  assert.match(traefik, /sign-in-to-home/i);
+  assert.match(nginx, /return 302 \/\$is_args\$args#validar;/i);
 });
 
 test("publica páginas legais e de ajuda", async () => {
@@ -41,14 +65,17 @@ test("publica páginas legais e de ajuda", async () => {
   assert.match(terms, /OAB\/DF/i);
   assert.match(help, /Assinatura com certificado ICP-Brasil/i);
   assert.match(source, /GNU Affero General Public License/i);
-  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/archive\/refs\/tags\/portal-v1\.8\.0\.zip/i);
-  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/tree\/portal-v1\.8\.0/i);
+  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/archive\/refs\/tags\/portal-v1\.9\.0\.zip/i);
+  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/tree\/portal-v1\.9\.0/i);
   assert.doesNotMatch(source, /href="\/codigo-fonte\/docuseal-maiocchi-3\.0\.1\.tar\.gz"/i);
   assert.doesNotMatch(source, /termos adicionais/i);
   for (const html of [privacy, terms, help]) {
     assert.match(html, /roger@maiocchi\.adv\.br|Maiocchi Advogado/i);
     assert.doesNotMatch(html, /admin@maiocchi\.adv\.br|contato@maiocchi\.adv\.br|Maiocchi Advocacia/i);
   }
+  assert.doesNotMatch(privacy, /roger@maiocchi\.adv\.br/i);
+  assert.doesNotMatch(terms, /roger@maiocchi\.adv\.br/i);
+  assert.match(help, /roger@maiocchi\.adv\.br/i);
 });
 
 test("publica e conecta o conteúdo de assinaturas e segurança", async () => {
@@ -150,8 +177,13 @@ test("padroniza páginas inexistentes e redirecionamentos internos", async () =>
   assert.match(notFound, /Maiocchi Advogado/i);
   assert.match(nginx, /absolute_redirect off;/i);
   assert.match(nginx, /error_page 404 \/404\.html;/i);
+  assert.match(nginx, /frame-src 'self' https:\/\/validar\.iti\.gov\.br/i);
+  assert.match(nginx, /location = \/validar\//i);
   assert.doesNotMatch(nginx, /documentos\.assinatura\.maiocchi\.adv\.br/i);
   assert.match(traefik, /docuseal-main-paths:/i);
+  assert.match(traefik, /portal-auth-session:/i);
+  assert.match(traefik, /portal-auth-certificate:/i);
+  assert.match(traefik, /legacy-sign-in:/i);
   assert.match(traefik, /documents-to-main:/i);
   assert.match(traefik, /replacement: 'https:\/\/assinatura\.maiocchi\.adv\.br\/\$\{1\}'/i);
   assert.match(docuseal, /APP_URL: https:\/\/assinatura\.maiocchi\.adv\.br/i);

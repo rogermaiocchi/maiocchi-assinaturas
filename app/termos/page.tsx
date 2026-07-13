@@ -14,7 +14,7 @@ export default function TermsPage() {
       { title: "Manifestar vontade", description: "Assine somente se o conteúdo estiver correto e compreendido.", icon: FileSignature, tone: "yellow" },
       { title: "Preservar a cópia", description: "Guarde o arquivo eletrônico final e suas evidências.", icon: BadgeCheck },
     ]} />
-    <h2>1. Responsável pelo portal</h2><p>O portal é mantido pelo Maiocchi Advogado, sob responsabilidade de Roger Maiocchi, advogado inscrito na OAB/DF sob o nº 31.249. O canal de atendimento é <a href="mailto:roger@maiocchi.adv.br">roger@maiocchi.adv.br</a>.</p>
+    <h2>1. Responsável pelo portal</h2><p>O portal é mantido pelo Maiocchi Advogado, sob responsabilidade de Roger Maiocchi, advogado inscrito na OAB/DF sob o nº 31.249. O canal de atendimento está reunido na <a href="/ajuda/">Central de ajuda</a>.</p>
     <h2>2. Finalidade</h2><p>O serviço permite preparar, disponibilizar, preencher, acompanhar e assinar documentos relacionados à atividade profissional do escritório. O portal não é um serviço público nem representa o GOV.BR, o ITI, a ICP-Brasil, a Lacuna Software ou o DocuSeal.</p>
     <h2>3. Uso do acesso</h2><p>Links e códigos são pessoais. O usuário deve impedir o acesso por terceiros, não reutilizar credenciais de outra pessoa e comunicar imediatamente qualquer suspeita de uso indevido.</p>
     <h2>4. Conferência e manifestação de vontade</h2><p>Antes de concluir, o usuário deve ler integralmente o documento e conferir dados, anexos e declarações. Informação incorreta, dúvida ou ausência de vontade exige a interrupção do fluxo e contato com o advogado responsável.</p>
@@ -28,6 +28,6 @@ export default function TermsPage() {
     <h2>12. Validade no caso concreto</h2><p>A tecnologia preserva evidências, mas não torna automaticamente qualquer documento adequado a qualquer finalidade. Lei aplicável, forma exigida, poderes do signatário, conteúdo e aceitação das partes devem ser considerados no caso concreto.</p>
     <h2>13. Software e terceiros</h2><p>O motor documental utiliza DocuSeal sob AGPLv3. Componentes PKI somente serão apresentados como ativos quando licenciados e habilitados. Serviços GOV.BR e validadores externos têm termos próprios.</p>
     <h2>14. Privacidade</h2><p>O tratamento de dados é descrito na <a href="/privacidade/">Política de privacidade</a>, que integra estes termos.</p>
-    <h2>15. Atualizações e contato</h2><p>Alterações relevantes serão publicadas com nova data de versão. Dúvidas ou incidentes podem ser comunicados a <a href="mailto:roger@maiocchi.adv.br">roger@maiocchi.adv.br</a>.</p>
+    <h2>15. Atualizações e contato</h2><p>Alterações relevantes serão publicadas com nova data de versão. Dúvidas ou incidentes podem ser comunicados pela <a href="/ajuda/">Central de ajuda</a>.</p>
   </LegalPage>;
 }

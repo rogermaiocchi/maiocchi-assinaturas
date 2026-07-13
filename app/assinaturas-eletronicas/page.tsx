@@ -11,7 +11,7 @@ export default function ElectronicSignaturesPage() {
       { title: "Entender o ato", description: "Verifique finalidade, forma exigida e participantes.", icon: FileSearch },
       { title: "Avaliar o risco", description: "Considere identificação, controle e aceitação necessária.", icon: Scale },
       { title: "Escolher evidências", description: "Use assinatura simples, avançada ou qualificada conforme o caso.", icon: ShieldCheck, tone: "yellow" },
-      { title: "Validar o resultado", description: "Confira integridade, autoria e registros no arquivo final.", icon: BadgeCheck, href: "/validar/", linkLabel: "Abrir validação" },
+      { title: "Validar o resultado", description: "Confira integridade, autoria e registros no arquivo final.", icon: BadgeCheck, href: "/#validar", linkLabel: "Abrir validação" },
     ]} />
     <h2>Assinatura eletrônica simples</h2><p>Permite identificar o signatário e associar dados eletrônicos ao documento. No portal, o acesso por link, o preenchimento e a assinatura desenhada são tratados como simples por padrão. A trilha ajuda a demonstrar o processo, mas não transforma a assinatura em qualificada.</p>
     <h2>Assinatura eletrônica avançada</h2><p>Deve estar associada ao signatário de maneira unívoca, permanecer sob seu controle e permitir a detecção de alterações posteriores. O GOV.BR oferece assinatura avançada a pessoas com conta prata ou ouro. O Maiocchi Advogado orienta o percurso externo, mas não opera a API governamental.</p>

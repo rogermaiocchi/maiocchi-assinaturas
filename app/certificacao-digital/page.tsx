@@ -12,7 +12,7 @@ export default function DigitalCertificatePage() {
       { title: "Selecionar certificado", description: "Escolha a identidade digital adequada ao signatário.", icon: FileKey },
       { title: "Autorizar localmente", description: "Digite o PIN somente no componente seguro do certificado.", icon: KeyRound, tone: "yellow" },
       { title: "Produzir assinatura", description: "A operação associa autoria e protege a integridade do conteúdo.", icon: ShieldCheck },
-      { title: "Validar", description: "Confira cadeia, política, validade e alterações posteriores.", icon: BadgeCheck, href: "/validar/", linkLabel: "Abrir validação" },
+      { title: "Validar", description: "Confira cadeia, política, validade e alterações posteriores.", icon: BadgeCheck, href: "/#validar", linkLabel: "Abrir validação" },
     ]} />
     <h2>O que é</h2><p>O certificado digital ICP-Brasil é emitido por autoridade certificadora credenciada e vincula uma pessoa ou entidade a um par de chaves criptográficas depois da verificação de identidade.</p>
     <h2>A1, A3 e nuvem</h2><p>O A1 é normalmente armazenado em software. O A3 pode usar token, cartão ou serviço em nuvem. Em qualquer formato, a chave privada e a credencial de uso devem permanecer sob controle do titular.</p>

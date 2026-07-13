@@ -6,6 +6,7 @@ import {
   ArrowRight,
   BadgeCheck,
   CircleHelp,
+  ExternalLink,
   FileCheck2,
   FileKey,
   FilePlus2,
@@ -13,7 +14,6 @@ import {
   FolderKanban,
   Landmark,
   LockKeyhole,
-  Mail,
   PenLine,
   PenTool,
   ScanSearch,
@@ -22,10 +22,11 @@ import {
   UserRoundCheck,
 } from "lucide-react";
 import { FlowMap } from "./flow-map";
+import { LawyerAccess } from "./lawyer-access";
 import { SiteFooter, SiteHeader } from "./site-chrome";
+import { AuthenticityVerifier } from "./validar/authenticity-verifier";
 
 const documentsBase = process.env.NEXT_PUBLIC_DOCUMENTS_URL || "https://assinatura.maiocchi.adv.br";
-const lawyersBase = process.env.NEXT_PUBLIC_LAWYERS_URL || `${documentsBase}/dashboard`;
 
 function accessDocument(raw: string) {
   const value = raw.trim();
@@ -123,12 +124,12 @@ export function PortalHome() {
               </form>
 
               <div className="hero-actions">
-                <a className="button button--yellow" href={lawyersBase}>
+                <Link className="button button--yellow" href="/#advogados">
                   <FolderKanban aria-hidden="true" size={18} />
-                  <span>Área dos advogados</span>
+                  <span>Entrar como advogado</span>
                   <ArrowRight aria-hidden="true" size={16} />
-                </a>
-                <Link className="button button--glass" href="/validar/">
+                </Link>
+                <Link className="button button--glass" href="/#validar">
                   <ScanSearch aria-hidden="true" size={18} />
                   <span>Validar documento</span>
                 </Link>
@@ -151,18 +152,59 @@ export function PortalHome() {
               <span><small>Recebi um link</small><strong>Assinar documento</strong></span>
               <ArrowRight aria-hidden="true" size={18} />
             </Link>
-            <Link href="/validar/">
+            <Link href="/#validar">
               <span className="service-strip__index">02</span>
               <span className="service-strip__icon service-strip__icon--yellow"><FileCheck2 aria-hidden="true" size={21} /></span>
               <span><small>Tenho o PDF ou a chave</small><strong>Validar autenticidade</strong></span>
               <ArrowRight aria-hidden="true" size={18} />
             </Link>
-            <a href={lawyersBase}>
+            <Link href="/#advogados">
               <span className="service-strip__index">03</span>
               <span className="service-strip__icon"><FolderKanban aria-hidden="true" size={21} /></span>
               <span><small>Sou advogado</small><strong>Gerenciar documentos</strong></span>
               <ArrowRight aria-hidden="true" size={18} />
-            </a>
+            </Link>
+          </div>
+        </section>
+
+        <section className="workspace-section" id="advogados">
+          <div className="shell">
+            <LawyerAccess />
+          </div>
+        </section>
+
+        <section className="verification-section" id="validar">
+          <div className="shell verification-section__inner">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow"><BadgeCheck aria-hidden="true" size={14} /> Validação integrada</p>
+                <h2>Confira a autenticidade sem abandonar o portal.</h2>
+              </div>
+              <p>Consulte a chave Maiocchi, compare localmente o SHA-256 do PDF e, em seguida, utilize o serviço oficial do ITI incorporado abaixo.</p>
+            </div>
+            <AuthenticityVerifier officialValidatorMode="embedded" />
+            <section className="iti-validator" id="validar-iti" aria-labelledby="iti-validator-title">
+              <div className="iti-validator__heading">
+                <div>
+                  <p className="eyebrow"><Landmark aria-hidden="true" size={14} /> Serviço oficial</p>
+                  <h3 id="iti-validator-title">VALIDAR ITI</h3>
+                  <p>O conteúdo abaixo é fornecido diretamente por <strong>validar.iti.gov.br</strong>. Arquivos submetidos seguem os termos e o processamento do serviço oficial.</p>
+                </div>
+                <a href="https://validar.iti.gov.br/" target="_blank" rel="noreferrer" title="Abrir VALIDAR ITI em nova aba">
+                  <ExternalLink aria-hidden="true" size={18} />
+                  <span>Abrir em nova aba</span>
+                </a>
+              </div>
+              <div className="iti-validator__frame">
+                <iframe
+                  src="https://validar.iti.gov.br/"
+                  title="Validador oficial de assinaturas do Instituto Nacional de Tecnologia da Informação"
+                  loading="lazy"
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  allow="clipboard-read; clipboard-write"
+                />
+              </div>
+            </section>
           </div>
         </section>
 
@@ -177,7 +219,7 @@ export function PortalHome() {
                 { title: "Preparar", description: "O advogado define documento, participantes e modalidade.", icon: FilePlus2 },
                 { title: "Identificar", description: "O signatário acessa o link individual e confere o conteúdo.", icon: UserRoundCheck },
                 { title: "Assinar", description: "A manifestação ocorre na modalidade indicada para o caso.", icon: PenTool, tone: "yellow" },
-                { title: "Validar", description: "PDF, hash, QR Code e histórico conduzem à conferência.", icon: BadgeCheck, href: "/validar/", linkLabel: "Validar agora" },
+                { title: "Validar", description: "PDF, hash, QR Code e histórico conduzem à conferência.", icon: BadgeCheck, href: "/#validar", linkLabel: "Validar agora" },
               ]}
             />
           </div>
@@ -212,7 +254,7 @@ export function PortalHome() {
             <div><p className="eyebrow">Atendimento direto</p><h2>Dúvida sobre acesso ou validade?</h2></div>
             <div className="help-actions">
               <Link className="button button--dark" href="/ajuda/"><CircleHelp aria-hidden="true" size={18} /><span>Central de ajuda</span></Link>
-              <a className="text-link" href="mailto:roger@maiocchi.adv.br"><Mail aria-hidden="true" size={17} /><span>roger@maiocchi.adv.br</span></a>
+              <Link className="text-link" href="/#advogados"><FolderKanban aria-hidden="true" size={17} /><span>Acesso profissional</span></Link>
             </div>
           </div>
         </section>

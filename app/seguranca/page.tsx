@@ -19,6 +19,6 @@ export default function SecurityPage() {
     <h2>Certificados</h2><p>Chave privada, PIN e senha não são solicitados pelo escritório. Trust stores de assinatura de PDF, autenticação mTLS e testes permanecem separados para evitar confiança indevida.</p>
     <h2>Backups e atualização</h2><p>O ambiente possui backup privado, procedimento de restauração e versões identificadas. Atualizações relevantes exigem teste e possibilidade de rollback.</p>
     <h2>Limites</h2><p>Nenhuma medida elimina todo risco. Indisponibilidade, equipamento comprometido, malware no dispositivo do usuário ou falha de fornecedor podem afetar o processo. Interrompa a operação diante de comportamento inesperado.</p>
-    <h2>Comunicar incidente</h2><p>Envie a descrição, o horário e o nome do documento para <a href="mailto:roger@maiocchi.adv.br?subject=Segurança%20do%20portal">roger@maiocchi.adv.br</a>. Não envie senha, PIN, chave privada nem código de acesso.</p>
+    <h2>Comunicar incidente</h2><p>Use a <a href="/ajuda/">Central de ajuda</a> e informe a descrição, o horário e o nome do documento. Não envie senha, PIN, chave privada nem código de acesso.</p>
   </LegalPage>;
 }

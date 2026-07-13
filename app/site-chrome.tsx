@@ -10,41 +10,72 @@ import {
   Code2,
   FileKey,
   FileSignature,
+  FolderLock,
+  HelpCircle,
   Home,
+  Info,
   Landmark,
   LockKeyhole,
   LogIn,
-  Mail,
   Menu,
   PenLine,
+  Scale,
   ShieldCheck,
   X,
   type LucideIcon,
 } from "lucide-react";
 import { Brand } from "./brand";
 
-const documentsBase = process.env.NEXT_PUBLIC_DOCUMENTS_URL || "https://assinatura.maiocchi.adv.br";
-const lawyersBase = process.env.NEXT_PUBLIC_LAWYERS_URL || `${documentsBase}/dashboard`;
-
 const mainNav: Array<{ href: string; label: string; icon: LucideIcon }> = [
   { href: "/#acessar-documento", label: "Assinar", icon: PenLine },
-  { href: "/validar/", label: "Validar", icon: BadgeCheck },
+  { href: "/#validar", label: "Validar", icon: BadgeCheck },
+  { href: "/#advogados", label: "Advogados", icon: FolderLock },
 ];
 
 const mobileNav: Array<{ href: string; label: string; icon: LucideIcon }> = [
   ...mainNav,
-  { href: "/ajuda/", label: "Ajuda", icon: CircleHelp },
+  { href: "/#modalidades", label: "Modalidades", icon: FileSignature },
+  { href: "/ajuda/", label: "Central de ajuda", icon: CircleHelp },
 ];
 
-const footerNav: Array<{ href: string; label: string; icon: LucideIcon }> = [
-  { href: "/assinaturas-eletronicas/", label: "Modalidades", icon: FileSignature },
-  { href: "/certificado-icp-brasil/", label: "ICP-Brasil", icon: FileKey },
-  { href: "/assinatura-gov-br/", label: "GOV.BR", icon: Landmark },
-  { href: "/validar/", label: "Validar", icon: BadgeCheck },
-  { href: "/seguranca/", label: "Segurança", icon: ShieldCheck },
-  { href: "/privacidade/", label: "Privacidade", icon: LockKeyhole },
-  { href: "/termos/", label: "Termos", icon: BookOpenText },
-  { href: "/codigo-fonte/", label: "Código-fonte", icon: Code2 },
+const footerGroups: Array<{
+  title: string;
+  description: string;
+  icon: LucideIcon;
+  links: Array<{ href: string; label: string; icon: LucideIcon }>;
+}> = [
+  {
+    title: "Informações",
+    description: "Funcionamento, proteção e suporte.",
+    icon: Info,
+    links: [
+      { href: "/#como-funciona", label: "Como funciona", icon: FileSignature },
+      { href: "/seguranca/", label: "Segurança", icon: ShieldCheck },
+      { href: "/ajuda/", label: "Central de ajuda", icon: HelpCircle },
+      { href: "/codigo-fonte/", label: "Código-fonte", icon: Code2 },
+    ],
+  },
+  {
+    title: "Modalidades",
+    description: "Caminho adequado para cada assinatura.",
+    icon: FileKey,
+    links: [
+      { href: "/assinaturas-eletronicas/", label: "Assinaturas eletrônicas", icon: FileSignature },
+      { href: "/certificado-icp-brasil/", label: "Certificado ICP-Brasil", icon: FileKey },
+      { href: "/assinatura-gov-br/", label: "Assinatura GOV.BR", icon: Landmark },
+      { href: "/#validar-iti", label: "VALIDAR ITI", icon: BadgeCheck },
+    ],
+  },
+  {
+    title: "Políticas",
+    description: "Regras, privacidade e responsabilidade.",
+    icon: Scale,
+    links: [
+      { href: "/privacidade/", label: "Política de privacidade", icon: LockKeyhole },
+      { href: "/termos/", label: "Termos de uso", icon: BookOpenText },
+      { href: "/seguranca/", label: "Proteção de dados", icon: ShieldCheck },
+    ],
+  },
 ];
 
 export function SiteHeader() {
@@ -74,7 +105,7 @@ export function SiteHeader() {
   }, [menuOpen]);
 
   function isCurrent(href: string) {
-    if (href.startsWith("/#")) return pathname === "/";
+    if (href.startsWith("/#")) return false;
     return pathname === href;
   }
 
@@ -85,23 +116,16 @@ export function SiteHeader() {
         <div className="shell header-inner">
           <Brand />
           <nav className="desktop-nav" aria-label="Navegação principal">
-            {mainNav.map(({ href, label, icon: Icon }) => {
-              const current = isCurrent(href);
-              return (
-                <Link href={href} key={href} aria-current={current ? "page" : undefined}>
-                  <Icon aria-hidden="true" size={16} strokeWidth={1.9} />
-                  <span>{label}</span>
-                </Link>
-              );
-            })}
+            {mainNav.map(({ href, label, icon: Icon }) => (
+              <Link href={href} key={href} aria-current={isCurrent(href) ? "page" : undefined}>
+                <Icon aria-hidden="true" size={16} strokeWidth={1.9} />
+                <span>{label}</span>
+              </Link>
+            ))}
           </nav>
-          <a className="button button--dark button--small header-login" href={lawyersBase} title="Área dos advogados">
-            <LogIn aria-hidden="true" size={16} />
-            <span>Área dos advogados</span>
-          </a>
-          <Link className="button button--yellow mobile-access" href="/#acessar-documento">
-            <FileSignature aria-hidden="true" size={17} />
-            <span>Acessar</span>
+          <Link className="button button--yellow mobile-access" href="/#advogados">
+            <LogIn aria-hidden="true" size={17} />
+            <span>Entrar</span>
           </Link>
           <div className="mobile-nav">
             <button
@@ -125,7 +149,6 @@ export function SiteHeader() {
                     <span>{label}</span>
                   </Link>
                 ))}
-                <a href={lawyersBase}><LogIn aria-hidden="true" size={17} /><span>Área dos advogados</span></a>
               </nav>
             )}
           </div>
@@ -141,29 +164,38 @@ export function SiteFooter() {
       <div className="shell footer-main">
         <Brand compact />
         <div className="footer-summary">
+          <strong>Maiocchi Assinaturas</strong>
           <p>Documentos, assinaturas e validação em um único endereço.</p>
-          <a href="mailto:roger@maiocchi.adv.br"><Mail aria-hidden="true" size={15} /><span>roger@maiocchi.adv.br</span></a>
         </div>
         <nav className="footer-primary" aria-label="Acessos principais">
-          <Link href="/#acessar-documento"><PenLine aria-hidden="true" size={16} /><span>Assinar</span></Link>
-          <Link href="/validar/"><BadgeCheck aria-hidden="true" size={16} /><span>Validar</span></Link>
-          <a href={lawyersBase}><LogIn aria-hidden="true" size={16} /><span>Área dos advogados</span></a>
+          <Link href="/#acessar-documento"><PenLine aria-hidden="true" size={16} /><span>Assinar documento</span></Link>
+          <Link href="/#validar"><BadgeCheck aria-hidden="true" size={16} /><span>Validar autenticidade</span></Link>
+          <Link href="/#advogados"><LogIn aria-hidden="true" size={16} /><span>Entrar como advogado</span></Link>
         </nav>
       </div>
       <details className="shell footer-disclosure">
-        <summary>Informações, modalidades e políticas</summary>
-        <nav className="footer-links" aria-label="Navegação institucional">
-          {footerNav.map(({ href, label, icon: Icon }) => (
-            <Link href={href} key={href}>
-              <Icon aria-hidden="true" size={15} />
-              <span>{label}</span>
-            </Link>
+        <summary>
+          <span><strong>Informações, modalidades e políticas</strong><small>Consulte o conteúdo institucional sem sair do fluxo principal.</small></span>
+        </summary>
+        <div className="footer-groups">
+          {footerGroups.map(({ title, description, icon: GroupIcon, links }) => (
+            <section className="footer-group" key={title} aria-labelledby={`footer-${title.toLowerCase()}`}>
+              <div className="footer-group__heading">
+                <GroupIcon aria-hidden="true" size={19} />
+                <div><h2 id={`footer-${title.toLowerCase()}`}>{title}</h2><p>{description}</p></div>
+              </div>
+              <nav aria-label={title}>
+                {links.map(({ href, label, icon: Icon }) => (
+                  <Link href={href} key={`${title}-${href}`}><Icon aria-hidden="true" size={15} /><span>{label}</span></Link>
+                ))}
+              </nav>
+            </section>
           ))}
-        </nav>
+        </div>
       </details>
       <div className="shell footer-bottom">
-        <span>© {new Date().getFullYear()} Maiocchi Advogado · Roger Maiocchi, OAB/DF 31.249</span>
-        <span>assinatura.maiocchi.adv.br</span>
+        <span>© {new Date().getFullYear()} Maiocchi Advogado</span>
+        <span>Responsável: Roger Maiocchi, OAB/DF 31.249.</span>
       </div>
     </footer>
   );

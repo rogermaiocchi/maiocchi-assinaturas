@@ -22,7 +22,7 @@ export default function IcpBrasilCertificatePage() {
           { title: "Detectar", description: "O agente privado identifica certificados disponíveis no CryptoTokenKit.", icon: FileKey },
           { title: "Escolher", description: "O titular seleciona conscientemente o certificado correto para o documento.", icon: BadgeCheck },
           { title: "Autorizar", description: "O PIN é digitado apenas no componente local seguro do certificado.", icon: KeyRound, tone: "yellow" },
-          { title: "Fechar PAdES", description: "O bridge monta o PDF assinado e valida cadeia, integridade e revogação.", icon: ShieldCheck, href: "/validar/", linkLabel: "Validar depois" },
+          { title: "Fechar PAdES", description: "O bridge monta o PDF assinado e valida cadeia, integridade e revogação.", icon: ShieldCheck, href: "/#validar", linkLabel: "Validar depois" },
         ]}
       />
 

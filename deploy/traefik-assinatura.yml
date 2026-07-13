@@ -16,6 +16,20 @@ http:
         replacement: 'https://assinatura.maiocchi.adv.br/${1}'
         permanent: true
 
+    sign-in-to-home:
+      redirectRegex:
+        regex: '^https://assinatura\.maiocchi\.adv\.br/sign_in.*'
+        replacement: 'https://assinatura.maiocchi.adv.br/#advogados'
+        permanent: false
+
+    portal-auth-session-path:
+      replacePath:
+        path: /sign_in
+
+    portal-auth-certificate-path:
+      replacePath:
+        path: /certificate_auth/login/start
+
     certificado-strip-headers:
       headers:
         customRequestHeaders:
@@ -46,6 +60,33 @@ http:
           Permissions-Policy: "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
 
   routers:
+    portal-auth-session:
+      entryPoints: [websecure]
+      priority: 330
+      rule: Host(`assinatura.maiocchi.adv.br`) && Path(`/portal-auth/session`)
+      service: docuseal-svc
+      middlewares: [portal-auth-session-path, assinatura-security]
+      tls:
+        certResolver: le
+
+    portal-auth-certificate:
+      entryPoints: [websecure]
+      priority: 330
+      rule: Host(`assinatura.maiocchi.adv.br`) && Path(`/portal-auth/certificate`)
+      service: docuseal-svc
+      middlewares: [portal-auth-certificate-path, assinatura-security]
+      tls:
+        certResolver: le
+
+    legacy-sign-in:
+      entryPoints: [websecure]
+      priority: 320
+      rule: Host(`assinatura.maiocchi.adv.br`) && Path(`/sign_in`) && Method(`GET`)
+      service: assinatura-portal-svc
+      middlewares: [sign-in-to-home, assinatura-security]
+      tls:
+        certResolver: le
+
     autenticidade-publica:
       entryPoints: [websecure]
       priority: 300
