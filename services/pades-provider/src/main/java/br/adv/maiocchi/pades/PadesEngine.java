@@ -57,10 +57,17 @@ import javax.imageio.ImageIO;
 
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.interactive.digitalsignature.PDSignature;
+import org.bouncycastle.asn1.ASN1IA5String;
 import org.bouncycastle.asn1.ASN1Encodable;
+import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.ASN1Primitive;
+import org.bouncycastle.asn1.ASN1Sequence;
 import org.bouncycastle.asn1.ASN1String;
+import org.bouncycastle.asn1.cms.Attribute;
+import org.bouncycastle.asn1.nist.NISTObjectIdentifiers;
+import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.x500.RDN;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x500.style.BCStyle;
@@ -69,12 +76,23 @@ import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.GeneralName;
 import org.bouncycastle.asn1.x509.GeneralNames;
 import org.bouncycastle.asn1.x509.OtherName;
+import org.bouncycastle.cms.CMSSignedData;
+import org.bouncycastle.cms.SignerInformation;
 
 final class PadesEngine {
     static final int MAX_PDF_BYTES = 40 * 1024 * 1024;
     static final Duration SESSION_TTL = Duration.ofMinutes(3);
     static final int MAX_ACTIVE_SESSIONS = 100;
+    static final String ICP_BRASIL_AD_RB_V1_3_OID = "2.16.76.1.7.1.11.1.3";
+    static final String ICP_BRASIL_AD_RB_V1_3_URI =
+            "http://politicas.icpbrasil.gov.br/PA_PAdES_AD_RB_v1_3.der";
+    static final String ICP_BRASIL_AD_RB_V1_3_SHA256 =
+            "23da544aef71f7a75dc85fa6e17a83875741e4baef41ec178258a5c86ace54dd";
     private static final String ICP_BRASIL_PERSON_DATA_OID = "2.16.76.1.3.1";
+    private static final ASN1ObjectIdentifier ETS_URI_QUALIFIER_OID =
+            new ASN1ObjectIdentifier("1.2.840.113549.1.9.16.5.1");
+    private static final byte[] ICP_BRASIL_AD_RB_V1_3_DIGEST =
+            HexFormat.of().parseHex(ICP_BRASIL_AD_RB_V1_3_SHA256);
     private static final String CERTIFICATE_TYPE = "A3";
     private static final float VISIBLE_SIGNATURE_X = 72f;
     private static final float VISIBLE_SIGNATURE_BOTTOM = 64f;
@@ -119,10 +137,7 @@ final class PadesEngine {
             throw new IllegalArgumentException("ICP-Brasil trust store is empty");
         }
         this.clock = clock;
-        if (signaturePolicy == null || signaturePolicy.oid() == null || !signaturePolicy.oid().matches("[0-9]+(\\.[0-9]+)+") ||
-                signaturePolicy.digest() == null || signaturePolicy.digest().length != 32 || signaturePolicy.uri() == null) {
-            throw new IllegalArgumentException("PAdES signature policy is invalid");
-        }
+        validateSignaturePolicy(signaturePolicy);
         this.signaturePolicy = signaturePolicy;
         this.requireTrustedValidation = requireTrustedValidation;
         this.verifier = new CommonCertificateVerifier();
@@ -209,6 +224,7 @@ final class PadesEngine {
         SignatureValue value = new SignatureValue(SignatureAlgorithm.RSA_SHA256, signature);
         DSSDocument signed = service.signDocument(original, session.parameters(), value);
         byte[] signedPdf = bytes(signed);
+        assertCanonicalPolicyReference(signedPdf);
         ValidationResult validation = validate(signedPdf, session.signerIdentity(), session.signingTime());
         if (!validation.cryptographicIntegrity() || (requireTrustedValidation && !validation.trusted())) {
             throw new ProviderException(422, "pades_validation_failed", "O PAdES gerado não passou na validação completa.");
@@ -262,6 +278,76 @@ final class PadesEngine {
             throw error;
         } catch (Exception error) {
             throw new ProviderException(422, "signature_verification_failed", "Não foi possível verificar a assinatura do token.");
+        }
+    }
+
+    private static void validateSignaturePolicy(SignaturePolicy policy) {
+        if (policy == null || policy.digest() == null ||
+                !ICP_BRASIL_AD_RB_V1_3_OID.equals(policy.oid()) ||
+                !ICP_BRASIL_AD_RB_V1_3_URI.equals(policy.uri()) ||
+                !MessageDigest.isEqual(ICP_BRASIL_AD_RB_V1_3_DIGEST, policy.digest())) {
+            throw new IllegalArgumentException("PAdES AD-RB v1.3 policy reference is not canonical");
+        }
+    }
+
+    private static void assertCanonicalPolicyReference(byte[] signedPdf) {
+        try (PDDocument document = Loader.loadPDF(signedPdf)) {
+            List<PDSignature> signatures = document.getSignatureDictionaries();
+            if (signatures.isEmpty()) {
+                throw new ProviderException(422, "policy_reference_invalid",
+                        "O PDF assinado não contém dicionário de assinatura.");
+            }
+            PDSignature pdfSignature = signatures.get(signatures.size() - 1);
+            CMSSignedData cms = new CMSSignedData(pdfSignature.getContents(signedPdf));
+            var signers = cms.getSignerInfos().getSigners();
+            if (signers.size() != 1) {
+                throw new ProviderException(422, "policy_reference_invalid",
+                        "O CMS deve conter exatamente um assinante.");
+            }
+            SignerInformation signer = signers.iterator().next();
+            Attribute attribute = signer.getSignedAttributes() == null ? null
+                    : signer.getSignedAttributes().get(PKCSObjectIdentifiers.id_aa_ets_sigPolicyId);
+            if (attribute == null || attribute.getAttrValues().size() != 1) {
+                throw new ProviderException(422, "policy_reference_invalid",
+                        "A política PAdES não foi incorporada aos atributos assinados.");
+            }
+
+            ASN1Sequence policy = ASN1Sequence.getInstance(attribute.getAttrValues().getObjectAt(0));
+            if (policy.size() != 3 ||
+                    !ICP_BRASIL_AD_RB_V1_3_OID.equals(
+                            ASN1ObjectIdentifier.getInstance(policy.getObjectAt(0)).getId())) {
+                throw new ProviderException(422, "policy_reference_invalid",
+                        "O OID da política PAdES não é o canônico.");
+            }
+
+            ASN1Sequence policyHash = ASN1Sequence.getInstance(policy.getObjectAt(1));
+            ASN1Sequence digestAlgorithm = ASN1Sequence.getInstance(policyHash.getObjectAt(0));
+            byte[] digest = ASN1OctetString.getInstance(policyHash.getObjectAt(1)).getOctets();
+            if (!NISTObjectIdentifiers.id_sha256.equals(
+                    ASN1ObjectIdentifier.getInstance(digestAlgorithm.getObjectAt(0))) ||
+                    !MessageDigest.isEqual(ICP_BRASIL_AD_RB_V1_3_DIGEST, digest)) {
+                throw new ProviderException(422, "policy_reference_invalid",
+                        "O resumo da política PAdES não é o oficial.");
+            }
+
+            ASN1Sequence qualifiers = ASN1Sequence.getInstance(policy.getObjectAt(2));
+            if (qualifiers.size() != 1) {
+                throw new ProviderException(422, "policy_reference_invalid",
+                        "A política PAdES deve conter um único qualificador URI.");
+            }
+            ASN1Sequence qualifier = ASN1Sequence.getInstance(qualifiers.getObjectAt(0));
+            if (qualifier.size() != 2 ||
+                    !ETS_URI_QUALIFIER_OID.equals(ASN1ObjectIdentifier.getInstance(qualifier.getObjectAt(0))) ||
+                    !ICP_BRASIL_AD_RB_V1_3_URI.equals(
+                            ASN1IA5String.getInstance(qualifier.getObjectAt(1)).getString())) {
+                throw new ProviderException(422, "policy_reference_invalid",
+                        "A URI da política PAdES não é a referência oficial do ITI.");
+            }
+        } catch (ProviderException error) {
+            throw error;
+        } catch (Exception error) {
+            throw new ProviderException(422, "policy_reference_invalid",
+                    "Não foi possível confirmar a política PAdES no CMS final.");
         }
     }
 

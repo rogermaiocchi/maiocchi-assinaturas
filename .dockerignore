@@ -1,6 +1,10 @@
 .git
 .next
 node_modules
+clients
+dist
+out
+tmp
 **/.build
 **/target
 **/.DS_Store

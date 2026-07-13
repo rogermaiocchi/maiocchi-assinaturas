@@ -20,7 +20,7 @@ As rotas de assinatura exigem `X-Provider-Key`; o container deve existir somente
 - `PADES_POLICY_URI`
 - `PADES_POLICY_SHA256`
 
-O startup falha com trust store vazia, raiz configurada ausente ou incompatível, política ausente ou digest divergente. A AC-Raiz v7 permanece no repositório oficial local, mas não integra `ICP_TRUST_ROOTS` enquanto seu algoritmo OID `1.3.6.1.4.1.44588.2.1` não for suportado e homologado no runtime. O PDF final só é retornado quando assinatura RSA, cadeia, política e validação DSS passam.
+O startup falha com trust store vazia, raiz configurada ausente ou incompatível, política ausente ou referência divergente. Para AD-RB v1.3, OID, SHA-256 e a URI canônica `http://politicas.icpbrasil.gov.br/PA_PAdES_AD_RB_v1_3.der` são verificados em conjunto. O CMS final é relido antes da resposta para impedir que uma política mal serializada seja liberada. A AC-Raiz v7 permanece no repositório oficial local, mas não integra `ICP_TRUST_ROOTS` enquanto seu algoritmo OID `1.3.6.1.4.1.44588.2.1` não for suportado e homologado no runtime. O PDF final só é retornado quando assinatura RSA, cadeia, política e validação DSS passam.
 
 ## Build
 

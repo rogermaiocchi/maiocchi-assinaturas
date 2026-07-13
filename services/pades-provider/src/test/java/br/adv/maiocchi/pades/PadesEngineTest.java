@@ -35,6 +35,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Base64;
 import java.util.Date;
+import java.util.HexFormat;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -43,7 +44,9 @@ class PadesEngineTest {
     private static final Instant NOW = Instant.parse("2026-07-12T16:00:00Z");
     private static final String TEST_NATIONAL_ID = "52998224725";
     private static final PadesEngine.SignaturePolicy POLICY = new PadesEngine.SignaturePolicy(
-            "2.16.76.1.7.1.11.1.3", new byte[32], "https://politicas.icpbrasil.gov.br/PA_PAdES_AD_RB_v1_3.der");
+            PadesEngine.ICP_BRASIL_AD_RB_V1_3_OID,
+            HexFormat.of().parseHex(PadesEngine.ICP_BRASIL_AD_RB_V1_3_SHA256),
+            PadesEngine.ICP_BRASIL_AD_RB_V1_3_URI);
 
     @Test
     void completesPadesWithExternalRsaAndPreventsReplay() throws Exception {
@@ -159,6 +162,23 @@ class PadesEngineTest {
         ProviderException error = assertThrows(ProviderException.class,
                 () -> engine.complete(prepared.sessionId(), new PadesEngine.CompleteRequest(invalid)));
         assertEquals("signature_invalid", error.code);
+    }
+
+    @Test
+    void rejectsNonCanonicalItiPolicyUriAtStartup() throws Exception {
+        KeyPair rootKey = rsa();
+        X509Certificate root = certificate("CN=ICP Test Root", rootKey, null, null, true);
+        CommonTrustedCertificateSource trust = new CommonTrustedCertificateSource();
+        trust.addCertificate(DSSUtils.loadCertificate(root.getEncoded()));
+        var nonCanonical = new PadesEngine.SignaturePolicy(
+                PadesEngine.ICP_BRASIL_AD_RB_V1_3_OID,
+                HexFormat.of().parseHex(PadesEngine.ICP_BRASIL_AD_RB_V1_3_SHA256),
+                "https://politicas.icpbrasil.gov.br/PA_PAdES_AD_RB_v1_3.der");
+
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> new PadesEngine(trust, Clock.fixed(NOW, ZoneOffset.UTC), nonCanonical, false));
+
+        assertEquals("PAdES AD-RB v1.3 policy reference is not canonical", error.getMessage());
     }
 
     private static byte[] pdf() throws Exception {
