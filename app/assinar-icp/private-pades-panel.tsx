@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { BadgeCheck, Download, FileKey, KeyRound, LoaderCircle, RefreshCw, ShieldAlert } from "lucide-react";
+import { BadgeCheck, Cloud, Download, FileKey, KeyRound, LoaderCircle, RefreshCw, ShieldAlert, Usb } from "lucide-react";
 
 const bridgeBase = process.env.NEXT_PUBLIC_PKI_BRIDGE_URL || "";
 const agentBase = "http://127.0.0.1:35100";
@@ -12,6 +12,8 @@ type Ticket = {
   documentSha256: string;
   expiresAt: string;
   signedPdfSha256: string | null;
+  localSigningAvailable: boolean;
+  remoteSigningAvailable: boolean;
 };
 
 function ticketFromFragment() {
@@ -37,14 +39,21 @@ export function PrivatePadesPanel() {
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [message, setMessage] = useState("Verificando ticket e agente local.");
+  const [message, setMessage] = useState("Verificando documento e modalidades disponíveis.");
 
   const refresh = useCallback(async (currentToken: string) => {
     setError("");
     const ticketResponse = await fetch(`${bridgeBase}/api/pades/ticket`, { headers: { authorization: `Bearer ${currentToken}` }, cache: "no-store" });
     const currentTicket = await responseJson<Ticket>(ticketResponse);
     setTicket(currentTicket);
-    setMessage(currentTicket.status === "completed" ? "PAdES concluído e validado." : "Documento confirmado. Continue no agente local protegido.");
+    setMessage(currentTicket.status === "completed"
+      ? "PAdES concluído e validado."
+      : currentTicket.remoteSigningAvailable
+        ? "Documento confirmado. A assinatura em nuvem dispensa instalação."
+        : currentTicket.localSigningAvailable
+          ? "Documento confirmado. A assinatura com token local permanece disponível."
+          : "Nenhuma modalidade de assinatura está disponível para este documento.");
+    return currentTicket;
   }, []);
 
   useEffect(() => {
@@ -56,17 +65,54 @@ export function PrivatePadesPanel() {
         return;
       }
       try {
-        await refresh(current);
+        const currentTicket = await refresh(current);
+        const signatureSessionId = new URLSearchParams(window.location.search).get("signatureSessionId") || "";
+        if (signatureSessionId && currentTicket.remoteSigningAvailable && currentTicket.status === "pending") {
+          setBusy(true);
+          setMessage("Conferindo o resultado devolvido pelo prestador de confiança.");
+          const completion = await responseJson<{ status: "completed" | "cancelled" | "expired" | "failed" }>(await fetch(`${bridgeBase}/api/pades/remote/complete`, {
+            method: "POST",
+            headers: { authorization: `Bearer ${current}`, "content-type": "application/json" },
+            body: JSON.stringify({ signatureSessionId }),
+          }));
+          window.history.replaceState(null, "", window.location.pathname);
+          await refresh(current);
+          if (completion.status === "cancelled") setMessage("A assinatura foi cancelada. Você pode iniciar uma nova tentativa.");
+          if (completion.status === "expired") setMessage("A sessão expirou. Inicie uma nova tentativa.");
+          if (completion.status === "failed") setMessage("O prestador não concluiu a sessão. Inicie uma nova tentativa.");
+          setBusy(false);
+        }
       } catch (caught) {
         setError(caught instanceof Error ? caught.message : "Não foi possível validar o ticket de assinatura.");
+        setBusy(false);
       }
     }
     void initialize();
   }, [refresh]);
 
   function signDocument() {
-    if (!token || !ticket || ticket.status !== "pending") return;
+    if (!token || !ticket?.localSigningAvailable || ticket.status !== "pending") return;
     window.location.assign(`${agentBase}/v1/authorize#ticket=${token}`);
+  }
+
+  async function signRemotely() {
+    if (!token || !ticket?.remoteSigningAvailable || ticket.status !== "pending") return;
+    setBusy(true);
+    setError("");
+    setMessage("Criando sessão protegida no prestador de confiança.");
+    try {
+      const session = await responseJson<{ redirectUrl: string }>(await fetch(`${bridgeBase}/api/pades/remote/session`, {
+        method: "POST",
+        headers: { authorization: `Bearer ${token}` },
+      }));
+      const destination = new URL(session.redirectUrl);
+      if (destination.protocol !== "https:") throw new Error("O prestador retornou um endereço inseguro.");
+      window.location.assign(destination.toString());
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Não foi possível iniciar a assinatura em nuvem.");
+      setMessage("A assinatura remota não foi iniciada.");
+      setBusy(false);
+    }
   }
 
   async function downloadResult() {
@@ -92,13 +138,13 @@ export function PrivatePadesPanel() {
     <section className="icp-console" aria-labelledby="private-pades-title">
       <div className="icp-console__header">
         <p className="eyebrow"><span className="status-dot" /> Provider privado</p>
-        <h2 id="private-pades-title">Documento vinculado ao token.</h2>
+        <h2 id="private-pades-title">Documento pronto para assinatura.</h2>
         <p>{message}</p>
       </div>
 
       <div className="icp-status-grid">
         <div><span className="mode-tag"><FileKey aria-hidden="true" size={13} /> DOCUMENTO</span><strong>{ticket?.documentName || "Não identificado"}</strong><p className="hash-value">{ticket?.documentSha256 || "-"}</p></div>
-        <div><span className="mode-tag"><KeyRound aria-hidden="true" size={13} /> AGENTE</span><strong>CryptoTokenKit local</strong><p>Abertura protegida · porta 35100</p></div>
+        <div><span className="mode-tag"><KeyRound aria-hidden="true" size={13} /> MODALIDADE</span><strong>{ticket?.remoteSigningAvailable ? (ticket.localSigningAvailable ? "Nuvem ou token" : "Certificado em nuvem") : "Token local"}</strong><p>{ticket?.remoteSigningAvailable ? "PSC ICP-Brasil · sem instalação" : "Agente protegido · porta 35100"}</p></div>
         <div><span className="mode-tag mode-tag--yellow"><BadgeCheck aria-hidden="true" size={13} /> PADES</span><strong>{ticket?.status === "completed" ? "Validado" : "Aguardando assinatura"}</strong><p className="hash-value">{ticket?.signedPdfSha256 || "-"}</p></div>
       </div>
 
@@ -110,9 +156,18 @@ export function PrivatePadesPanel() {
             {busy ? <LoaderCircle className="spin" aria-hidden="true" size={17} /> : <Download aria-hidden="true" size={17} />}<span>Baixar PDF assinado</span>
           </button>
         ) : (
-          <button className="button button--yellow" type="button" onClick={signDocument} disabled={busy || ticket?.status !== "pending"}>
-            <KeyRound aria-hidden="true" size={17} /><span>Abrir agente e assinar</span>
-          </button>
+          <>
+            {ticket?.remoteSigningAvailable && (
+              <button className="button button--yellow" type="button" onClick={() => void signRemotely()} disabled={busy || ticket.status !== "pending"}>
+                {busy ? <LoaderCircle className="spin" aria-hidden="true" size={17} /> : <Cloud aria-hidden="true" size={17} />}<span>Assinar sem instalar</span>
+              </button>
+            )}
+            {ticket?.localSigningAvailable && (
+              <button className={ticket?.remoteSigningAvailable ? "button button--dark" : "button button--yellow"} type="button" onClick={signDocument} disabled={busy || ticket?.status !== "pending"}>
+                {ticket?.remoteSigningAvailable ? <Usb aria-hidden="true" size={17} /> : <KeyRound aria-hidden="true" size={17} />}<span>Usar token local</span>
+              </button>
+            )}
+          </>
         )}
         <button className="button button--dark" type="button" onClick={() => token && void refresh(token)} disabled={busy || !token}>
           <RefreshCw aria-hidden="true" size={17} /><span>Verificar novamente</span>

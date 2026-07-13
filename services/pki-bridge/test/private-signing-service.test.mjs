@@ -6,7 +6,7 @@ import { PrivateSigningService } from "../src/private-signing-service.mjs";
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 
 class MemoryRepository {
-  constructor() { this.ticket = null; this.events = []; }
+  constructor() { this.ticket = null; this.remoteSession = null; this.events = []; }
   async create({ tokenHash, documentName, sourceArtifact, expiresAt }) {
     this.ticket = {
       id: "11111111-1111-4111-8111-111111111111", token_sha256: Buffer.from(tokenHash, "hex"),
@@ -25,6 +25,26 @@ class MemoryRepository {
     return this.ticket;
   }
   async markCompleted(_ticket, { signedArtifact, validation }) {
+    Object.assign(this.ticket, {
+      status: "completed", signed_pdf_sha256: Buffer.from(signedArtifact.sha256, "hex"),
+      signed_pdf_storage_key: signedArtifact.storageKey, validation_report: validation,
+    });
+    return this.ticket;
+  }
+  async createRemoteSession(ticket, { providerSessionId }) {
+    if (this.remoteSession?.status === "pending") throw Object.assign(new Error("remote signature session already exists"), { status: 409 });
+    this.remoteSession = { ticket_id: ticket.id, provider_session_id: providerSessionId, status: "pending" };
+    return this.remoteSession;
+  }
+  async findRemoteSession(ticketId) { return this.remoteSession?.ticket_id === ticketId && this.remoteSession.status === "pending" ? this.remoteSession : null; }
+  async markRemoteTerminal(_ticket, { providerSessionId, status }) {
+    assert.equal(this.remoteSession.provider_session_id, providerSessionId);
+    this.remoteSession.status = status;
+    return this.remoteSession;
+  }
+  async markRemoteCompleted(_ticket, { providerSessionId, signedArtifact, validation }) {
+    assert.equal(this.remoteSession.provider_session_id, providerSessionId);
+    this.remoteSession.status = "completed";
     Object.assign(this.ticket, {
       status: "completed", signed_pdf_sha256: Buffer.from(signedArtifact.sha256, "hex"),
       signed_pdf_storage_key: signedArtifact.storageKey, validation_report: validation,
@@ -109,4 +129,68 @@ test("bloqueia certificado diferente do preparado", async () => {
   await assert.rejects(() => service.complete(token, {
     signatureBase64: "c2ln", certificateFingerprintSha256: "c".repeat(64),
   }), (error) => error.status === 409);
+});
+
+test("assina em PSC remoto sem agente local e valida antes de liberar", async () => {
+  const repository = new MemoryRepository();
+  const artifactStore = new MemoryArtifacts();
+  const sourcePdf = Buffer.from("%PDF-1.7\nremote-source");
+  const signedPdf = Buffer.from("%PDF-1.7\nremote-signed");
+  const sessionId = "77777777-7777-4777-8777-777777777777";
+  const remoteProvider = {
+    async createSignatureSession({ pdf, returnUrl, callbackArgument }) {
+      assert.deepEqual(pdf, sourcePdf);
+      assert.equal(returnUrl, "https://assinatura.maiocchi.adv.br/assinar-icp/");
+      assert.equal(callbackArgument, repository.ticket.id);
+      return { sessionId, redirectUrl: "https://psc.example.test/authorize" };
+    },
+    async getSignatureSession(id) {
+      assert.equal(id, sessionId);
+      return { id, status: "Completed", callbackArgument: repository.ticket.id, documents: [{}] };
+    },
+    async signedPdfFromSession() { return { pdf: signedPdf, name: "final.pdf" }; },
+    async inspectPdf(pdf) {
+      assert.deepEqual(pdf, signedPdf);
+      return { success: true, signers: [{ validationResults: { passed: true } }] };
+    },
+  };
+  const service = new PrivateSigningService({
+    repository, artifactStore, remoteProvider, baseUrl: "https://assinatura.maiocchi.adv.br",
+  });
+  const created = await service.createTicket({ pdf: sourcePdf, ttlSeconds: 600 });
+  const token = new URL(created.url).hash.slice("#ticket=".length);
+  assert.equal((await service.status(token)).remoteSigningAvailable, true);
+  assert.equal((await service.status(token)).localSigningAvailable, false);
+  assert.equal((await service.startRemote(token)).redirectUrl, "https://psc.example.test/authorize");
+  const completed = await service.completeRemote(token, { signatureSessionId: sessionId });
+  assert.equal(completed.status, "completed");
+  assert.equal(completed.signedPdfSha256, sha256(signedPdf));
+  assert.deepEqual((await service.result(token)).bytes, signedPdf);
+});
+
+test("permite nova sessão remota após cancelamento", async () => {
+  const repository = new MemoryRepository();
+  const artifactStore = new MemoryArtifacts();
+  let attempt = 0;
+  const remoteProvider = {
+    async createSignatureSession() {
+      attempt += 1;
+      return {
+        sessionId: attempt === 1 ? "77777777-7777-4777-8777-777777777777" : "88888888-8888-4888-8888-888888888888",
+        redirectUrl: `https://psc.example.test/authorize/${attempt}`,
+      };
+    },
+    async getSignatureSession(id) {
+      return { id, status: "UserCancelled", callbackArgument: repository.ticket.id, documents: [] };
+    },
+  };
+  const service = new PrivateSigningService({
+    repository, artifactStore, remoteProvider, baseUrl: "https://assinatura.maiocchi.adv.br",
+  });
+  const created = await service.createTicket({ pdf: Buffer.from("%PDF-1.7\nretry"), ttlSeconds: 600 });
+  const token = new URL(created.url).hash.slice("#ticket=".length);
+  const first = await service.startRemote(token);
+  assert.equal((await service.completeRemote(token, { signatureSessionId: first.sessionId })).status, "cancelled");
+  const second = await service.startRemote(token);
+  assert.notEqual(second.sessionId, first.sessionId);
 });

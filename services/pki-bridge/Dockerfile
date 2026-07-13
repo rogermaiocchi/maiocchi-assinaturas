@@ -1,4 +1,4 @@
-FROM node:22.13-alpine
+FROM node:24.18-alpine
 
 WORKDIR /app
 COPY services/pki-bridge/package.json services/pki-bridge/package-lock.json ./

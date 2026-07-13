@@ -21,10 +21,11 @@ function assertActive(ticket) {
 }
 
 export class PrivateSigningService {
-  constructor({ repository, artifactStore, provider, baseUrl }) {
+  constructor({ repository, artifactStore, provider = null, remoteProvider = null, baseUrl }) {
     this.repository = repository;
     this.artifactStore = artifactStore;
     this.provider = provider;
+    this.remoteProvider = remoteProvider;
     this.baseUrl = new URL(baseUrl);
   }
 
@@ -52,10 +53,73 @@ export class PrivateSigningService {
       documentSha256: Buffer.from(ticket.source_pdf_sha256).toString("hex"),
       expiresAt: new Date(ticket.expires_at).toISOString(),
       signedPdfSha256: ticket.signed_pdf_sha256 ? Buffer.from(ticket.signed_pdf_sha256).toString("hex") : null,
+      localSigningAvailable: Boolean(this.provider),
+      remoteSigningAvailable: Boolean(this.remoteProvider),
     };
   }
 
+  async startRemote(token) {
+    if (!this.remoteProvider) throw Object.assign(new Error("remote signing provider is unavailable"), { status: 503 });
+    const ticket = await this.repository.findByTokenHash(tokenHash(token));
+    assertActive(ticket);
+    if (ticket.status !== "pending") throw Object.assign(new Error("ticket is not pending"), { status: 409 });
+    if (await this.repository.findRemoteSession(ticket.id)) {
+      throw Object.assign(new Error("remote signature session already exists"), { status: 409 });
+    }
+    const pdf = await this.artifactStore.get(ticket.source_pdf_storage_key);
+    const returnUrl = new URL("/assinar-icp/", this.baseUrl).toString();
+    const session = await this.remoteProvider.createSignatureSession({
+      pdf,
+      name: ticket.document_name,
+      returnUrl,
+      callbackArgument: ticket.id,
+    });
+    await this.repository.createRemoteSession(ticket, { providerSessionId: session.sessionId });
+    return session;
+  }
+
+  async completeRemote(token, { signatureSessionId }) {
+    if (!this.remoteProvider) throw Object.assign(new Error("remote signing provider is unavailable"), { status: 503 });
+    const ticket = await this.repository.findByTokenHash(tokenHash(token));
+    assertActive(ticket);
+    if (ticket.status !== "pending") throw Object.assign(new Error("ticket is not pending"), { status: 409 });
+    const stored = await this.repository.findRemoteSession(ticket.id);
+    if (!stored || stored.provider_session_id !== signatureSessionId) {
+      throw Object.assign(new Error("remote signature session does not match the ticket"), { status: 409 });
+    }
+    const session = await this.remoteProvider.getSignatureSession(signatureSessionId);
+    if (session.callbackArgument !== ticket.id) {
+      throw Object.assign(new Error("remote signature session is not bound to the ticket"), { status: 409 });
+    }
+    const terminalStatus = {
+      UserCancelled: "cancelled",
+      Expired: "expired",
+      ProcessingError: "failed",
+    }[session.status];
+    if (terminalStatus) {
+      await this.repository.markRemoteTerminal(ticket, { providerSessionId: signatureSessionId, status: terminalStatus });
+      return { status: terminalStatus };
+    }
+    if (session.status !== "Completed") {
+      throw Object.assign(new Error("remote signature session is not complete"), { status: 409 });
+    }
+    const { pdf } = await this.remoteProvider.signedPdfFromSession(session);
+    const inspection = await this.remoteProvider.inspectPdf(pdf);
+    const signers = Array.isArray(inspection.signers) ? inspection.signers : [];
+    if (!inspection.success || signers.length === 0 || signers.some((signer) => signer?.validationResults?.passed !== true)) {
+      throw Object.assign(new Error("remote PAdES did not pass validation"), { status: 422 });
+    }
+    const signedArtifact = await this.artifactStore.put(pdf, { extension: "pdf" });
+    await this.repository.markRemoteCompleted(ticket, {
+      providerSessionId: signatureSessionId,
+      signedArtifact,
+      validation: { provider: "rest_pki_core", inspection },
+    });
+    return { status: "completed", signedPdfSha256: signedArtifact.sha256, validation: inspection };
+  }
+
   async prepare(token, { certificateBase64, chainBase64 = [] }) {
+    if (!this.provider) throw Object.assign(new Error("local signing provider is unavailable"), { status: 503 });
     const ticket = await this.repository.findByTokenHash(tokenHash(token));
     assertActive(ticket);
     if (ticket.status !== "pending") throw Object.assign(new Error("ticket is not pending"), { status: 409 });
@@ -76,6 +140,7 @@ export class PrivateSigningService {
   }
 
   async complete(token, { signatureBase64, certificateFingerprintSha256 }) {
+    if (!this.provider) throw Object.assign(new Error("local signing provider is unavailable"), { status: 503 });
     const ticket = await this.repository.findByTokenHash(tokenHash(token));
     assertActive(ticket);
     if (ticket.status !== "prepared") throw Object.assign(new Error("ticket is not prepared"), { status: 409 });

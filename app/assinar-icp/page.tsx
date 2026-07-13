@@ -8,7 +8,7 @@ export default function PrivatePadesSigningPage() {
   return (
     <LegalPage
       title="Assinar com ICP-Brasil"
-      lead="Revise a identidade selecionada e autorize o token somente quando o hash exibido corresponder ao documento recebido."
+      lead="Confira o documento e escolha a assinatura ICP-Brasil em nuvem ou, como alternativa, o token conectado ao seu computador."
       currentPath="/assinar-icp/"
     >
       <PrivatePadesPanel />

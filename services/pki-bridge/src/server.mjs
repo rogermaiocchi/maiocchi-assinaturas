@@ -11,6 +11,7 @@ import { registerGoldStandardDocument } from "./authenticity-service.mjs";
 import { PrivatePadesProviderClient } from "./private-pades-provider-client.mjs";
 import { PostgresPrivateSigningRepository } from "./private-signing-repository.mjs";
 import { bearerToken, PrivateSigningService } from "./private-signing-service.mjs";
+import { RestPkiCoreClient } from "./rest-pki-core-client.mjs";
 import { verifyWebhookSignature } from "./webhook.mjs";
 
 const JSON_TYPE = "application/json; charset=utf-8";
@@ -163,7 +164,12 @@ export function createRequestHandler({
       }
       if (request.method === "GET" && url.pathname === "/healthz") {
         await healthCheck();
-        return json(200, { status: "ok", privatePadesProvider: privateSigningService ? "ready" : "disabled" });
+        return json(200, {
+          status: "ok",
+          privatePadesProvider: privateSigningService?.provider ? "ready" : "disabled",
+          remoteSigning: privateSigningService?.remoteProvider ? "ready" : "disabled",
+          artifactEncryption: artifactStore.encryptedAtRest ? "aes-256-gcm" : "disabled",
+        });
       }
 
       if (url.pathname === "/api/pades/ticket" && request.method === "GET") {
@@ -192,6 +198,17 @@ export function createRequestHandler({
           "content-disposition": contentDisposition(result.name),
         }));
         return response.end(result.bytes);
+      }
+
+      if (url.pathname === "/api/pades/remote/session" && request.method === "POST") {
+        if (!privateSigningService) return problem(503, "provider_unavailable", "Serviço de assinatura indisponível.");
+        return json(201, await privateSigningService.startRemote(bearerToken(request)));
+      }
+
+      if (url.pathname === "/api/pades/remote/complete" && request.method === "POST") {
+        if (!privateSigningService) return problem(503, "provider_unavailable", "Serviço de assinatura indisponível.");
+        const raw = await readBody(request, 4096);
+        return json(200, await privateSigningService.completeRemote(bearerToken(request), JSON.parse(raw.toString("utf8"))));
       }
       const requestedKeyId = keyIdFromPath(url.pathname);
       if (request.method === "GET" && requestedKeyId) {
@@ -320,9 +337,12 @@ export function createRequestHandler({
 async function main() {
   const databaseUrl = process.env.DATABASE_URL;
   const artifactRoot = process.env.ARTIFACT_ROOT || "/data/artifacts";
+  const artifactEncryptionKeyFile = process.env.ARTIFACT_ENCRYPTION_KEY_FILE;
   const keyFile = process.env.AUTHENTICITY_PRIVATE_KEY_FILE;
   const internalHmacKey = process.env.AUTHENTICITY_INTERNAL_HMAC_KEY;
-  if (!databaseUrl || !keyFile || !internalHmacKey || internalHmacKey.length < 32) throw new Error("pki-bridge configuration is incomplete");
+  if (!databaseUrl || !keyFile || !artifactEncryptionKeyFile || !internalHmacKey || internalHmacKey.length < 32) {
+    throw new Error("pki-bridge configuration is incomplete");
+  }
 
   const privateKey = createPrivateKey(await readFile(keyFile));
   const publicKey = createPublicKey(privateKey);
@@ -334,18 +354,36 @@ async function main() {
   const pool = new Pool({ connectionString: databaseUrl, max: 10, idleTimeoutMillis: 30_000 });
   await applyMigrations(pool);
   const repository = new PostgresAuthenticityRepository(pool);
-  const artifactStore = new FileArtifactStore(artifactRoot);
+  const artifactStore = new FileArtifactStore(artifactRoot, {
+    encryptionKey: await readFile(artifactEncryptionKeyFile),
+    requireEncryption: true,
+  });
   const providerEndpoint = process.env.PRIVATE_PADES_PROVIDER_URL;
   const providerApiKey = process.env.PRIVATE_PADES_PROVIDER_API_KEY;
   if (Boolean(providerEndpoint) !== Boolean(providerApiKey)) throw new Error("private PAdES provider configuration is incomplete");
-  const privateSigningService = providerEndpoint ? new PrivateSigningService({
+  const remoteConfiguration = [
+    process.env.REST_PKI_CORE_ENDPOINT,
+    process.env.REST_PKI_CORE_API_KEY,
+    process.env.REST_PKI_CORE_SECURITY_CONTEXT_ID,
+  ];
+  const configuredRemoteValues = remoteConfiguration.filter((value) => typeof value === "string" && value.trim() !== "");
+  if (configuredRemoteValues.length > 0 && configuredRemoteValues.length !== remoteConfiguration.length) {
+    throw new Error("remote signing provider configuration is incomplete");
+  }
+  const remoteProvider = configuredRemoteValues.length === remoteConfiguration.length ? new RestPkiCoreClient({
+    endpoint: remoteConfiguration[0],
+    apiKey: remoteConfiguration[1],
+    securityContextId: remoteConfiguration[2],
+  }) : null;
+  const privateSigningService = providerEndpoint || remoteProvider ? new PrivateSigningService({
     repository: new PostgresPrivateSigningRepository(pool),
     artifactStore,
-    provider: new PrivatePadesProviderClient({
+    provider: providerEndpoint ? new PrivatePadesProviderClient({
       endpoint: providerEndpoint,
       apiKey: providerApiKey,
       allowInsecureInternal: process.env.PRIVATE_PADES_ALLOW_INTERNAL_HTTP === "true",
-    }),
+    }) : null,
+    remoteProvider,
     baseUrl: process.env.PUBLIC_BASE_URL || "https://assinatura.maiocchi.adv.br",
   }) : null;
   const handler = createRequestHandler({

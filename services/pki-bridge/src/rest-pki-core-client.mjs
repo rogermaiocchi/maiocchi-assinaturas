@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import { PkiConfigurationError, PkiProviderError } from "./errors.mjs";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
+const MAX_REMOTE_FILE_BYTES = 40 * 1024 * 1024;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function requireValue(value, name) {
   if (typeof value !== "string" || value.trim() === "") {
@@ -20,6 +22,36 @@ function endpointUrl(value, allowInsecureLocalhost) {
   return endpoint;
 }
 
+function requireUuid(value, name) {
+  const normalized = requireValue(value, name);
+  if (!UUID_PATTERN.test(normalized)) throw new PkiConfigurationError(`${name} must be a UUID`);
+  return normalized;
+}
+
+async function limitedResponseBytes(response, limit = MAX_REMOTE_FILE_BYTES) {
+  const declared = Number(response.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > limit) throw new PkiProviderError("Signed PDF exceeds the size limit", { status: 413 });
+  if (!response.body?.getReader) {
+    const body = Buffer.from(await response.arrayBuffer());
+    if (body.length > limit) throw new PkiProviderError("Signed PDF exceeds the size limit", { status: 413 });
+    return body;
+  }
+  const chunks = [];
+  const reader = response.body.getReader();
+  let size = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > limit) {
+      await reader.cancel();
+      throw new PkiProviderError("Signed PDF exceeds the size limit", { status: 413 });
+    }
+    chunks.push(Buffer.from(value));
+  }
+  return Buffer.concat(chunks, size);
+}
+
 async function responseJson(response) {
   try {
     return await response.json();
@@ -36,7 +68,7 @@ export class RestPkiCoreClient {
   constructor({ endpoint, apiKey, securityContextId, fetchImpl = fetch, timeoutMs = DEFAULT_TIMEOUT_MS, allowInsecureLocalhost = false }) {
     this.endpoint = endpointUrl(endpoint, allowInsecureLocalhost);
     this.apiKey = requireValue(apiKey, "REST PKI Core API key");
-    this.securityContextId = requireValue(securityContextId, "REST PKI Core security context ID");
+    this.securityContextId = requireUuid(securityContextId, "REST PKI Core security context ID");
     this.fetch = fetchImpl;
     this.timeoutMs = timeoutMs;
   }
@@ -91,6 +123,62 @@ export class RestPkiCoreClient {
     };
   }
 
+  async createSignatureSession({ pdf, name, returnUrl, callbackArgument }) {
+    if (!Buffer.isBuffer(pdf) || pdf.length === 0) throw new TypeError("pdf must be a non-empty Buffer");
+    const callback = new URL(requireValue(returnUrl, "signature session return URL"));
+    if (callback.protocol !== "https:" || callback.hash) {
+      throw new PkiConfigurationError("signature session return URL must use HTTPS without a fragment");
+    }
+    const result = await this.request("/api/signature-sessions", {
+      body: {
+        returnUrl: callback.toString(),
+        callbackArgument: requireValue(callbackArgument, "signature session callback argument"),
+        securityContextId: this.securityContextId,
+        enableBackgroundProcessing: false,
+        disableDownloads: true,
+        certificateRequirements: [{ type: "CryptoDevice" }],
+        documents: [{
+          file: { content: pdf.toString("base64"), mimeType: "application/pdf", name: name || "documento.pdf" },
+          signatureType: "Pdf",
+          pdfSignatureOptions: { reason: "Assinatura eletrônica qualificada ICP-Brasil" },
+        }],
+      },
+    });
+    let redirectUrl;
+    try {
+      redirectUrl = new URL(result.redirectUrl || "");
+    } catch {
+      throw new PkiProviderError("REST PKI Core returned an invalid signature session");
+    }
+    if (!UUID_PATTERN.test(result.sessionId || "") || redirectUrl.protocol !== "https:" || redirectUrl.username || redirectUrl.password || redirectUrl.hash) {
+      throw new PkiProviderError("REST PKI Core returned an invalid signature session");
+    }
+    return { sessionId: result.sessionId, redirectUrl: redirectUrl.toString() };
+  }
+
+  async getSignatureSession(sessionId) {
+    if (!UUID_PATTERN.test(sessionId || "")) throw new TypeError("signature session ID is invalid");
+    const result = await this.request(`/api/signature-sessions/${encodeURIComponent(sessionId)}`, { method: "GET" });
+    if (result.id !== sessionId || typeof result.status !== "string") {
+      throw new PkiProviderError("REST PKI Core returned an invalid signature session result");
+    }
+    return result;
+  }
+
+  async signedPdfFromSession(session) {
+    if (session?.status !== "Completed" || !Array.isArray(session.documents) || session.documents.length !== 1) {
+      throw new PkiProviderError("REST PKI Core signature session is not complete");
+    }
+    const signedFile = session.documents[0]?.signedFile;
+    const pdf = signedFile?.content
+      ? Buffer.from(signedFile.content, "base64")
+      : signedFile?.url ? await this.downloadTemporaryFile(signedFile.url) : null;
+    if (!pdf?.length || pdf.subarray(0, 5).toString("ascii") !== "%PDF-") {
+      throw new PkiProviderError("REST PKI Core did not return a signed PDF");
+    }
+    return { pdf, name: signedFile.name || "documento-assinado.pdf" };
+  }
+
   async completePdfSignature({ state, signature }) {
     const result = await this.request("/api/signature/completion", {
       body: {
@@ -127,11 +215,11 @@ export class RestPkiCoreClient {
 
   async downloadTemporaryFile(value) {
     const target = new URL(requireValue(value, "signed file URL"));
-    if (target.protocol !== "https:" || target.hostname !== this.endpoint.hostname) {
+    if (target.protocol !== "https:" || target.origin !== this.endpoint.origin || target.username || target.password || target.hash) {
       throw new PkiProviderError("REST PKI Core returned a disallowed signed file URL");
     }
     const response = await this.fetch(target, { signal: AbortSignal.timeout(this.timeoutMs), redirect: "error" });
     if (!response.ok) throw new PkiProviderError(`Signed PDF download failed (${response.status})`, { status: response.status });
-    return Buffer.from(await response.arrayBuffer());
+    return limitedResponseBytes(response);
   }
 }

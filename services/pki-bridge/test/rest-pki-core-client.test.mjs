@@ -11,14 +11,15 @@ function clientWith(fetchImpl) {
   return new RestPkiCoreClient({
     endpoint: "https://pki.example.test",
     apiKey: "credential",
-    securityContextId: "security-context",
+    securityContextId: "11111111-1111-4111-8111-111111111111",
     fetchImpl,
   });
 }
 
 test("falha fechado sem configuração obrigatória ou HTTPS", () => {
   assert.throws(() => new RestPkiCoreClient({}), PkiConfigurationError);
-  assert.throws(() => new RestPkiCoreClient({ endpoint: "http://pki.example.test", apiKey: "credential", securityContextId: "context" }), /HTTPS/);
+  assert.throws(() => new RestPkiCoreClient({ endpoint: "http://pki.example.test", apiKey: "credential", securityContextId: "11111111-1111-4111-8111-111111111111" }), /HTTPS/);
+  assert.throws(() => new RestPkiCoreClient({ endpoint: "https://pki.example.test", apiKey: "credential", securityContextId: "context" }), /UUID/);
 });
 
 test("prepara PAdES conforme o contrato oficial sem expor credencial", async () => {
@@ -65,4 +66,49 @@ test("sanitiza falhas do provider e bloqueia URL temporária externa", async () 
     return true;
   });
   await assert.rejects(() => client.downloadTemporaryFile("https://external.example.test/final.pdf"), /disallowed/);
+  await assert.rejects(() => client.downloadTemporaryFile("https://pki.example.test:444/final.pdf"), /disallowed/);
+  const oversized = clientWith(async () => new Response("", { status: 200, headers: { "content-length": String(41 * 1024 * 1024) } }));
+  await assert.rejects(() => oversized.downloadTemporaryFile("https://pki.example.test/final.pdf"), /size limit/);
+});
+
+test("cria e conclui sessão remota com certificado em nuvem", async () => {
+  const signed = Buffer.from("%PDF-1.7\nsigned");
+  const calls = [];
+  const client = clientWith(async (url, options) => {
+    calls.push({ url: String(url), method: options.method, body: options.body ? JSON.parse(options.body) : null });
+    if (String(url).endsWith("/api/signature-sessions")) {
+      return jsonResponse({
+        sessionId: "77777777-7777-4777-8777-777777777777",
+        redirectUrl: "https://pki.example.test/signature-session/authorize",
+      });
+    }
+    if (String(url).includes("/api/signature-sessions/")) {
+      return jsonResponse({
+        id: "77777777-7777-4777-8777-777777777777", status: "Completed", callbackArgument: "ticket-id",
+        documents: [{ signedFile: { content: signed.toString("base64"), name: "final.pdf" } }],
+      });
+    }
+    throw new Error("unexpected request");
+  });
+  const created = await client.createSignatureSession({
+    pdf: Buffer.from("%PDF-source"), name: "contrato.pdf",
+    returnUrl: "https://assinatura.example.test/assinar-icp/", callbackArgument: "ticket-id",
+  });
+  assert.equal(created.sessionId, "77777777-7777-4777-8777-777777777777");
+  assert.equal(calls[0].body.disableDownloads, true);
+  assert.equal(calls[0].body.documents[0].signatureType, "Pdf");
+  assert.deepEqual(calls[0].body.certificateRequirements, [{ type: "CryptoDevice" }]);
+  const session = await client.getSignatureSession(created.sessionId);
+  assert.deepEqual((await client.signedPdfFromSession(session)).pdf, signed);
+});
+
+test("bloqueia retorno inseguro e sessão remota incompleta", async () => {
+  const client = clientWith(async () => jsonResponse({
+    sessionId: "77777777-7777-4777-8777-777777777777",
+    redirectUrl: "https://pki.example.test/session",
+  }));
+  await assert.rejects(() => client.createSignatureSession({
+    pdf: Buffer.from("pdf"), name: "doc.pdf", returnUrl: "http://portal.example.test/callback", callbackArgument: "ticket-id",
+  }), /HTTPS/);
+  await assert.rejects(() => client.signedPdfFromSession({ status: "UserCancelled", documents: [] }), /not complete/);
 });

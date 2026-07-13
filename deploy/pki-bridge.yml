@@ -3,7 +3,7 @@ services:
     build:
       context: "${PORTAL_SOURCE_DIR:-..}"
       dockerfile: services/pki-bridge/Dockerfile
-    image: maiocchi/pki-bridge:1.1.2
+    image: maiocchi/pki-bridge:1.2.0
     container_name: pki-bridge
     restart: unless-stopped
     mem_limit: 384m
@@ -17,6 +17,7 @@ services:
       PUBLIC_BASE_URL: https://assinatura.maiocchi.adv.br
       DATABASE_URL: "postgresql://pki:${PKI_DB_PASS}@pki-db:5432/pki"
       ARTIFACT_ROOT: /data/artifacts
+      ARTIFACT_ENCRYPTION_KEY_FILE: /run/pki-keys/artifact-aes256.key
       AUTHENTICITY_PRIVATE_KEY_FILE: /run/pki-keys/authenticity-ed25519.pem
       AUTHENTICITY_PUBLIC_KEYS_DIR: /run/pki-keys
       AUTHENTICITY_KEY_ID: "${AUTHENTICITY_KEY_ID}"
@@ -28,6 +29,9 @@ services:
       PRIVATE_PADES_PROVIDER_URL: http://pades-provider:3500
       PRIVATE_PADES_PROVIDER_API_KEY: "${PRIVATE_PADES_PROVIDER_API_KEY}"
       PRIVATE_PADES_ALLOW_INTERNAL_HTTP: "true"
+      REST_PKI_CORE_ENDPOINT: "${REST_PKI_CORE_ENDPOINT:-}"
+      REST_PKI_CORE_API_KEY: "${REST_PKI_CORE_API_KEY:-}"
+      REST_PKI_CORE_SECURITY_CONTEXT_ID: "${REST_PKI_CORE_SECURITY_CONTEXT_ID:-}"
     volumes:
       - "${PKI_ARTIFACT_DIR:-./artifacts}:/data/artifacts"
       - "${PKI_KEY_DIR:-./keys}:/run/pki-keys:ro"

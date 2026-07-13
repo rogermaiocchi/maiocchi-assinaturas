@@ -5,6 +5,7 @@ import test from "node:test";
 const schema = await readFile(new URL("../db/001_initial.sql", import.meta.url), "utf8");
 const authenticitySchema = await readFile(new URL("../db/002_authenticity_gold_standard.sql", import.meta.url), "utf8");
 const privateProviderSchema = await readFile(new URL("../db/003_private_pades_provider.sql", import.meta.url), "utf8");
+const remoteProviderSchema = await readFile(new URL("../db/004_remote_pades_sessions.sql", import.meta.url), "utf8");
 
 test("schema persiste hashes, idempotência e estado remoto cifrado", () => {
   assert.match(schema, /provider_state_ciphertext bytea NOT NULL/i);
@@ -19,6 +20,14 @@ test("schema do provider privado armazena somente hash do ticket e transições 
   assert.match(privateProviderSchema, /CREATE TABLE pades_private_ticket_events/i);
   assert.match(privateProviderSchema, /private PAdES ticket identity is immutable/i);
   assert.doesNotMatch(privateProviderSchema, /token\s+text|pin\s+|private_key|ON DELETE CASCADE/i);
+});
+
+test("schema remoto vincula uma única sessão imutável ao ticket", () => {
+  assert.match(remoteProviderSchema, /CREATE TABLE pades_remote_sessions/i);
+  assert.match(remoteProviderSchema, /provider_session_id uuid NOT NULL UNIQUE/i);
+  assert.match(remoteProviderSchema, /one_pending_idx[\s\S]+WHERE status = 'pending'/i);
+  assert.match(remoteProviderSchema, /remote PAdES session identity is immutable/i);
+  assert.doesNotMatch(remoteProviderSchema, /api_key|private_key|pin\s+|ON DELETE CASCADE/i);
 });
 
 test("schema impede exclusão em cascata da trilha criptográfica", () => {

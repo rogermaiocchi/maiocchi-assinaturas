@@ -4,7 +4,7 @@ Camada fail-closed entre o workflow DocuSeal, o provider PAdES privado e o regis
 
 ## Estado operacional
 
-O provider privado usa DSS 6.4 no servidor e um agente Swift/CryptoTokenKit no MacBook. Sem trust store ICP-Brasil, política AD-RB, credencial interna e agente local, a geração permanece desabilitada. O verificador de autenticidade não transforma um PDF em PAdES e não simula validação ICP-Brasil.
+O provider privado usa DSS 6.4 no servidor. Há duas modalidades: sessão remota em PSC ICP-Brasil, sem software no computador, e agente Swift/CryptoTokenKit para um A3 físico local. Sem trust store ICP-Brasil, política AD-RB e credenciais válidas do provider escolhido, a geração correspondente permanece desabilitada. O verificador de autenticidade não transforma um PDF em PAdES e não simula validação ICP-Brasil.
 
 Arquitetura e gates: [`docs/architecture/private-pades-provider.md`](../../docs/architecture/private-pades-provider.md).
 
@@ -13,6 +13,7 @@ Arquitetura e gates: [`docs/architecture/private-pades-provider.md`](../../docs/
 - Preparação de assinatura PDF em `POST /api/signature`.
 - Conclusão em `POST /api/signature/completion`.
 - Inspeção e validação em `PUT /api/signature-inspection`.
+- Sessão de assinatura remota em `POST /api/signature-sessions`, com documento predefinido e certificado `CryptoDevice`.
 - Webhook `submission.completed` normalizado e identificado por hash idempotente.
 - Máquina de estados que impede conclusão fora de ordem.
 - Registro externo do SHA-256 do PDF final já assinado.
@@ -39,6 +40,10 @@ O download temporário retornado pelo REST PKI Core só é aceito no mesmo host 
 ## Rotas
 
 - `GET /healthz`
+- `GET /api/pades/ticket`
+- `POST /api/pades/remote/session`
+- `POST /api/pades/remote/complete`
+- `GET /api/pades/result`
 - `GET /v/:id`
 - `GET /verificacao/:id`
 - `POST /verificacao/:id/evento`
@@ -49,7 +54,17 @@ O download temporário retornado pelo REST PKI Core só é aceito no mesmo host 
 
 ## Configuração
 
-`DATABASE_URL`, `ARTIFACT_ROOT`, `AUTHENTICITY_PRIVATE_KEY_FILE`, `AUTHENTICITY_KEY_ID` e `AUTHENTICITY_INTERNAL_HMAC_KEY` são obrigatórios em produção. `PUBLIC_BASE_URL` fixa os links canônicos. `ALLOWED_ORIGINS` recebe uma lista separada por vírgulas apenas para previews autorizados. `AUTHENTICITY_PUBLIC_KEYS_DIR` mantém arquivos históricos `{keyId}.pub.pem`; a chave ativa é sempre derivada do arquivo privado montado. `VALIDATOR_PUBLIC_KEYS_DIR` contém chaves públicas e `keyring.json`; diretório sem manifesto mantém a API de registro bloqueada.
+`DATABASE_URL`, `ARTIFACT_ROOT`, `ARTIFACT_ENCRYPTION_KEY_FILE`, `AUTHENTICITY_PRIVATE_KEY_FILE`, `AUTHENTICITY_KEY_ID` e `AUTHENTICITY_INTERNAL_HMAC_KEY` são obrigatórios em produção. A chave de artefatos contém exatamente 32 bytes e habilita AES-256-GCM com nonce aleatório e a chave de storage como AAD. `PUBLIC_BASE_URL` fixa os links canônicos. `ALLOWED_ORIGINS` recebe uma lista separada por vírgulas apenas para previews autorizados. `AUTHENTICITY_PUBLIC_KEYS_DIR` mantém arquivos históricos `{keyId}.pub.pem`; a chave ativa é sempre derivada do arquivo privado montado. `VALIDATOR_PUBLIC_KEYS_DIR` contém chaves públicas e `keyring.json`; diretório sem manifesto mantém a API de registro bloqueada.
+
+Assinatura remota só é anunciada quando `REST_PKI_CORE_ENDPOINT`, `REST_PKI_CORE_API_KEY` e `REST_PKI_CORE_SECURITY_CONTEXT_ID` estão todos presentes. Configuração parcial interrompe a inicialização. O ticket do portal nunca é enviado ao PSC: a sessão é vinculada por UUID interno e o retorno só é aceito após conferência do `callbackArgument`, download do PDF, inspeção PAdES e validação de todos os signatários.
+
+Antes de ativar a chave de artefatos em instalação existente, execute uma vez:
+
+```bash
+node src/migrate-artifact-encryption.mjs
+```
+
+Arquitetura e ativação: [`docs/architecture/remote-signing-no-install.md`](../../docs/architecture/remote-signing-no-install.md). Transição criptográfica: [`docs/security/post-quantum-transition.md`](../../docs/security/post-quantum-transition.md).
 
 `PADES_ALLOWED_POLICY_OIDS` é uma allowlist explícita, separada por vírgulas. Lista vazia bloqueia todo registro. `ALLOW_PUBLIC_ORIGINALS` permanece `false` por padrão e só pode ser ativado após política de autorização e privacidade aprovada.
 

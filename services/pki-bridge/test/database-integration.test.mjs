@@ -25,7 +25,41 @@ test("migra e persiste a trilha de autenticidade no PostgreSQL", { skip: !databa
   await applyMigrations(pool);
   await applyMigrations(pool);
   const migrations = await pool.query("SELECT name FROM pki_schema_migrations ORDER BY name");
-  assert.deepEqual(migrations.rows.map((row) => row.name), ["001_initial.sql", "002_authenticity_gold_standard.sql", "003_private_pades_provider.sql"]);
+  assert.deepEqual(migrations.rows.map((row) => row.name), [
+    "001_initial.sql",
+    "002_authenticity_gold_standard.sql",
+    "003_private_pades_provider.sql",
+    "004_remote_pades_sessions.sql",
+  ]);
+
+  const ticketId = randomUUID();
+  const firstRemoteId = randomUUID();
+  await pool.query(
+    `INSERT INTO pades_private_tickets
+      (id, token_sha256, document_name, source_pdf_sha256, source_pdf_storage_key, source_pdf_size, status, expires_at)
+     VALUES ($1, $2, 'remote.pdf', $3, 'sha256/test.pdf', 10, 'pending', now() + interval '10 minutes')`,
+    [ticketId, Buffer.alloc(32, 1), Buffer.alloc(32, 2)],
+  );
+  await pool.query(
+    `INSERT INTO pades_remote_sessions (id, ticket_id, provider_session_id, provider_kind, status)
+     VALUES ($1, $2, $3, 'rest_pki_core', 'pending')`,
+    [firstRemoteId, ticketId, randomUUID()],
+  );
+  await assert.rejects(
+    pool.query(
+      `INSERT INTO pades_remote_sessions (id, ticket_id, provider_session_id, provider_kind, status)
+       VALUES ($1, $2, $3, 'rest_pki_core', 'pending')`,
+      [randomUUID(), ticketId, randomUUID()],
+    ),
+    /pades_remote_sessions_one_pending_idx/i,
+  );
+  await pool.query("UPDATE pades_remote_sessions SET status = 'cancelled' WHERE id = $1", [firstRemoteId]);
+  await pool.query(
+    `INSERT INTO pades_remote_sessions (id, ticket_id, provider_session_id, provider_kind, status)
+     VALUES ($1, $2, $3, 'rest_pki_core', 'pending')`,
+    [randomUUID(), ticketId, randomUUID()],
+  );
+  assert.equal((await pool.query("SELECT count(*)::int AS count FROM pades_remote_sessions WHERE ticket_id = $1", [ticketId])).rows[0].count, 2);
 
   const workflowId = randomUUID();
   await pool.query(
