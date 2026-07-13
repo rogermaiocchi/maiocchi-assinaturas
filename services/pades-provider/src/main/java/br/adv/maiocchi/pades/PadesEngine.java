@@ -24,6 +24,7 @@ import eu.europa.esig.dss.service.ocsp.OnlineOCSPSource;
 import eu.europa.esig.dss.spi.DSSUtils;
 import eu.europa.esig.dss.spi.validation.CommonCertificateVerifier;
 import eu.europa.esig.dss.spi.x509.CommonTrustedCertificateSource;
+import eu.europa.esig.dss.spi.x509.tsp.TSPSource;
 import eu.europa.esig.dss.validation.SignedDocumentValidator;
 import eu.europa.esig.dss.validation.reports.Reports;
 
@@ -104,7 +105,8 @@ final class PadesEngine {
     private static final DateTimeFormatter VISIBLE_SIGNING_TIME = DateTimeFormatter
             .ofPattern("dd/MM/uuuu HH:mm:ss 'UTC'").withZone(ZoneOffset.UTC);
 
-    record PrepareRequest(String pdfBase64, String name, String certificateBase64, List<String> chainBase64) {}
+    record PrepareRequest(String pdfBase64, String name, String certificateBase64, List<String> chainBase64,
+                          String reason, String signerRole) {}
     record PrepareResult(String sessionId, String toBeSignedBase64, String digestAlgorithm,
                          String signatureAlgorithm, String documentSha256, String certificateFingerprintSha256,
                          String expiresAt) {}
@@ -112,6 +114,7 @@ final class PadesEngine {
     record ValidationResult(boolean cryptographicIntegrity, boolean trusted, String indication,
                             String subIndication, String format, String policyOid, String signedBy,
                             String signerNationalIdMasked, String signingTime, String certificateType,
+                            ItiPadesAdRbAttributes.Profile itiAttributes,
                             String reportXmlBase64) {}
     record CompleteResult(String signedPdfBase64, String signedPdfSha256, ValidationResult validation) {}
     record SignaturePolicy(String oid, byte[] digest, String uri) {}
@@ -127,6 +130,7 @@ final class PadesEngine {
     private final Clock clock;
     private final SignaturePolicy signaturePolicy;
     private final boolean requireTrustedValidation;
+    private final boolean timestampsRequired;
     private final Map<String, Session> sessions = new ConcurrentHashMap<>();
 
     PadesEngine(CommonTrustedCertificateSource trustSource, Clock clock, SignaturePolicy signaturePolicy) {
@@ -135,6 +139,11 @@ final class PadesEngine {
 
     PadesEngine(CommonTrustedCertificateSource trustSource, Clock clock, SignaturePolicy signaturePolicy,
                 boolean requireTrustedValidation) {
+        this(trustSource, clock, signaturePolicy, requireTrustedValidation, null, false);
+    }
+
+    PadesEngine(CommonTrustedCertificateSource trustSource, Clock clock, SignaturePolicy signaturePolicy,
+                boolean requireTrustedValidation, TSPSource tspSource, boolean timestampsRequired) {
         if (trustSource == null || trustSource.getCertificates().isEmpty()) {
             throw new IllegalArgumentException("ICP-Brasil trust store is empty");
         }
@@ -142,6 +151,10 @@ final class PadesEngine {
         validateSignaturePolicy(signaturePolicy);
         this.signaturePolicy = signaturePolicy;
         this.requireTrustedValidation = requireTrustedValidation;
+        if (timestampsRequired != (tspSource != null)) {
+            throw new IllegalArgumentException("timestamp mode requires an ACT TSP source");
+        }
+        this.timestampsRequired = timestampsRequired;
         this.verifier = new CommonCertificateVerifier();
         this.verifier.setTrustedCertSources(trustSource);
         CommonsDataLoader dataLoader = new CommonsDataLoader();
@@ -154,6 +167,7 @@ final class PadesEngine {
         this.verifier.setCrlSource(new OnlineCRLSource(restrictedDataLoader));
         this.verifier.setOcspSource(new OnlineOCSPSource(restrictedDataLoader));
         this.service = new PAdESService(verifier);
+        if (tspSource != null) this.service.setTspSource(tspSource);
     }
 
     PrepareResult prepare(PrepareRequest request) {
@@ -181,7 +195,7 @@ final class PadesEngine {
 
         Instant now = clock.instant();
         PAdESSignatureParameters parameters = new PAdESSignatureParameters();
-        parameters.setSignatureLevel(SignatureLevel.PAdES_BASELINE_B);
+        parameters.setSignatureLevel(timestampsRequired ? SignatureLevel.PAdES_BASELINE_T : SignatureLevel.PAdES_BASELINE_B);
         parameters.setDigestAlgorithm(DigestAlgorithm.SHA256);
         parameters.setSigningCertificate(certificate);
         parameters.setCertificateChain(chain);
@@ -192,12 +206,25 @@ final class PadesEngine {
         policy.setDigestValue(signaturePolicy.digest());
         policy.setSpuri(signaturePolicy.uri());
         parameters.bLevel().setSignaturePolicy(policy);
+        parameters.setEn319122(false);
+        parameters.bLevel().setClaimedSignerRoles(List.of(safeMetadata(
+                request.signerRole(), ItiPadesAdRbAttributes.DEFAULT_SIGNER_ROLE, 100)));
         parameters.setLocation("Brasil");
         parameters.setContactInfo("roger@maiocchi.adv.br");
         parameters.setSignerName(signerIdentity.signedBy());
+        parameters.setReason(safeMetadata(request.reason(), ItiPadesAdRbAttributes.DEFAULT_REASON, 180));
+        parameters.setAppName(ItiPadesAdRbAttributes.APPLICATION_NAME);
         configureVisibleSignature(parameters, pdf, signerIdentity, now);
 
         DSSDocument document = new InMemoryDocument(pdf, safeName(request.name()));
+        if (timestampsRequired) {
+            try {
+                parameters.setContentTimestamps(List.of(service.getContentTimestamp(document, parameters)));
+            } catch (RuntimeException error) {
+                throw new ProviderException(503, "timestamp_authority_unavailable",
+                        "A ACT ICP-Brasil não respondeu com um carimbo de conteúdo válido.");
+            }
+        }
         ToBeSigned toBeSigned = service.getDataToSign(document, parameters);
         byte[] tbs = toBeSigned.getBytes();
         String id = UUID.randomUUID().toString();
@@ -233,10 +260,21 @@ final class PadesEngine {
 
         DSSDocument original = new InMemoryDocument(session.pdf(), session.name());
         SignatureValue value = new SignatureValue(SignatureAlgorithm.RSA_SHA256, signature);
-        DSSDocument signed = service.signDocument(original, session.parameters(), value);
+        DSSDocument signed;
+        try {
+            signed = service.signDocument(original, session.parameters(), value);
+        } catch (RuntimeException error) {
+            if (timestampsRequired) {
+                throw new ProviderException(503, "timestamp_authority_unavailable",
+                        "A ACT ICP-Brasil não respondeu com um carimbo de assinatura válido.");
+            }
+            throw error;
+        }
         byte[] signedPdf = bytes(signed);
         assertCanonicalPolicyReference(signedPdf);
-        ValidationResult validation = validate(signedPdf, session.signerIdentity(), session.signingTime());
+        ItiPadesAdRbAttributes.Profile itiAttributes =
+                ItiPadesAdRbAttributes.inspectAndAssert(signedPdf, timestampsRequired);
+        ValidationResult validation = validate(signedPdf, session.signerIdentity(), session.signingTime(), itiAttributes);
         if (!validation.cryptographicIntegrity() || (requireTrustedValidation && !validation.trusted())) {
             throw new ProviderException(422, "pades_validation_failed", "O PAdES gerado não passou na validação completa.");
         }
@@ -254,7 +292,8 @@ final class PadesEngine {
                 session.expiresAt().toString());
     }
 
-    private ValidationResult validate(byte[] signedPdf, SignerIdentity signerIdentity, Instant signingTime) {
+    private ValidationResult validate(byte[] signedPdf, SignerIdentity signerIdentity, Instant signingTime,
+                                      ItiPadesAdRbAttributes.Profile itiAttributes) {
         DSSDocument document = new InMemoryDocument(signedPdf, "documento-assinado.pdf");
         SignedDocumentValidator validator = SignedDocumentValidator.fromDocument(document);
         validator.setCertificateVerifier(verifier);
@@ -279,6 +318,7 @@ final class PadesEngine {
                 simple.getSubIndication(signatureId) == null ? null : simple.getSubIndication(signatureId).name(),
                 simple.getSignatureFormat(signatureId) == null ? null : simple.getSignatureFormat(signatureId).name(), signaturePolicy.oid(),
                 signerIdentity.signedBy(), signerIdentity.nationalIdMasked(), signingTime.toString(), CERTIFICATE_TYPE,
+                itiAttributes,
                 Base64.getEncoder().encodeToString(report.getBytes(java.nio.charset.StandardCharsets.UTF_8))
         );
     }
@@ -550,6 +590,13 @@ final class PadesEngine {
         name = name.replaceAll("[^A-Za-z0-9._-]", "-");
         if (!name.toLowerCase().endsWith(".pdf")) name += ".pdf";
         return name.substring(0, Math.min(name.length(), 120));
+    }
+
+    private static String safeMetadata(String value, String fallback, int maxLength) {
+        String normalized = value == null ? "" : value.replaceAll("[\\p{Cntrl}]", " ")
+                .replaceAll("\\s+", " ").trim();
+        if (normalized.isEmpty()) normalized = fallback;
+        return normalized.substring(0, Math.min(normalized.length(), maxLength));
     }
 
     static String sha256(byte[] value) {

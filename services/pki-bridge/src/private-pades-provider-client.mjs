@@ -41,10 +41,10 @@ export class PrivatePadesProviderClient {
     return data;
   }
 
-  async prepare({ pdf, name, certificateBase64, chainBase64 = [] }) {
+  async prepare({ pdf, name, certificateBase64, chainBase64 = [], reason, signerRole }) {
     if (!Buffer.isBuffer(pdf) || pdf.length === 0) throw new TypeError("pdf must be a non-empty Buffer");
     const result = await this.request("/v1/signatures/prepare", {
-      pdfBase64: pdf.toString("base64"), name, certificateBase64, chainBase64,
+      pdfBase64: pdf.toString("base64"), name, certificateBase64, chainBase64, reason, signerRole,
     });
     return this.signingTask(result);
   }

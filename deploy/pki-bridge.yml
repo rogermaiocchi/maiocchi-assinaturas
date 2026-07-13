@@ -51,7 +51,7 @@ services:
     build:
       context: "${PORTAL_SOURCE_DIR:-..}"
       dockerfile: services/pades-provider/Dockerfile
-    image: maiocchi/pades-provider:1.1.3
+    image: maiocchi/pades-provider:1.2.0
     container_name: pades-provider
     restart: unless-stopped
     mem_limit: 768m
@@ -65,9 +65,15 @@ services:
       PADES_POLICY_URI: http://politicas.icpbrasil.gov.br/PA_PAdES_AD_RB_v1_3.der
       PADES_POLICY_FILE_SHA256: "23da544aef71f7a75dc85fa6e17a83875741e4baef41ec178258a5c86ace54dd"
       PADES_POLICY_DIGEST_SHA256: "23e4be4b9b362172e4ebb0e72b86a133ece5aad843d8651c6e38a0ba3f08fc60"
+      PADES_TSP_MODE: "${PADES_TSP_MODE:-disabled}"
+      PADES_TSP_URL: "${PADES_TSP_URL:-}"
+      PADES_TSP_POLICY_OID: "${PADES_TSP_POLICY_OID:-}"
+      PADES_TSP_KEYSTORE_FILE: "${PADES_TSP_KEYSTORE_FILE:-/run/tsp-client/client.p12}"
+      PADES_TSP_KEYSTORE_PASSWORD: "${PADES_TSP_KEYSTORE_PASSWORD:-}"
     volumes:
       - ./icp-trust:/run/icp-trust:ro
       - ./pades-policy:/run/pades-policy:ro
+      - "${PADES_TSP_KEYSTORE_DIR:-./tsp-client}:/run/tsp-client:ro"
     read_only: true
     tmpfs:
       - /tmp:size=64m,mode=1777

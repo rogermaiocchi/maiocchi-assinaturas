@@ -128,9 +128,11 @@ test("ticket privado vincula PDF, certificado, tarefa e resultado validado", asy
   const signedPdf = Buffer.from("%PDF-1.7\nsigned");
   const certificateFingerprint = "a".repeat(64);
   const provider = {
-    async prepare({ pdf }) {
+    async prepare({ pdf, reason, signerRole }) {
       assert.notDeepEqual(pdf, sourcePdf);
       assert.equal((await PDFDocument.load(pdf)).getPageCount(), 2);
+      assert.equal(reason, "Documento eletrônico");
+      assert.equal(signerRole, "Signatário ICP-Brasil");
       return {
         sessionId: "22222222-2222-4222-8222-222222222222",
         toBeSignedBase64: Buffer.from("dtbs").toString("base64"), digestAlgorithm: "SHA-256",

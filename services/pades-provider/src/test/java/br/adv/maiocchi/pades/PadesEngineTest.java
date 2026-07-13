@@ -4,6 +4,8 @@ import eu.europa.esig.dss.spi.DSSUtils;
 import eu.europa.esig.dss.spi.x509.CommonTrustedCertificateSource;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.DERUTF8String;
+import org.bouncycastle.asn1.cms.CMSAttributes;
+import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.BasicConstraints;
 import org.bouncycastle.asn1.x509.Extension;
@@ -17,11 +19,14 @@ import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.junit.jupiter.api.Test;
 import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.cos.COSName;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotationWidget;
 import org.apache.pdfbox.pdmodel.interactive.form.PDField;
 import org.apache.pdfbox.pdmodel.interactive.form.PDSignatureField;
+import org.bouncycastle.cms.CMSSignedData;
+import org.bouncycastle.cms.SignerInformation;
 
 import java.io.ByteArrayOutputStream;
 import java.math.BigInteger;
@@ -64,7 +69,8 @@ class PadesEngineTest {
         var prepared = engine.prepare(new PadesEngine.PrepareRequest(
                 Base64.getEncoder().encodeToString(pdf), "contrato.pdf",
                 Base64.getEncoder().encodeToString(signer.getEncoded()),
-                List.of(Base64.getEncoder().encodeToString(root.getEncoded()))
+                List.of(Base64.getEncoder().encodeToString(root.getEncoded())),
+                "Formalização contratual", "Advogado"
         ));
         assertEquals(PadesEngine.sha256(pdf), prepared.documentSha256());
         assertEquals("RSA-SHA256", prepared.signatureAlgorithm());
@@ -87,8 +93,35 @@ class PadesEngineTest {
         assertEquals("529.***.***-25", completed.validation().signerNationalIdMasked());
         assertEquals(NOW.toString(), completed.validation().signingTime());
         assertEquals("A3", completed.validation().certificateType());
+        assertEquals("PAdES AD-RB v1.3", completed.validation().itiAttributes().profile());
+        assertEquals("PRESENT", attribute(completed.validation().itiAttributes().signedCms(),
+                "id-aa-ets-signerAttr").status());
+        assertEquals("REQUIRES_ICP_BRASIL_ACT", attribute(completed.validation().itiAttributes().signedCms(),
+                "id-aa-ets-contentTimeStamp").status());
+        assertEquals("REQUIRES_ICP_BRASIL_ACT", attribute(completed.validation().itiAttributes().unsignedCms(),
+                "id-aa-signatureTimeStampToken").status());
         try (PDDocument parsed = Loader.loadPDF(signedPdf)) {
             assertFalse(parsed.getSignatureDictionaries().isEmpty());
+            var pdfSignature = parsed.getSignatureDictionaries().getLast();
+            assertEquals("Assinante ICP Teste", pdfSignature.getName());
+            assertEquals("Brasil", pdfSignature.getLocation());
+            assertEquals("Formalização contratual", pdfSignature.getReason());
+            assertEquals("roger@maiocchi.adv.br", pdfSignature.getContactInfo());
+            assertTrue(pdfSignature.getCOSObject().containsKey(COSName.getPDFName("Prop_Build")));
+            assertFalse(pdfSignature.getCOSObject().containsKey(COSName.CERT));
+            assertFalse(pdfSignature.getCOSObject().containsKey(COSName.getPDFName("R")));
+            assertFalse(pdfSignature.getCOSObject().containsKey(COSName.getPDFName("Prop_AuthType")));
+
+            CMSSignedData cms = new CMSSignedData(pdfSignature.getContents(signedPdf));
+            SignerInformation cmsSigner = cms.getSignerInfos().getSigners().iterator().next();
+            assertNotNull(cmsSigner.getSignedAttributes().get(CMSAttributes.contentType));
+            assertNotNull(cmsSigner.getSignedAttributes().get(CMSAttributes.messageDigest));
+            assertNotNull(cmsSigner.getSignedAttributes().get(PKCSObjectIdentifiers.id_aa_signingCertificateV2));
+            assertNotNull(cmsSigner.getSignedAttributes().get(PKCSObjectIdentifiers.id_aa_ets_sigPolicyId));
+            assertNotNull(cmsSigner.getSignedAttributes().get(PKCSObjectIdentifiers.id_aa_ets_signerAttr));
+            assertNull(cmsSigner.getSignedAttributes().get(PKCSObjectIdentifiers.pkcs_9_at_signingTime));
+            assertNull(cmsSigner.getSignedAttributes().get(PKCSObjectIdentifiers.id_aa_ets_signerLocation));
+            assertNull(cmsSigner.getSignedAttributes().get(new ASN1ObjectIdentifier("0.4.0.19122.1.1")));
             assertNotNull(parsed.getDocumentCatalog().getAcroForm());
             PDSignatureField field = null;
             for (PDField candidate : parsed.getDocumentCatalog().getAcroForm().getFieldTree()) {
@@ -134,7 +167,7 @@ class PadesEngineTest {
         var prepared = engine.prepare(new PadesEngine.PrepareRequest(
                 Base64.getEncoder().encodeToString(pdf()), "evidencias.pdf",
                 Base64.getEncoder().encodeToString(signer.getEncoded()),
-                List.of(Base64.getEncoder().encodeToString(root.getEncoded()))
+                List.of(Base64.getEncoder().encodeToString(root.getEncoded())), null, null
         ));
         Signature token = Signature.getInstance("SHA256withRSA");
         token.initSign(signerKey.getPrivate());
@@ -158,7 +191,7 @@ class PadesEngineTest {
         PadesEngine engine = new PadesEngine(trust, Clock.fixed(NOW, ZoneOffset.UTC), POLICY);
         var prepared = engine.prepare(new PadesEngine.PrepareRequest(
                 Base64.getEncoder().encodeToString(pdf()), "teste.pdf",
-                Base64.getEncoder().encodeToString(signer.getEncoded()), List.of()
+                Base64.getEncoder().encodeToString(signer.getEncoded()), List.of(), null, null
         ));
         Signature token = Signature.getInstance("SHA256withRSA");
         token.initSign(signerKey.getPrivate());
@@ -188,6 +221,11 @@ class PadesEngineTest {
 
     private static byte[] pdf() throws Exception {
         return pdf(1);
+    }
+
+    private static ItiPadesAdRbAttributes.AttributeState attribute(
+            List<ItiPadesAdRbAttributes.AttributeState> attributes, String identifier) {
+        return attributes.stream().filter(attribute -> identifier.equals(attribute.identifier())).findFirst().orElseThrow();
     }
 
     private static byte[] pdf(int pages) throws Exception {

@@ -179,9 +179,12 @@ public final class ProviderServer {
         String expectedPolicyDigest = requiredEnvironment("PADES_POLICY_DIGEST_SHA256");
         PadesEngine.SignaturePolicy signaturePolicy = SignaturePolicyLoader.load(
                 policyFile, policyOid, policyUri, expectedPolicyFileHash, expectedPolicyDigest);
+        IcpBrasilTimestampAuthority.Configuration timestampAuthority =
+                IcpBrasilTimestampAuthority.fromEnvironment(System.getenv());
         int port = Integer.parseInt(System.getenv().getOrDefault("PORT", "3500"));
         CommonTrustedCertificateSource trust = loadTrustStore(trustDirectory, trustedRoots.stream().map(String::trim).toList());
-        PadesEngine engine = new PadesEngine(trust, Clock.systemUTC(), signaturePolicy);
+        PadesEngine engine = new PadesEngine(trust, Clock.systemUTC(), signaturePolicy, true,
+                timestampAuthority.source(), timestampAuthority.enabled());
         ProviderServer app = new ProviderServer(new InetSocketAddress("0.0.0.0", port), engine, apiKey);
         Runtime.getRuntime().addShutdownHook(new Thread(app::stop));
         app.start();

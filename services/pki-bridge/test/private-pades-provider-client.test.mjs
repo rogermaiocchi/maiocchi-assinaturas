@@ -24,13 +24,18 @@ test("cliente do provider prepara e conclui somente resultado confiável", async
         validation: { trusted: true, cryptographicIntegrity: true } });
     },
   });
-  const task = await client.prepare({ pdf: Buffer.from("%PDF-test"), certificateBase64: "cert" });
+  const task = await client.prepare({
+    pdf: Buffer.from("%PDF-test"), certificateBase64: "cert",
+    reason: "Formalização contratual", signerRole: "Signatário ICP-Brasil",
+  });
   const resumed = await client.resume({ sessionId: task.sessionId });
   const result = await client.complete({ sessionId: task.sessionId, signatureBase64: "signature" });
   assert.deepEqual(resumed, task);
   assert.deepEqual(result.pdf, signed);
   assert.equal(calls.length, 3);
   assert.ok(calls.every((call) => call.key.length >= 32));
+  assert.equal(calls[0].body.reason, "Formalização contratual");
+  assert.equal(calls[0].body.signerRole, "Signatário ICP-Brasil");
 });
 
 test("cliente rejeita HTTP externo e resultado sem validação", async () => {

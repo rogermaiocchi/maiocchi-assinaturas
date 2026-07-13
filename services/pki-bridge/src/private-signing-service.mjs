@@ -5,6 +5,7 @@ import { buildEvidenceManifest, composePadesEvidence, inspectUnsignedPdf } from 
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const MAX_PDF_BYTES = 40 * 1024 * 1024;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
+const ICP_BRASIL_SIGNER_ROLE = "Signatário ICP-Brasil";
 
 function sha256(value) { return createHash("sha256").update(value).digest("hex"); }
 
@@ -331,7 +332,10 @@ export class PrivateSigningService {
     if (ticket.status !== "pending") throw Object.assign(new Error("ticket is not available for signing"), { status: 409 });
     const prepared = await this.ensurePresentation(ticket, { clientMetadata, observedIp, modality: "local-a3" });
     ticket = prepared.ticket;
-    const task = await this.provider.prepare({ pdf: prepared.pdf, name: ticket.document_name, certificateBase64, chainBase64 });
+    const task = await this.provider.prepare({
+      pdf: prepared.pdf, name: ticket.document_name, certificateBase64, chainBase64,
+      reason: ticket.document_context?.purpose, signerRole: ICP_BRASIL_SIGNER_ROLE,
+    });
     const certificateFingerprint = task.certificateFingerprintSha256;
     const presentationHash = bufferHex(ticket.presentation_pdf_sha256);
     if (task.documentSha256 !== presentationHash || !SHA256_PATTERN.test(certificateFingerprint)) {
@@ -359,7 +363,10 @@ export class PrivateSigningService {
     } catch (error) {
       if (!new Set(["session_not_found", "session_expired"]).has(error?.code)) throw error;
       const pdf = await this.artifactStore.get(ticket.presentation_pdf_storage_key);
-      task = await this.provider.prepare({ pdf, name: ticket.document_name, certificateBase64, chainBase64 });
+      task = await this.provider.prepare({
+        pdf, name: ticket.document_name, certificateBase64, chainBase64,
+        reason: ticket.document_context?.purpose, signerRole: ICP_BRASIL_SIGNER_ROLE,
+      });
       this.assertTaskBindings(ticket, task);
       ticket = await this.repository.replacePrepared(ticket, {
         providerSessionId: task.sessionId,
