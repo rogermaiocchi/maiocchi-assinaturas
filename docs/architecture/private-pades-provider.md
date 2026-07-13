@@ -46,6 +46,10 @@ O corpo assinado contém sessão, DTBS, algoritmo, fingerprint, hash/nome do doc
 5. O mesmo arquivo deve passar no VALIDAR ITI em ensaio de homologação.
 6. O agente distribuído deve possuir assinatura Developer ID e notarização; a instalação local do MacBook pode usar assinatura local controlada.
 
+O gate 5 foi satisfeito em produção em 13 de julho de 2026. A evidência e o
+contrato para regressões estão na
+[baseline PAdES homologada](../baseline/2026-07-13-pades-iti-approved.md).
+
 ## Referência PJeOffice, sem integração
 
 O PJeOffice Pro é referência de experiência para separar navegador, agente local e certificado. Não é dependência, SDK, fornecedor nem canal de assinatura deste portal. A documentação do PJe informa que seu uso por aplicações não relacionadas ao PJe está atualmente limitado a domínios `*.jus.br`, `*.mp.br`, `*.gov.br` e `*.def.br`; `assinatura.maiocchi.adv.br` está fora desse escopo.

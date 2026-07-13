@@ -60,6 +60,18 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 - O agente PAdES privado escuta apenas em `127.0.0.1:35100`, aceita origens explícitas e acessa o A3 pelo CryptoTokenKit. O link documental contém ticket de uso único; PIN e chave nunca transitam pelo portal. A compatibilidade depende da combinação de mídia, driver, gerenciador e macOS registrada na matriz Certisign.
 - Metadados do ambiente são coletados no clique: IP observado pelo servidor, plataforma, navegador, fuso e data/hora. Geolocalização é opcional e só ingressa no manifesto quando o usuário autoriza o navegador; recusa não impede a assinatura.
 
+## Perfil A3 homologado
+
+O padrão de sucesso do MacBook primário é o provider `1.1.3`, agente local em
+`127.0.0.1:35100`, token ICP-Brasil A3 via CryptoTokenKit e política PAdES
+AD-RB v1.3. O ensaio de 13/07/2026 foi aprovado pelo VALIDAR ITI, com cadeia
+`Valid`, estrutura conforme e todos os atributos obrigatórios `Valid`.
+
+Os valores canônicos e os hashes da evidência estão na
+[baseline PAdES homologada](../baseline/2026-07-13-pades-iti-approved.md).
+Para ajustes visuais, editar somente a composição pré-assinatura. Nunca abrir e
+salvar o PDF PAdES final em editor, compressor ou biblioteca de pós-processamento.
+
 ## Critério de conclusão
 
 Uma função só pode ser anunciada como disponível depois de teste real no ambiente correspondente. Distribuição a terceiros exige Developer ID, hardened runtime e notarização Apple; PAdES-T/LT/LTA exige TSA e política configuradas; validação independente pelo VALIDAR ITI permanece etapa de conferência externa. Nenhum desses gates pode ser substituído por chave de exemplo ou simulação.

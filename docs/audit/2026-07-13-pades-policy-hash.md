@@ -27,6 +27,28 @@ O provider 1.1.3:
 
 Há regressões automatizadas para impedir o uso do checksum do arquivo como digest do atributo e para rejeitar alteração do hash interno mesmo quando o checksum configurado acompanha o arquivo adulterado.
 
+## Homologação concluída
+
+A correção foi publicada no commit
+`ccda3c5d6e929967460d616ce471c13254519303`, implantada como
+`maiocchi/pades-provider:1.1.3` e exercitada com certificado ICP-Brasil A3 real.
+
+O novo PDF final tem SHA-256
+`d6b848586c6fc7fd5358e920fd4c45eaf22301bc7d72ce47c43c9edeb57633a0`.
+O relatório PDF baixado do VALIDAR ITI tem SHA-256
+`73bea551f8532980068e66954628c47df8002b27be536e847f22196fa69aedd6`.
+Em 13/07/2026 às 10:56:28 BRT, o serviço retornou `Aprovado`, caminho
+`Valid`, estrutura em conformidade, resumo criptográfico `true` e os cinco
+atributos obrigatórios `Valid`.
+
+A inspeção independente do CMS confirmou o digest interno
+`23e4be4b9b362172e4ebb0e72b86a133ece5aad843d8651c6e38a0ba3f08fc60`
+e a URI canônica HTTP. A verificação destacada com OpenSSL retornou
+`Verification successful`.
+
+O registro canônico completo está na
+[baseline PAdES homologada](../baseline/2026-07-13-pades-iti-approved.md).
+
 ## Fontes oficiais
 
 - [Repositório ITI da assinatura digital com Referência Básica](https://www.gov.br/iti/pt-br/assuntos/repositorio/assinatura-digital-com-referencia-basica-ad-rb)

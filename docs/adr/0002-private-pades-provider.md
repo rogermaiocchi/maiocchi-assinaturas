@@ -1,6 +1,6 @@
 # ADR 0002 - Provider PAdES privado com A3
 
-- Status: aceito
+- Status: aceito e validado em produção
 - Data: 2026-07-12
 - Decisores: Maiocchi Advogado
 
@@ -31,6 +31,18 @@ O navegador recebe um ticket de 256 bits no fragmento da URL. O banco preserva s
 ## Consequências
 
 O escritório assume manutenção, revisão de segurança, assinatura/notarização do agente e atualização das políticas/raízes. O DSS é LGPL 2.1; o código próprio permanece separado. Distribuição para outros Macs exige Developer ID e notarização Apple.
+
+## Validação de produção
+
+Em 13 de julho de 2026, o fluxo real com certificado ICP-Brasil A3 foi aprovado
+pelo VALIDAR ITI. O relatório classificou cadeia, estrutura, cifra, resumo
+criptográfico e todos os atributos obrigatórios como válidos, inclusive
+`IdAaEtsSigPolicyId`.
+
+O perfil, hashes dos artefatos, versões e contrato de regressão estão congelados
+na [baseline PAdES homologada](../baseline/2026-07-13-pades-iti-approved.md).
+Alterações visuais do documento devem ocorrer antes da preparação DSS e exigem
+nova assinatura e nova validação oficial; o PDF PAdES concluído é imutável.
 
 ## Fontes
 
