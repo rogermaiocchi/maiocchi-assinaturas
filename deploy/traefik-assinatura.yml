@@ -97,6 +97,7 @@ http:
         PathPrefix(`/folha/`) ||
         PathPrefix(`/original/`) ||
         PathPrefix(`/chaves/`) ||
+        PathPrefix(`/chaves-pqc/`) ||
         PathPrefix(`/api/pades/`))
       service: pki-bridge-svc
       middlewares: [assinatura-security, autenticidade-rate-limit]

@@ -190,6 +190,7 @@ test("padroniza páginas inexistentes e redirecionamentos internos", async () =>
   assert.match(traefik, /portal-auth-session:/i);
   assert.match(traefik, /portal-auth-certificate:/i);
   assert.match(traefik, /legacy-sign-in:/i);
+  assert.match(traefik, /PathPrefix\(`\/chaves-pqc\/`\)/i);
   assert.match(traefik, /documents-to-main:/i);
   assert.match(traefik, /replacement: 'https:\/\/assinatura\.maiocchi\.adv\.br\/\$\{1\}'/i);
   assert.match(docuseal, /APP_URL: https:\/\/assinatura\.maiocchi\.adv\.br/i);
