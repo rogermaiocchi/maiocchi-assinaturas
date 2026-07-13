@@ -175,17 +175,13 @@ public final class ProviderServer {
         Path policyFile = Path.of(requiredEnvironment("PADES_POLICY_FILE"));
         String policyOid = requiredEnvironment("PADES_POLICY_OID");
         String policyUri = requiredEnvironment("PADES_POLICY_URI");
-        String expectedPolicyHash = requiredEnvironment("PADES_POLICY_SHA256").toLowerCase();
-        byte[] policyBytes = Files.readAllBytes(policyFile);
-        String actualPolicyHash = java.util.HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(policyBytes));
-        if (!expectedPolicyHash.matches("[a-f0-9]{64}") || !MessageDigest.isEqual(
-                expectedPolicyHash.getBytes(StandardCharsets.US_ASCII), actualPolicyHash.getBytes(StandardCharsets.US_ASCII))) {
-            throw new IllegalArgumentException("PAdES policy digest mismatch");
-        }
+        String expectedPolicyFileHash = requiredEnvironment("PADES_POLICY_FILE_SHA256");
+        String expectedPolicyDigest = requiredEnvironment("PADES_POLICY_DIGEST_SHA256");
+        PadesEngine.SignaturePolicy signaturePolicy = SignaturePolicyLoader.load(
+                policyFile, policyOid, policyUri, expectedPolicyFileHash, expectedPolicyDigest);
         int port = Integer.parseInt(System.getenv().getOrDefault("PORT", "3500"));
         CommonTrustedCertificateSource trust = loadTrustStore(trustDirectory, trustedRoots.stream().map(String::trim).toList());
-        PadesEngine engine = new PadesEngine(trust, Clock.systemUTC(),
-                new PadesEngine.SignaturePolicy(policyOid, java.util.HexFormat.of().parseHex(actualPolicyHash), policyUri));
+        PadesEngine engine = new PadesEngine(trust, Clock.systemUTC(), signaturePolicy);
         ProviderServer app = new ProviderServer(new InetSocketAddress("0.0.0.0", port), engine, apiKey);
         Runtime.getRuntime().addShutdownHook(new Thread(app::stop));
         app.start();

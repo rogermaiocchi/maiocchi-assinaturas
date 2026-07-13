@@ -45,7 +45,7 @@ class PadesEngineTest {
     private static final String TEST_NATIONAL_ID = "52998224725";
     private static final PadesEngine.SignaturePolicy POLICY = new PadesEngine.SignaturePolicy(
             PadesEngine.ICP_BRASIL_AD_RB_V1_3_OID,
-            HexFormat.of().parseHex(PadesEngine.ICP_BRASIL_AD_RB_V1_3_SHA256),
+            HexFormat.of().parseHex(PadesEngine.ICP_BRASIL_AD_RB_V1_3_SIGN_POLICY_HASH_SHA256),
             PadesEngine.ICP_BRASIL_AD_RB_V1_3_URI);
 
     @Test
@@ -177,7 +177,7 @@ class PadesEngineTest {
         trust.addCertificate(DSSUtils.loadCertificate(root.getEncoded()));
         var nonCanonical = new PadesEngine.SignaturePolicy(
                 PadesEngine.ICP_BRASIL_AD_RB_V1_3_OID,
-                HexFormat.of().parseHex(PadesEngine.ICP_BRASIL_AD_RB_V1_3_SHA256),
+                HexFormat.of().parseHex(PadesEngine.ICP_BRASIL_AD_RB_V1_3_SIGN_POLICY_HASH_SHA256),
                 "https://politicas.icpbrasil.gov.br/PA_PAdES_AD_RB_v1_3.der");
 
         IllegalArgumentException error = assertThrows(IllegalArgumentException.class,

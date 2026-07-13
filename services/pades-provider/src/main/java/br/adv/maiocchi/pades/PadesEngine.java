@@ -86,13 +86,15 @@ final class PadesEngine {
     static final String ICP_BRASIL_AD_RB_V1_3_OID = "2.16.76.1.7.1.11.1.3";
     static final String ICP_BRASIL_AD_RB_V1_3_URI =
             "http://politicas.icpbrasil.gov.br/PA_PAdES_AD_RB_v1_3.der";
-    static final String ICP_BRASIL_AD_RB_V1_3_SHA256 =
+    static final String ICP_BRASIL_AD_RB_V1_3_FILE_SHA256 =
             "23da544aef71f7a75dc85fa6e17a83875741e4baef41ec178258a5c86ace54dd";
+    static final String ICP_BRASIL_AD_RB_V1_3_SIGN_POLICY_HASH_SHA256 =
+            "23e4be4b9b362172e4ebb0e72b86a133ece5aad843d8651c6e38a0ba3f08fc60";
     private static final String ICP_BRASIL_PERSON_DATA_OID = "2.16.76.1.3.1";
     private static final ASN1ObjectIdentifier ETS_URI_QUALIFIER_OID =
             new ASN1ObjectIdentifier("1.2.840.113549.1.9.16.5.1");
     private static final byte[] ICP_BRASIL_AD_RB_V1_3_DIGEST =
-            HexFormat.of().parseHex(ICP_BRASIL_AD_RB_V1_3_SHA256);
+            HexFormat.of().parseHex(ICP_BRASIL_AD_RB_V1_3_SIGN_POLICY_HASH_SHA256);
     private static final String CERTIFICATE_TYPE = "A3";
     private static final float VISIBLE_SIGNATURE_X = 72f;
     private static final float VISIBLE_SIGNATURE_BOTTOM = 64f;

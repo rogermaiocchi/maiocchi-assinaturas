@@ -14,7 +14,8 @@ O PDF assinado apresentou:
 - assinatura RSA/SHA-256 válida;
 - cadeia ICP-Brasil construída pelo Validador ITI;
 - OID correto: `2.16.76.1.7.1.11.1.3`;
-- digest correto da política: `23da544aef71f7a75dc85fa6e17a83875741e4baef41ec178258a5c86ace54dd`;
+- checksum correto do artefato DER: `23da544aef71f7a75dc85fa6e17a83875741e4baef41ec178258a5c86ace54dd`;
+- `SignPolicyHash` interno correto para o atributo assinado: `23e4be4b9b362172e4ebb0e72b86a133ece5aad843d8651c6e38a0ba3f08fc60`;
 - URI emitida incorretamente: `https://politicas.icpbrasil.gov.br/PA_PAdES_AD_RB_v1_3.der`.
 
 O repositório oficial do ITI publica como referência canônica da política PAdES AD-RB
