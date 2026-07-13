@@ -64,6 +64,26 @@ export function sha256Base64(buffer) {
   return createHash("sha256").update(buffer).digest("base64");
 }
 
+function padesSignatureOptions() {
+  return {
+    reason: "Assinatura eletrônica qualificada ICP-Brasil",
+    visualRepresentation: {
+      text: {
+        fontSize: 8,
+        text: "ASSINADO DIGITALMENTE\n{{signerName}}\nCPF {{signerNationalId}} · ICP-Brasil · PAdES AD-RB",
+        includeSigningTime: true,
+        horizontalAlign: "Left",
+        container: { left: 10, right: 10, top: 7, bottom: 7 },
+      },
+      position: {
+        pageNumber: -1,
+        measurementUnits: "PdfPoints",
+        manual: { left: 72, bottom: 64, width: 451, height: 72 },
+      },
+    },
+  };
+}
+
 export class RestPkiCoreClient {
   constructor({ endpoint, apiKey, securityContextId, fetchImpl = fetch, timeoutMs = DEFAULT_TIMEOUT_MS, allowInsecureLocalhost = false }) {
     this.endpoint = endpointUrl(endpoint, allowInsecureLocalhost);
@@ -108,7 +128,7 @@ export class RestPkiCoreClient {
         certificate: { content: certificate },
         securityContextId: this.securityContextId,
         signatureType: "Pdf",
-        pdfSignatureOptions: { reason: "Assinatura eletrônica qualificada" },
+        pdfSignatureOptions: padesSignatureOptions(),
       },
     });
     if (!result.success || !result.state || !result.toSignHash?.value || !result.toSignHash?.algorithm) {
@@ -140,7 +160,7 @@ export class RestPkiCoreClient {
         documents: [{
           file: { content: pdf.toString("base64"), mimeType: "application/pdf", name: name || "documento.pdf" },
           signatureType: "Pdf",
-          pdfSignatureOptions: { reason: "Assinatura eletrônica qualificada ICP-Brasil" },
+          pdfSignatureOptions: padesSignatureOptions(),
         }],
       },
     });

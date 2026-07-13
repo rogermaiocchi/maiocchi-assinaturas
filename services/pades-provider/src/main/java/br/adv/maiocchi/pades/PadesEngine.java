@@ -57,12 +57,30 @@ import javax.imageio.ImageIO;
 
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.bouncycastle.asn1.ASN1Encodable;
+import org.bouncycastle.asn1.ASN1OctetString;
+import org.bouncycastle.asn1.ASN1Primitive;
+import org.bouncycastle.asn1.ASN1String;
+import org.bouncycastle.asn1.x500.RDN;
+import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.asn1.x500.style.BCStyle;
+import org.bouncycastle.asn1.x500.style.IETFUtils;
+import org.bouncycastle.asn1.x509.Extension;
+import org.bouncycastle.asn1.x509.GeneralName;
+import org.bouncycastle.asn1.x509.GeneralNames;
+import org.bouncycastle.asn1.x509.OtherName;
 
 final class PadesEngine {
     static final int MAX_PDF_BYTES = 40 * 1024 * 1024;
     static final Duration SESSION_TTL = Duration.ofMinutes(3);
     static final int MAX_ACTIVE_SESSIONS = 100;
-    private static final Pattern COMMON_NAME = Pattern.compile("(?:^|,)CN=([^,]+)");
+    private static final String ICP_BRASIL_PERSON_DATA_OID = "2.16.76.1.3.1";
+    private static final String CERTIFICATE_TYPE = "A3";
+    private static final float VISIBLE_SIGNATURE_X = 72f;
+    private static final float VISIBLE_SIGNATURE_BOTTOM = 64f;
+    private static final float VISIBLE_SIGNATURE_WIDTH = 451f;
+    private static final float VISIBLE_SIGNATURE_HEIGHT = 72f;
+    private static final Pattern NATIONAL_ID = Pattern.compile("(?<!\\d)(\\d{3}[.]?\\d{3}[.]?\\d{3}-?\\d{2})(?!\\d)");
     private static final DateTimeFormatter VISIBLE_SIGNING_TIME = DateTimeFormatter
             .ofPattern("dd/MM/uuuu HH:mm:ss 'UTC'").withZone(ZoneOffset.UTC);
 
@@ -72,13 +90,17 @@ final class PadesEngine {
                          String expiresAt) {}
     record CompleteRequest(String signatureBase64) {}
     record ValidationResult(boolean cryptographicIntegrity, boolean trusted, String indication,
-                            String subIndication, String format, String policyOid, String signedBy, String reportXmlBase64) {}
+                            String subIndication, String format, String policyOid, String signedBy,
+                            String signerNationalIdMasked, String signingTime, String certificateType,
+                            String reportXmlBase64) {}
     record CompleteResult(String signedPdfBase64, String signedPdfSha256, ValidationResult validation) {}
     record SignaturePolicy(String oid, byte[] digest, String uri) {}
 
     private record Session(byte[] pdf, String name, CertificateToken certificate, List<CertificateToken> chain,
                            PAdESSignatureParameters parameters, byte[] toBeSigned, String documentSha256,
-                           String certificateFingerprint, Instant expiresAt) {}
+                           String certificateFingerprint, SignerIdentity signerIdentity, Instant signingTime,
+                           Instant expiresAt) {}
+    private record SignerIdentity(String signedBy, String nationalIdMasked) {}
 
     private final CommonCertificateVerifier verifier;
     private final PAdESService service;
@@ -130,6 +152,7 @@ final class PadesEngine {
         if (!"RSA".equalsIgnoreCase(certificate.getCertificate().getPublicKey().getAlgorithm())) {
             throw new ProviderException(400, "unsupported_key", "Somente certificados RSA são aceitos nesta versão.");
         }
+        SignerIdentity signerIdentity = signerIdentity(certificate);
         List<CertificateToken> chain = new ArrayList<>();
         chain.add(certificate);
         if (request.chainBase64() != null) {
@@ -154,8 +177,8 @@ final class PadesEngine {
         parameters.bLevel().setSignaturePolicy(policy);
         parameters.setLocation("Brasil");
         parameters.setContactInfo("roger@maiocchi.adv.br");
-        parameters.setSignerName(commonName(certificate));
-        configureVisibleSignature(parameters, pdf, certificate, now);
+        parameters.setSignerName(signerIdentity.signedBy());
+        configureVisibleSignature(parameters, pdf, signerIdentity, now);
 
         DSSDocument document = new InMemoryDocument(pdf, safeName(request.name()));
         ToBeSigned toBeSigned = service.getDataToSign(document, parameters);
@@ -165,7 +188,7 @@ final class PadesEngine {
         String documentSha256 = sha256(pdf);
         String certificateFingerprint = sha256(certificate.getEncoded());
         sessions.put(id, new Session(pdf, safeName(request.name()), certificate, List.copyOf(chain), parameters,
-                tbs, documentSha256, certificateFingerprint, expiresAt));
+                tbs, documentSha256, certificateFingerprint, signerIdentity, now, expiresAt));
         return new PrepareResult(id, Base64.getEncoder().encodeToString(tbs), "SHA-256", "RSA-SHA256",
                 documentSha256, certificateFingerprint, expiresAt.toString());
     }
@@ -186,7 +209,7 @@ final class PadesEngine {
         SignatureValue value = new SignatureValue(SignatureAlgorithm.RSA_SHA256, signature);
         DSSDocument signed = service.signDocument(original, session.parameters(), value);
         byte[] signedPdf = bytes(signed);
-        ValidationResult validation = validate(signedPdf);
+        ValidationResult validation = validate(signedPdf, session.signerIdentity(), session.signingTime());
         if (!validation.cryptographicIntegrity() || (requireTrustedValidation && !validation.trusted())) {
             throw new ProviderException(422, "pades_validation_failed", "O PAdES gerado não passou na validação completa.");
         }
@@ -198,7 +221,7 @@ final class PadesEngine {
         return sessions.size();
     }
 
-    private ValidationResult validate(byte[] signedPdf) {
+    private ValidationResult validate(byte[] signedPdf, SignerIdentity signerIdentity, Instant signingTime) {
         DSSDocument document = new InMemoryDocument(signedPdf, "documento-assinado.pdf");
         SignedDocumentValidator validator = SignedDocumentValidator.fromDocument(document);
         validator.setCertificateVerifier(verifier);
@@ -222,7 +245,8 @@ final class PadesEngine {
                 indication == null ? "UNKNOWN" : indication.name(),
                 simple.getSubIndication(signatureId) == null ? null : simple.getSubIndication(signatureId).name(),
                 simple.getSignatureFormat(signatureId) == null ? null : simple.getSignatureFormat(signatureId).name(), signaturePolicy.oid(),
-                simple.getSignedBy(signatureId), Base64.getEncoder().encodeToString(report.getBytes(java.nio.charset.StandardCharsets.UTF_8))
+                signerIdentity.signedBy(), signerIdentity.nationalIdMasked(), signingTime.toString(), CERTIFICATE_TYPE,
+                Base64.getEncoder().encodeToString(report.getBytes(java.nio.charset.StandardCharsets.UTF_8))
         );
     }
 
@@ -242,21 +266,28 @@ final class PadesEngine {
     }
 
     private static void configureVisibleSignature(PAdESSignatureParameters parameters, byte[] pdf,
-                                                  CertificateToken certificate, Instant signingTime) {
+                                                  SignerIdentity signerIdentity, Instant signingTime) {
         int page;
+        float pageHeight;
         try (PDDocument document = Loader.loadPDF(pdf)) {
             page = document.getNumberOfPages();
+            if (page < 1) throw new ProviderException(400, "invalid_pdf", "O PDF não possui página para assinatura visual.");
+            var pageBox = document.getPage(page - 1).getCropBox();
+            if (pageBox.getWidth() < VISIBLE_SIGNATURE_X + VISIBLE_SIGNATURE_WIDTH ||
+                    pageBox.getHeight() < VISIBLE_SIGNATURE_BOTTOM + VISIBLE_SIGNATURE_HEIGHT) {
+                throw new ProviderException(400, "invalid_pdf", "A última página não comporta a assinatura visual.");
+            }
+            pageHeight = pageBox.getHeight();
         } catch (IOException error) {
             throw new ProviderException(400, "invalid_pdf", "Não foi possível posicionar a assinatura visual no PDF.");
         }
-        if (page < 1) throw new ProviderException(400, "invalid_pdf", "O PDF não possui página para assinatura visual.");
 
         SignatureFieldParameters field = new SignatureFieldParameters();
         field.setPage(page);
-        field.setOriginX(42f);
-        field.setOriginY(38f);
-        field.setWidth(320f);
-        field.setHeight(58f);
+        field.setOriginX(VISIBLE_SIGNATURE_X);
+        field.setOriginY(pageHeight - VISIBLE_SIGNATURE_BOTTOM - VISIBLE_SIGNATURE_HEIGHT);
+        field.setWidth(VISIBLE_SIGNATURE_WIDTH);
+        field.setHeight(VISIBLE_SIGNATURE_HEIGHT);
 
         SignatureImageTextParameters text = new SignatureImageTextParameters();
         text.setSignerTextPosition(SignerTextPosition.RIGHT);
@@ -264,10 +295,12 @@ final class PadesEngine {
         text.setTextColor(new Color(17, 18, 16));
         text.setBackgroundColor(Color.WHITE);
         text.setPadding(4f);
-        text.setText("ASSINADO DIGITALMENTE\n" + commonName(certificate)
-                + "\nICP-Brasil · Certificado A3"
+        String nationalIdLine = signerIdentity.nationalIdMasked() == null
+                ? "" : "\nCPF: " + signerIdentity.nationalIdMasked();
+        text.setText("ASSINADO DIGITALMENTE\n" + signerIdentity.signedBy()
+                + nationalIdLine
                 + "\n" + VISIBLE_SIGNING_TIME.format(signingTime)
-                + " · PAdES AD-RB");
+                + "\nICP-Brasil | A3 | PAdES AD-RB");
 
         SignatureImageParameters image = new SignatureImageParameters();
         image.setFieldParameters(field);
@@ -306,10 +339,68 @@ final class PadesEngine {
         }
     }
 
-    private static String commonName(CertificateToken certificate) {
-        String subject = certificate.getCertificate().getSubjectX500Principal().getName();
-        Matcher matcher = COMMON_NAME.matcher(subject);
-        return matcher.find() ? matcher.group(1).trim() : "Titular do certificado";
+    private static SignerIdentity signerIdentity(CertificateToken certificate) {
+        X500Name subject = X500Name.getInstance(certificate.getCertificate().getSubjectX500Principal().getEncoded());
+        RDN[] commonNames = subject.getRDNs(BCStyle.CN);
+        if (commonNames.length == 0 || commonNames[0].getFirst() == null) {
+            throw new ProviderException(400, "invalid_certificate", "O certificado não informa o nome do titular.");
+        }
+        String commonName = IETFUtils.valueToString(commonNames[0].getFirst().getValue()).trim();
+        Matcher nationalIdMatcher = NATIONAL_ID.matcher(commonName);
+        String nationalId = nationalIdMatcher.find()
+                ? nationalIdMatcher.group(1).replaceAll("\\D", "")
+                : nationalIdFromIcpBrasilExtension(certificate);
+        String signedBy = NATIONAL_ID.matcher(commonName).replaceAll("")
+                .replaceAll("\\s*[:;|/-]\\s*$", "")
+                .replaceAll("^\\s*[:;|/-]\\s*", "")
+                .replaceAll("\\s{2,}", " ")
+                .trim();
+        if (signedBy.isEmpty()) {
+            throw new ProviderException(400, "invalid_certificate", "O certificado não informa o nome do titular.");
+        }
+        return new SignerIdentity(signedBy, nationalId == null ? null : maskNationalId(nationalId));
+    }
+
+    private static String nationalIdFromIcpBrasilExtension(CertificateToken certificate) {
+        byte[] encoded = certificate.getCertificate().getExtensionValue(Extension.subjectAlternativeName.getId());
+        if (encoded == null) return null;
+        try {
+            ASN1OctetString extension = ASN1OctetString.getInstance(encoded);
+            GeneralNames subjectAlternativeNames = GeneralNames.getInstance(
+                    ASN1Primitive.fromByteArray(extension.getOctets()));
+            for (GeneralName generalName : subjectAlternativeNames.getNames()) {
+                if (generalName.getTagNo() != GeneralName.otherName) continue;
+                OtherName otherName = OtherName.getInstance(generalName.getName());
+                if (!ICP_BRASIL_PERSON_DATA_OID.equals(otherName.getTypeID().getId())) continue;
+                String personalData = asText(otherName.getValue());
+                if (personalData == null || personalData.length() < 19) {
+                    throw new ProviderException(400, "invalid_certificate", "Os dados ICP-Brasil do certificado são inválidos.");
+                }
+                String nationalId = personalData.substring(8, 19);
+                if (!nationalId.chars().allMatch(Character::isDigit)) {
+                    throw new ProviderException(400, "invalid_certificate", "Os dados ICP-Brasil do certificado são inválidos.");
+                }
+                return nationalId;
+            }
+            return null;
+        } catch (ProviderException error) {
+            throw error;
+        } catch (Exception error) {
+            throw new ProviderException(400, "invalid_certificate", "A extensão ICP-Brasil do certificado é inválida.");
+        }
+    }
+
+    private static String asText(ASN1Encodable value) {
+        ASN1Primitive primitive = value.toASN1Primitive();
+        if (primitive instanceof ASN1String text) return text.getString();
+        if (primitive instanceof ASN1OctetString octets) {
+            return new String(octets.getOctets(), java.nio.charset.StandardCharsets.UTF_8);
+        }
+        return null;
+    }
+
+    private static String maskNationalId(String nationalId) {
+        return nationalId.substring(0, 3) + ".***.***-" + nationalId.substring(nationalId.length() - 2);
     }
 
     private void cleanup() {

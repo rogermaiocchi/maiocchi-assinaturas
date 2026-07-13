@@ -6,6 +6,7 @@ RUN npm ci --omit=dev
 
 COPY services/pki-bridge/src ./src
 COPY services/pki-bridge/db ./db
+COPY services/pki-bridge/assets ./assets
 
 ENV NODE_ENV=production PORT=3400
 EXPOSE 3400

@@ -17,6 +17,10 @@ Arquitetura e gates: [`docs/architecture/private-pades-provider.md`](../../docs/
 - Webhook `submission.completed` normalizado e identificado por hash idempotente.
 - Máquina de estados que impede conclusão fora de ordem.
 - Registro externo do SHA-256 do PDF final já assinado.
+- Página final de evidências incorporada antes do PAdES, com identidade, número, hash da entrada, QR, Code 128, metadados, marca oficial ICP-Brasil e área reservada ao signatário.
+- Carimbo discreto em todas as páginas com `m.`, código de verificação, domínio e paginação final.
+- Atestado ML-DSA-65 do manifesto pré-assinatura, com chave pública publicada e código `PQC-MLDSA65-*`.
+- Segundo atestado ML-DSA-65 externo, emitido após a conclusão, cobre o hash do PDF PAdES final e o hash do relatório de validação.
 - Envelope JSON canônico assinado com Ed25519/JWS.
 - Atestado Ed25519/JWS do adapter, ligado ao PDF, relatório, workflow, revisão e resumo da validação.
 - Storage imutável por conteúdo para PDF, relatório, atestado, folha e envelope.
@@ -36,6 +40,9 @@ O download temporário retornado pelo REST PKI Core só é aceito no mesmo host 
 - A rota interna usa `timestamp.HMAC-SHA256` com janela de cinco minutos e não é publicada pelo Traefik.
 - Registro repetido do mesmo pacote é idempotente; conteúdo divergente no mesmo workflow retorna conflito.
 - A folha é representação; o envelope Ed25519 é prova do registro; somente o PAdES é a assinatura do documento.
+- O hash impresso na página incorporada identifica o conteúdo recebido. O SHA-256 do PDF PAdES final é calculado somente depois da assinatura e exibido pelo verificador; o PDF não tenta conter o próprio hash.
+- ML-DSA-65 atesta o manifesto do portal e não altera nem se apresenta como algoritmo da assinatura jurídica ICP-Brasil.
+- O código ML-DSA incorporado tem escopo `manifesto pré-assinatura`; o verificador apresenta separadamente o código de escopo `PDF PAdES final`.
 
 ## Rotas
 
@@ -50,11 +57,12 @@ O download temporário retornado pelo REST PKI Core só é aceito no mesmo host 
 - `GET /folha/:id.pdf`
 - `GET /original/:id.pdf`
 - `GET /chaves/:keyId.pem`
+- `GET /chaves-pqc/:keyId.pem`
 - `POST /internal/authenticity/records`
 
 ## Configuração
 
-`DATABASE_URL`, `ARTIFACT_ROOT`, `ARTIFACT_ENCRYPTION_KEY_FILE`, `AUTHENTICITY_PRIVATE_KEY_FILE`, `AUTHENTICITY_KEY_ID` e `AUTHENTICITY_INTERNAL_HMAC_KEY` são obrigatórios em produção. A chave de artefatos contém exatamente 32 bytes e habilita AES-256-GCM com nonce aleatório e a chave de storage como AAD. `PUBLIC_BASE_URL` fixa os links canônicos. `ALLOWED_ORIGINS` recebe uma lista separada por vírgulas apenas para previews autorizados. `AUTHENTICITY_PUBLIC_KEYS_DIR` mantém arquivos históricos `{keyId}.pub.pem`; a chave ativa é sempre derivada do arquivo privado montado. `VALIDATOR_PUBLIC_KEYS_DIR` contém chaves públicas e `keyring.json`; diretório sem manifesto mantém a API de registro bloqueada.
+`DATABASE_URL`, `ARTIFACT_ROOT`, `ARTIFACT_ENCRYPTION_KEY_FILE`, `AUTHENTICITY_PRIVATE_KEY_FILE`, `AUTHENTICITY_ML_DSA_PRIVATE_KEY_FILE`, `AUTHENTICITY_KEY_ID` e `AUTHENTICITY_INTERNAL_HMAC_KEY` são obrigatórios em produção. A chave ML-DSA deve ser `ml-dsa-65`; tipo divergente interrompe o serviço. A chave de artefatos contém exatamente 32 bytes e habilita AES-256-GCM com nonce aleatório e a chave de storage como AAD. `PUBLIC_BASE_URL` fixa os links canônicos. `ALLOWED_ORIGINS` recebe uma lista separada por vírgulas apenas para previews autorizados. `AUTHENTICITY_PUBLIC_KEYS_DIR` mantém arquivos históricos `{keyId}.pub.pem`; a chave ativa é sempre derivada do arquivo privado montado. `VALIDATOR_PUBLIC_KEYS_DIR` contém chaves públicas e `keyring.json`; diretório sem manifesto mantém a API de registro bloqueada.
 
 Assinatura remota só é anunciada quando `REST_PKI_CORE_ENDPOINT`, `REST_PKI_CORE_API_KEY` e `REST_PKI_CORE_SECURITY_CONTEXT_ID` estão todos presentes. Configuração parcial interrompe a inicialização. O ticket do portal nunca é enviado ao PSC: a sessão é vinculada por UUID interno e o retorno só é aceito após conferência do `callbackArgument`, download do PDF, inspeção PAdES e validação de todos os signatários.
 

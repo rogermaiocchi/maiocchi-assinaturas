@@ -26,7 +26,11 @@ type AuthenticityEnvelope = {
       revision: number;
       mediaType: string;
       size: number;
+      name?: string;
+      number?: string;
+      pageCount?: number;
       hash: { algorithm: "SHA-256"; value: string };
+      sourceHash?: { algorithm: "SHA-256"; value: string };
       finalizedAt: string;
     };
     signature: {
@@ -41,11 +45,11 @@ type AuthenticityEnvelope = {
       status: "valid";
       validatedAt: string;
       validator: string;
-      attestation: { type: "JWS"; algorithm: "EdDSA"; keyId: string; hash: { algorithm: "SHA-256"; value: string } };
+      attestation: { type: "JWS" | "ML-DSA"; algorithm: "EdDSA" | "ML-DSA-65"; keyId: string; scope?: "final-pades-record"; hash: { algorithm: "SHA-256"; value: string } };
       report: { mediaType: string; size: number; hash: { algorithm: "SHA-256"; value: string } };
     };
     representation: {
-      type: "authenticity-sheet";
+      type: "authenticity-sheet" | "embedded-evidence-page";
       mediaType: string;
       size: number;
       hash: { algorithm: "SHA-256"; value: string };
@@ -57,12 +61,14 @@ type AuthenticityEnvelope = {
       signingLocation: string;
       tokenType: string;
       signatureType: string;
-      signers: Array<{ name: string; role: string; certificateFingerprintSha256: string; signedAt: string }>;
+      postQuantumCode?: string;
+      finalPostQuantumCode?: string;
+      signers: Array<{ name: string; role: string; nationalIdMasked?: string; certificateType?: string; certificateFingerprintSha256: string; signedAt: string }>;
     };
     disclosure: { mode: "restricted" | "public" };
     links: { verify: string; original: string | null; print: string; officialValidator: string };
   };
-  proof: { type: "JWS"; algorithm: "EdDSA"; keyId: string; value: string };
+  proof: { type: "JWS" | "ML-DSA"; algorithm: "EdDSA" | "ML-DSA-65"; keyId: string; scope?: "final-pades-record"; value: string };
 };
 
 type VerificationResponse = {
@@ -224,6 +230,9 @@ export function AuthenticityVerifier({ officialValidatorMode = "external" }: { o
 
             <dl className="auth-facts">
               <div><dt>ID</dt><dd>{record.document.id}</dd></div>
+              {record.document.number && <div><dt>Número</dt><dd>{record.document.number}</dd></div>}
+              {record.document.name && <div><dt>Arquivo</dt><dd>{record.document.name}</dd></div>}
+              {record.document.pageCount && <div><dt>Páginas</dt><dd>{record.document.pageCount}</dd></div>}
               <div><dt>Versão</dt><dd>{record.document.revision}</dd></div>
               <div><dt>Formato</dt><dd>{record.signature.format} · {record.signature.profile}</dd></div>
               <div><dt>Assinaturas</dt><dd>{record.signature.count}</dd></div>
@@ -235,17 +244,26 @@ export function AuthenticityVerifier({ officialValidatorMode = "external" }: { o
               <div><dt>Política</dt><dd>{record.signature.policyOid}</dd></div>
               <div><dt>Destinado a</dt><dd>{gold.intendedFor}</dd></div>
               <div><dt>Finalidade</dt><dd>{gold.purpose}</dd></div>
-              <div><dt>Assinante</dt><dd>{gold.signers.length ? gold.signers.map((signer) => `${signer.name} (${signer.role})`).join(", ") : "Não informado"}</dd></div>
+              <div><dt>Assinante</dt><dd>{gold.signers.length ? gold.signers.map((signer) => `${signer.name}${signer.nationalIdMasked ? ` · CPF ${signer.nationalIdMasked}` : ""} (${signer.role})`).join(", ") : "Não informado"}</dd></div>
               <div><dt>Assinado em</dt><dd>{formatDate(gold.signers[0]?.signedAt || record.document.finalizedAt)}</dd></div>
               <div><dt>Local declarado</dt><dd>{gold.signingLocation}</dd></div>
               <div><dt>Token</dt><dd>{gold.tokenType}</dd></div>
               <div><dt>Código de barras</dt><dd>{gold.barcodeValue}</dd></div>
+              {gold.postQuantumCode && <div><dt>PQC incorporado</dt><dd>{gold.postQuantumCode}</dd></div>}
+              {gold.finalPostQuantumCode && <div><dt>PQC do PDF final</dt><dd>{gold.finalPostQuantumCode}</dd></div>}
             </dl>
 
             <div className="auth-hash">
-              <span><Fingerprint aria-hidden="true" size={17} /> SHA-256 do PDF eletrônico original</span>
+              <span><Fingerprint aria-hidden="true" size={17} /> SHA-256 do PDF eletrônico PAdES final</span>
               <code>{record.document.hash.value}</code>
             </div>
+
+            {record.document.sourceHash && (
+              <div className="auth-hash">
+                <span><Fingerprint aria-hidden="true" size={17} /> SHA-256 do conteúdo recebido antes da composição</span>
+                <code>{record.document.sourceHash.value}</code>
+              </div>
+            )}
 
             <div className="local-file-check">
               <div>

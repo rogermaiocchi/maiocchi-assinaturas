@@ -103,3 +103,47 @@ test("expõe verificação, CORS restrito, redirect e bloqueio do original", asy
   const tampered = await fetch(`${base}/verificacao/${publicId}`);
   assert.equal(tampered.status, 503);
 });
+
+test("integra verificação privada, folha incorporada, chave PQC e metadados remotos", async (context) => {
+  const { privateKey, publicKey } = generateKeyPairSync("ed25519");
+  const calls = [];
+  const privateSigningService = {
+    provider: {},
+    remoteProvider: {},
+    postQuantumSigner: { keyId: "ml-dsa-65-test", publicKey },
+    async verification(id) {
+      return id === publicId ? { documentStatus: "active", proofVerified: true, envelope: { proof: { algorithm: "ML-DSA-65" } } } : null;
+    },
+    async evidencePage(id) { return id === publicId ? Buffer.from("%PDF-private-sheet") : null; },
+    async observe(id, result) { calls.push({ id, result }); return id === publicId; },
+    async startRemote(token, metadata) {
+      calls.push({ token, metadata });
+      return { sessionId: "77777777-7777-4777-8777-777777777777", redirectUrl: "https://psc.example.test/authorize" };
+    },
+  };
+  const handler = createRequestHandler({
+    repository: { async findByPublicId() { return null; } },
+    artifactStore: { encryptedAtRest: true },
+    privateKey, publicKey, keyId: "authenticity-2026-01",
+    internalHmacKey: "internal-test-key-with-32-characters",
+    privateSigningService,
+  });
+  const server = http.createServer(handler);
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  context.after(() => new Promise((resolve) => server.close(resolve)));
+  const base = `http://127.0.0.1:${server.address().port}`;
+
+  assert.equal((await fetch(`${base}/verificacao/${publicId}`)).status, 200);
+  assert.equal((await fetch(`${base}/folha/${publicId}.pdf`)).status, 200);
+  assert.equal((await fetch(`${base}/chaves-pqc/ml-dsa-65-test.pem`)).status, 200);
+
+  const token = "A".repeat(43);
+  const remote = await fetch(`${base}/api/pades/remote/session`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${token}`, "content-type": "application/json", "x-forwarded-for": "203.0.113.9" },
+    body: JSON.stringify({ clientMetadata: { platform: "MacIntel", timezone: "America/Sao_Paulo" } }),
+  });
+  assert.equal(remote.status, 201);
+  assert.equal(calls.at(-1).metadata.observedIp, "203.0.113.9");
+  assert.equal(calls.at(-1).metadata.clientMetadata.platform, "MacIntel");
+});

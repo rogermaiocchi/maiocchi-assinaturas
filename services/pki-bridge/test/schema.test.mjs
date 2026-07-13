@@ -6,6 +6,7 @@ const schema = await readFile(new URL("../db/001_initial.sql", import.meta.url),
 const authenticitySchema = await readFile(new URL("../db/002_authenticity_gold_standard.sql", import.meta.url), "utf8");
 const privateProviderSchema = await readFile(new URL("../db/003_private_pades_provider.sql", import.meta.url), "utf8");
 const remoteProviderSchema = await readFile(new URL("../db/004_remote_pades_sessions.sql", import.meta.url), "utf8");
+const evidenceSchema = await readFile(new URL("../db/005_embedded_pades_evidence.sql", import.meta.url), "utf8");
 
 test("schema persiste hashes, idempotência e estado remoto cifrado", () => {
   assert.match(schema, /provider_state_ciphertext bytea NOT NULL/i);
@@ -28,6 +29,16 @@ test("schema remoto vincula uma única sessão imutável ao ticket", () => {
   assert.match(remoteProviderSchema, /one_pending_idx[\s\S]+WHERE status = 'pending'/i);
   assert.match(remoteProviderSchema, /remote PAdES session identity is immutable/i);
   assert.doesNotMatch(remoteProviderSchema, /api_key|private_key|pin\s+|ON DELETE CASCADE/i);
+});
+
+test("schema de evidência vincula página final, ML-DSA e identificadores imutáveis", () => {
+  for (const field of ["public_id", "document_number", "presentation_pdf_sha256", "evidence_page_sha256", "pqc_attestation", "pqc_code", "final_evidence_manifest", "final_pqc_attestation", "final_pqc_code", "signing_metadata"]) {
+    assert.match(evidenceSchema, new RegExp(`ADD COLUMN ${field}`, "i"));
+  }
+  assert.match(evidenceSchema, /private PAdES evidence is immutable once prepared/i);
+  assert.match(evidenceSchema, /private PAdES final result is immutable/i);
+  assert.match(evidenceSchema, /PQC|pqc_code/i);
+  assert.doesNotMatch(evidenceSchema, /private_key|api_key|pin\s+/i);
 });
 
 test("schema impede exclusão em cascata da trilha criptográfica", () => {

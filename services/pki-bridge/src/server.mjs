@@ -1,6 +1,7 @@
 import { createPrivateKey, createPublicKey, createHash } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import http from "node:http";
+import net from "node:net";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { Pool } from "pg";
@@ -11,6 +12,7 @@ import { registerGoldStandardDocument } from "./authenticity-service.mjs";
 import { PrivatePadesProviderClient } from "./private-pades-provider-client.mjs";
 import { PostgresPrivateSigningRepository } from "./private-signing-repository.mjs";
 import { bearerToken, PrivateSigningService } from "./private-signing-service.mjs";
+import { createPostQuantumSigner } from "./post-quantum-evidence.mjs";
 import { RestPkiCoreClient } from "./rest-pki-core-client.mjs";
 import { verifyWebhookSignature } from "./webhook.mjs";
 
@@ -69,6 +71,43 @@ function keyIdFromPath(pathname) {
   if (!pathname.startsWith("/chaves/") || !pathname.endsWith(".pem")) return null;
   const value = decodeURIComponent(pathname.slice(8, -4));
   return KEY_ID_PATTERN.test(value) ? value : null;
+}
+
+function pqcKeyIdFromPath(pathname) {
+  if (!pathname.startsWith("/chaves-pqc/") || !pathname.endsWith(".pem")) return null;
+  const value = decodeURIComponent(pathname.slice(12, -4));
+  return KEY_ID_PATTERN.test(value) ? value : null;
+}
+
+function normalizeIp(value) {
+  if (typeof value !== "string") return null;
+  const normalized = value.startsWith("::ffff:") ? value.slice(7) : value;
+  return net.isIP(normalized) ? normalized : null;
+}
+
+function isTrustedProxyPeer(value) {
+  const address = normalizeIp(value);
+  if (!address) return false;
+  if (address === "::1" || address.startsWith("fc") || address.startsWith("fd") || address.startsWith("fe80:")) return true;
+  if (net.isIPv4(address)) {
+    const [first, second] = address.split(".").map(Number);
+    return first === 10 || first === 127 || (first === 172 && second >= 16 && second <= 31)
+      || (first === 192 && second === 168) || (first === 169 && second === 254);
+  }
+  return false;
+}
+
+function observedClientIp(request) {
+  const peer = normalizeIp(request.socket?.remoteAddress);
+  if (!isTrustedProxyPeer(peer)) return peer || "Não fornecido";
+  const forwarded = typeof request.headers["x-forwarded-for"] === "string"
+    ? request.headers["x-forwarded-for"].split(",").map((value) => value.trim()).filter(Boolean) : [];
+  const candidates = [...forwarded.reverse(), peer].filter(Boolean);
+  for (const candidate of candidates) {
+    const normalized = normalizeIp(candidate);
+    if (normalized) return normalized;
+  }
+  return "Não fornecido";
 }
 
 async function loadPublicKeys(directory, initialKeys = []) {
@@ -168,6 +207,7 @@ export function createRequestHandler({
           status: "ok",
           privatePadesProvider: privateSigningService?.provider ? "ready" : "disabled",
           remoteSigning: privateSigningService?.remoteProvider ? "ready" : "disabled",
+          postQuantumEvidence: privateSigningService ? "ml-dsa-65" : "disabled",
           artifactEncryption: artifactStore.encryptedAtRest ? "aes-256-gcm" : "disabled",
         });
       }
@@ -180,7 +220,10 @@ export function createRequestHandler({
       if (url.pathname === "/api/pades/prepare" && request.method === "POST") {
         if (!privateSigningService) return problem(503, "provider_unavailable", "Provider PAdES privado indisponível.");
         const raw = await readBody(request, 2 * 1024 * 1024);
-        return json(201, await privateSigningService.prepare(bearerToken(request), JSON.parse(raw.toString("utf8"))));
+        const body = JSON.parse(raw.toString("utf8"));
+        return json(201, await privateSigningService.prepare(bearerToken(request), {
+          ...body, observedIp: observedClientIp(request),
+        }));
       }
 
       if (url.pathname === "/api/pades/complete" && request.method === "POST") {
@@ -196,13 +239,19 @@ export function createRequestHandler({
           "content-type": "application/pdf",
           "content-length": String(result.bytes.length),
           "content-disposition": contentDisposition(result.name),
+          "x-document-verification-id": result.publicId,
         }));
         return response.end(result.bytes);
       }
 
       if (url.pathname === "/api/pades/remote/session" && request.method === "POST") {
         if (!privateSigningService) return problem(503, "provider_unavailable", "Serviço de assinatura indisponível.");
-        return json(201, await privateSigningService.startRemote(bearerToken(request)));
+        const raw = await readBody(request, 16 * 1024);
+        const body = raw.length ? JSON.parse(raw.toString("utf8")) : {};
+        return json(201, await privateSigningService.startRemote(bearerToken(request), {
+          clientMetadata: body.clientMetadata,
+          observedIp: observedClientIp(request),
+        }));
       }
 
       if (url.pathname === "/api/pades/remote/complete" && request.method === "POST") {
@@ -218,6 +267,15 @@ export function createRequestHandler({
         response.writeHead(200, headers({ "content-type": "application/x-pem-file; charset=utf-8" }));
         return response.end(pem);
       }
+      const requestedPqcKeyId = pqcKeyIdFromPath(url.pathname);
+      if (request.method === "GET" && requestedPqcKeyId) {
+        if (!privateSigningService || requestedPqcKeyId !== privateSigningService.postQuantumSigner.keyId) {
+          return problem(404, "not_found", "Chave pública pós-quântica não encontrada.");
+        }
+        const pem = privateSigningService.postQuantumSigner.publicKey.export({ type: "spki", format: "pem" });
+        response.writeHead(200, headers({ "content-type": "application/x-pem-file; charset=utf-8" }));
+        return response.end(pem);
+      }
 
       const redirectId = publicIdFromPath(url.pathname, "/v/");
       if (request.method === "GET" && redirectId) {
@@ -228,26 +286,33 @@ export function createRequestHandler({
       const verificationId = publicIdFromPath(url.pathname, "/verificacao/");
       if (request.method === "GET" && verificationId) {
         const entry = await repository.findByPublicId(verificationId);
-        if (!entry) return problem(404, "not_found", "Documento não encontrado.");
-        const verificationKey = trustedVerificationKeys.get(entry.envelope?.proof?.keyId);
-        if (!verificationKey || !verifyAuthenticityEnvelope(entry.envelope, verificationKey)) {
-          return problem(503, "evidence_invalid", "O registro de autenticidade não passou na verificação interna.");
+        if (entry) {
+          const verificationKey = trustedVerificationKeys.get(entry.envelope?.proof?.keyId);
+          if (!verificationKey || !verifyAuthenticityEnvelope(entry.envelope, verificationKey)) {
+            return problem(503, "evidence_invalid", "O registro de autenticidade não passou na verificação interna.");
+          }
+          return json(200, { documentStatus: entry.status, proofVerified: true, envelope: entry.envelope });
         }
-        return json(200, { documentStatus: entry.status, proofVerified: true, envelope: entry.envelope });
+        const privateVerification = privateSigningService ? await privateSigningService.verification(verificationId) : null;
+        if (!privateVerification) return problem(404, "not_found", "Documento não encontrado.");
+        return json(200, privateVerification);
       }
 
       const eventId = publicIdFromPath(url.pathname, "/verificacao/", "/evento");
       if (request.method === "POST" && eventId) {
         const entry = await repository.findByPublicId(eventId);
-        if (!entry) return problem(404, "not_found", "Documento não encontrado.");
         const raw = await readBody(request, 1024);
         const body = JSON.parse(raw.toString("utf8"));
         if (!["match", "mismatch"].includes(body?.result)) return problem(400, "invalid_result", "Resultado de comparação inválido.");
-        await repository.appendObservation(entry, {
-          eventType: body.result === "match" ? "hash_matched" : "hash_mismatched",
-          outcome: body.result === "match" ? "success" : "failure",
-          details: { channel: "browser-local-comparison" },
-        });
+        if (entry) {
+          await repository.appendObservation(entry, {
+            eventType: body.result === "match" ? "hash_matched" : "hash_mismatched",
+            outcome: body.result === "match" ? "success" : "failure",
+            details: { channel: "browser-local-comparison" },
+          });
+        } else if (!privateSigningService || !(await privateSigningService.observe(eventId, body.result))) {
+          return problem(404, "not_found", "Documento não encontrado.");
+        }
         response.writeHead(204, headers());
         return response.end();
       }
@@ -255,8 +320,10 @@ export function createRequestHandler({
       const sheetId = publicIdFromPath(url.pathname, "/folha/", ".pdf");
       if (request.method === "GET" && sheetId) {
         const entry = await repository.findByPublicId(sheetId);
-        if (!entry) return problem(404, "not_found", "Documento não encontrado.");
-        const bytes = await artifactStore.get(entry.representation_storage_key);
+        const bytes = entry
+          ? await artifactStore.get(entry.representation_storage_key)
+          : privateSigningService ? await privateSigningService.evidencePage(sheetId) : null;
+        if (!bytes) return problem(404, "not_found", "Documento não encontrado.");
         response.writeHead(200, headers({
           "content-type": "application/pdf",
           "content-length": String(bytes.length),
@@ -320,6 +387,7 @@ export function createRequestHandler({
         const result = await privateSigningService.createTicket({
           pdf: Buffer.from(body.pdfBase64 || "", "base64"),
           documentName: body.documentName,
+          documentContext: body.documentContext,
           ttlSeconds: body.ttlSeconds,
         });
         return json(201, result);
@@ -375,6 +443,13 @@ async function main() {
     apiKey: remoteConfiguration[1],
     securityContextId: remoteConfiguration[2],
   }) : null;
+  const hasPrivateSigningProvider = Boolean(providerEndpoint || remoteProvider);
+  const postQuantumKeyFile = process.env.AUTHENTICITY_ML_DSA_PRIVATE_KEY_FILE;
+  if (hasPrivateSigningProvider && !postQuantumKeyFile) throw new Error("ML-DSA-65 evidence key configuration is incomplete");
+  const postQuantumSigner = hasPrivateSigningProvider
+    ? createPostQuantumSigner(createPrivateKey(await readFile(postQuantumKeyFile)), process.env.AUTHENTICITY_ML_DSA_KEY_ID)
+    : null;
+  const allowedPolicyOids = new Set((process.env.PADES_ALLOWED_POLICY_OIDS || "").split(",").map((value) => value.trim()).filter(Boolean));
   const privateSigningService = providerEndpoint || remoteProvider ? new PrivateSigningService({
     repository: new PostgresPrivateSigningRepository(pool),
     artifactStore,
@@ -384,6 +459,8 @@ async function main() {
       allowInsecureInternal: process.env.PRIVATE_PADES_ALLOW_INTERNAL_HTTP === "true",
     }) : null,
     remoteProvider,
+    postQuantumSigner,
+    allowedPolicyOids,
     baseUrl: process.env.PUBLIC_BASE_URL || "https://assinatura.maiocchi.adv.br",
   }) : null;
   const handler = createRequestHandler({
@@ -394,7 +471,7 @@ async function main() {
     keyId,
     verificationKeys,
     validatorKeys,
-    allowedPolicyOids: new Set((process.env.PADES_ALLOWED_POLICY_OIDS || "").split(",").map((value) => value.trim()).filter(Boolean)),
+    allowedPolicyOids,
     allowPublicDisclosure: process.env.ALLOW_PUBLIC_ORIGINALS === "true",
     internalHmacKey,
     baseUrl: process.env.PUBLIC_BASE_URL || "https://assinatura.maiocchi.adv.br",

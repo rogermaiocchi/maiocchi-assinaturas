@@ -3,7 +3,7 @@ services:
     build:
       context: "${PORTAL_SOURCE_DIR:-..}"
       dockerfile: services/pki-bridge/Dockerfile
-    image: maiocchi/pki-bridge:1.2.0
+    image: maiocchi/pki-bridge:1.3.0
     container_name: pki-bridge
     restart: unless-stopped
     mem_limit: 384m
@@ -19,6 +19,8 @@ services:
       ARTIFACT_ROOT: /data/artifacts
       ARTIFACT_ENCRYPTION_KEY_FILE: /run/pki-keys/artifact-aes256.key
       AUTHENTICITY_PRIVATE_KEY_FILE: /run/pki-keys/authenticity-ed25519.pem
+      AUTHENTICITY_ML_DSA_PRIVATE_KEY_FILE: /run/pki-keys/authenticity-ml-dsa-65.pem
+      AUTHENTICITY_ML_DSA_KEY_ID: "${AUTHENTICITY_ML_DSA_KEY_ID:-}"
       AUTHENTICITY_PUBLIC_KEYS_DIR: /run/pki-keys
       AUTHENTICITY_KEY_ID: "${AUTHENTICITY_KEY_ID}"
       AUTHENTICITY_INTERNAL_HMAC_KEY: "${AUTHENTICITY_INTERNAL_HMAC_KEY}"
@@ -49,7 +51,7 @@ services:
     build:
       context: "${PORTAL_SOURCE_DIR:-..}"
       dockerfile: services/pades-provider/Dockerfile
-    image: maiocchi/pades-provider:1.0.1
+    image: maiocchi/pades-provider:1.1.0
     container_name: pades-provider
     restart: unless-stopped
     mem_limit: 768m

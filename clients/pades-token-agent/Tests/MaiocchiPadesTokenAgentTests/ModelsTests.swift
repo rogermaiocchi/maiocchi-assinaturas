@@ -24,5 +24,7 @@ import Testing
     #expect(AuthorizationPage.html.contains("/v1/authorize.js"))
     #expect(AuthorizationPage.javascript.contains("location.hash.slice(1)"))
     #expect(AuthorizationPage.javascript.contains("/api/pades/prepare"))
+    #expect(AuthorizationPage.javascript.contains("prepared.sourceDocumentSha256 !== ticket.documentSha256"))
+    #expect(AuthorizationPage.javascript.contains("prepared.documentSha256 !== prepared.presentationSha256"))
     #expect(!AuthorizationPage.html.contains("ticket="))
 }

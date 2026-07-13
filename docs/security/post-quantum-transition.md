@@ -15,13 +15,14 @@ O controle pós-quântico protege transporte e confidencialidade em repouso enqu
 | Artefatos | AES-256-GCM, nonce aleatório de 96 bits e storage key como AAD | Ativo e obrigatório no PKI Bridge |
 | Integridade | SHA-256 do PDF final e storage por conteúdo | Ativo; não é alegado como assinatura PQ |
 | Assinatura jurídica | PAdES ICP-Brasil, política AD-RB/AD-RT | Clássica por requisito regulatório |
+| Manifesto de evidências | ML-DSA-65 | Atestado adicional pós-quântico, separado da assinatura jurídica |
 | Atestados internos | Ed25519/JWS | Clássicos, preservados para compatibilidade |
 
 AES-256 nos artefatos oferece margem de 128 bits contra busca quântica idealizada. ML-KEM protege o segredo de sessão TLS contra o cenário “capturar agora, decifrar depois”, desde que o cliente também negocie o grupo híbrido. As suites TLS 1.3 são selecionadas pelo stack Go e pelo cliente; a aplicação não declara AES-256 para toda conexão.
 
 ## Crypto-agility
 
-1. O PAdES e o atestado interno são artefatos separados.
+1. O PAdES e o atestado interno são camadas criptográficas distintas. A referência ML-DSA-65 é impressa na página de evidências antes do PAdES e a assinatura completa permanece no banco/verificador.
 2. IDs de chave e keyrings permitem rotação sem reescrever o PDF final.
 3. Uma futura prova ML-DSA será sidecar adicional, vinculada ao hash do PDF e ao atestado clássico.
 4. A prova ML-DSA só poderá ser exigida após suporte estável do runtime, política de custódia, validadores independentes e compatibilidade com a ICP-Brasil.

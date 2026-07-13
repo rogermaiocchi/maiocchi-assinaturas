@@ -2,10 +2,15 @@ package br.adv.maiocchi.pades;
 
 import eu.europa.esig.dss.spi.DSSUtils;
 import eu.europa.esig.dss.spi.x509.CommonTrustedCertificateSource;
+import org.bouncycastle.asn1.ASN1ObjectIdentifier;
+import org.bouncycastle.asn1.DERUTF8String;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.BasicConstraints;
 import org.bouncycastle.asn1.x509.Extension;
+import org.bouncycastle.asn1.x509.GeneralName;
+import org.bouncycastle.asn1.x509.GeneralNames;
 import org.bouncycastle.asn1.x509.KeyUsage;
+import org.bouncycastle.asn1.x509.OtherName;
 import org.bouncycastle.cert.X509v3CertificateBuilder;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
@@ -36,6 +41,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class PadesEngineTest {
     private static final Instant NOW = Instant.parse("2026-07-12T16:00:00Z");
+    private static final String TEST_NATIONAL_ID = "52998224725";
     private static final PadesEngine.SignaturePolicy POLICY = new PadesEngine.SignaturePolicy(
             "2.16.76.1.7.1.11.1.3", new byte[32], "https://politicas.icpbrasil.gov.br/PA_PAdES_AD_RB_v1_3.der");
 
@@ -44,13 +50,14 @@ class PadesEngineTest {
         KeyPair rootKey = rsa();
         X509Certificate root = certificate("CN=ICP Test Root", rootKey, null, null, true);
         KeyPair signerKey = rsa();
-        X509Certificate signer = certificate("CN=Assinante ICP Teste", signerKey, root, rootKey.getPrivate(), false);
+        X509Certificate signer = certificate("CN=Assinante ICP Teste:" + TEST_NATIONAL_ID,
+                signerKey, root, rootKey.getPrivate(), false);
 
         CommonTrustedCertificateSource trust = new CommonTrustedCertificateSource();
         trust.addCertificate(DSSUtils.loadCertificate(root.getEncoded()));
         PadesEngine engine = new PadesEngine(trust, Clock.fixed(NOW, ZoneOffset.UTC), POLICY, false);
 
-        byte[] pdf = pdf();
+        byte[] pdf = pdf(2);
         var prepared = engine.prepare(new PadesEngine.PrepareRequest(
                 Base64.getEncoder().encodeToString(pdf), "contrato.pdf",
                 Base64.getEncoder().encodeToString(signer.getEncoded()),
@@ -71,6 +78,10 @@ class PadesEngineTest {
         assertTrue(completed.validation().cryptographicIntegrity());
         assertFalse(completed.validation().trusted(), "A fixture não publica CRL/OCSP e não pode simular confiança completa.");
         assertEquals(POLICY.oid(), completed.validation().policyOid());
+        assertEquals("Assinante ICP Teste", completed.validation().signedBy());
+        assertEquals("529.***.***-25", completed.validation().signerNationalIdMasked());
+        assertEquals(NOW.toString(), completed.validation().signingTime());
+        assertEquals("A3", completed.validation().certificateType());
         try (PDDocument parsed = Loader.loadPDF(signedPdf)) {
             assertFalse(parsed.getSignatureDictionaries().isEmpty());
             assertNotNull(parsed.getDocumentCatalog().getAcroForm());
@@ -83,14 +94,51 @@ class PadesEngineTest {
             }
             assertNotNull(field, "O PAdES deve conter campo de assinatura visível.");
             PDAnnotationWidget widget = field.getWidgets().getFirst();
-            assertTrue(widget.getRectangle().getWidth() >= 300);
-            assertTrue(widget.getRectangle().getHeight() >= 50);
+            assertEquals(72f, widget.getRectangle().getLowerLeftX(), 1f);
+            assertEquals(64f, widget.getRectangle().getLowerLeftY(), 1f);
+            assertEquals(451f, widget.getRectangle().getWidth(), 1f);
+            assertEquals(72f, widget.getRectangle().getHeight(), 1f);
+            assertTrue(parsed.getPage(1).getAnnotations().stream()
+                    .anyMatch(annotation -> annotation.getCOSObject() == widget.getCOSObject()),
+                    "O campo visual deve ficar na última página.");
+            assertFalse(parsed.getPage(0).getAnnotations().stream()
+                    .anyMatch(annotation -> annotation.getCOSObject() == widget.getCOSObject()),
+                    "A primeira página não deve receber o campo visual.");
             assertNotNull(widget.getAppearance());
             assertNotNull(widget.getAppearance().getNormalAppearance());
         }
         ProviderException replay = assertThrows(ProviderException.class,
                 () -> engine.complete(prepared.sessionId(), new PadesEngine.CompleteRequest(signature)));
         assertEquals("session_not_found", replay.code);
+    }
+
+    @Test
+    void extractsMaskedNationalIdFromIcpBrasilExtension() throws Exception {
+        KeyPair rootKey = rsa();
+        X509Certificate root = certificate("CN=ICP Test Root", rootKey, null, null, true);
+        KeyPair signerKey = rsa();
+        X509Certificate signer = certificate("CN=Nome Real do Signatario", signerKey, root,
+                rootKey.getPrivate(), false, TEST_NATIONAL_ID);
+        CommonTrustedCertificateSource trust = new CommonTrustedCertificateSource();
+        trust.addCertificate(DSSUtils.loadCertificate(root.getEncoded()));
+        PadesEngine engine = new PadesEngine(trust, Clock.fixed(NOW, ZoneOffset.UTC), POLICY, false);
+
+        var prepared = engine.prepare(new PadesEngine.PrepareRequest(
+                Base64.getEncoder().encodeToString(pdf()), "evidencias.pdf",
+                Base64.getEncoder().encodeToString(signer.getEncoded()),
+                List.of(Base64.getEncoder().encodeToString(root.getEncoded()))
+        ));
+        Signature token = Signature.getInstance("SHA256withRSA");
+        token.initSign(signerKey.getPrivate());
+        token.update(Base64.getDecoder().decode(prepared.toBeSignedBase64()));
+
+        var completed = engine.complete(prepared.sessionId(), new PadesEngine.CompleteRequest(
+                Base64.getEncoder().encodeToString(token.sign())));
+
+        assertEquals("Nome Real do Signatario", completed.validation().signedBy());
+        assertEquals("529.***.***-25", completed.validation().signerNationalIdMasked());
+        assertEquals(NOW.toString(), completed.validation().signingTime());
+        assertEquals("A3", completed.validation().certificateType());
     }
 
     @Test
@@ -114,8 +162,12 @@ class PadesEngineTest {
     }
 
     private static byte[] pdf() throws Exception {
+        return pdf(1);
+    }
+
+    private static byte[] pdf(int pages) throws Exception {
         try (PDDocument document = new PDDocument(); ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-            document.addPage(new PDPage());
+            for (int page = 0; page < pages; page++) document.addPage(new PDPage());
             document.save(output);
             return output.toByteArray();
         }
@@ -129,6 +181,11 @@ class PadesEngineTest {
 
     private static X509Certificate certificate(String subject, KeyPair subjectKey, X509Certificate issuer,
                                                PrivateKey issuerKey, boolean ca) throws Exception {
+        return certificate(subject, subjectKey, issuer, issuerKey, ca, null);
+    }
+
+    private static X509Certificate certificate(String subject, KeyPair subjectKey, X509Certificate issuer,
+                                               PrivateKey issuerKey, boolean ca, String icpBrasilNationalId) throws Exception {
         X500Name subjectName = new X500Name(subject);
         X500Name issuerName = issuer == null ? subjectName : new X500Name(issuer.getSubjectX500Principal().getName());
         PrivateKey signingKey = issuerKey == null ? subjectKey.getPrivate() : issuerKey;
@@ -140,6 +197,13 @@ class PadesEngineTest {
         builder.addExtension(Extension.basicConstraints, true, new BasicConstraints(ca));
         builder.addExtension(Extension.keyUsage, true,
                 new KeyUsage(ca ? KeyUsage.keyCertSign | KeyUsage.cRLSign : KeyUsage.digitalSignature | KeyUsage.nonRepudiation));
+        if (icpBrasilNationalId != null) {
+            String personData = "12071990" + icpBrasilNationalId + "00000000000";
+            OtherName otherName = new OtherName(new ASN1ObjectIdentifier("2.16.76.1.3.1"),
+                    new DERUTF8String(personData));
+            builder.addExtension(Extension.subjectAlternativeName, false,
+                    new GeneralNames(new GeneralName(GeneralName.otherName, otherName)));
+        }
         return new JcaX509CertificateConverter().getCertificate(
                 builder.build(new JcaContentSignerBuilder("SHA256withRSA").build(signingKey))
         );

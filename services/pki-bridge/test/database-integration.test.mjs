@@ -30,6 +30,7 @@ test("migra e persiste a trilha de autenticidade no PostgreSQL", { skip: !databa
     "002_authenticity_gold_standard.sql",
     "003_private_pades_provider.sql",
     "004_remote_pades_sessions.sql",
+    "005_embedded_pades_evidence.sql",
   ]);
 
   const ticketId = randomUUID();

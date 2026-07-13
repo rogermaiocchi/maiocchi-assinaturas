@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { BadgeCheck, Cloud, Download, FileKey, KeyRound, LoaderCircle, RefreshCw, ShieldAlert, Usb } from "lucide-react";
+import { BadgeCheck, Cloud, Download, FileKey, KeyRound, LoaderCircle, MapPin, RefreshCw, ShieldAlert, Usb } from "lucide-react";
 
 const bridgeBase = process.env.NEXT_PUBLIC_PKI_BRIDGE_URL || "";
 const agentBase = "http://127.0.0.1:35100";
@@ -12,9 +12,76 @@ type Ticket = {
   documentSha256: string;
   expiresAt: string;
   signedPdfSha256: string | null;
+  publicId: string;
+  documentNumber: string;
+  postQuantumCode: string | null;
+  finalPostQuantumCode: string | null;
   localSigningAvailable: boolean;
   remoteSigningAvailable: boolean;
 };
+
+type GeolocationMetadata = {
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+};
+
+type ClientMetadata = {
+  userAgent: string;
+  platform: string;
+  timezone: string;
+  locale: string;
+  screen: {
+    width: number;
+    height: number;
+  };
+  geolocation?: GeolocationMetadata;
+};
+
+const geolocationTimeoutMs = 3000;
+
+function collectBrowserMetadata(): Omit<ClientMetadata, "geolocation"> {
+  return {
+    userAgent: navigator.userAgent,
+    platform: navigator.platform,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    locale: navigator.language,
+    screen: {
+      width: window.screen.width,
+      height: window.screen.height,
+    },
+  };
+}
+
+function requestOptionalGeolocation(): Promise<GeolocationMetadata | undefined> {
+  if (!navigator.geolocation) return Promise.resolve(undefined);
+
+  return new Promise((resolve) => {
+    let settled = false;
+    let timeoutId = 0;
+    const finish = (geolocation?: GeolocationMetadata) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeoutId);
+      resolve(geolocation);
+    };
+
+    timeoutId = window.setTimeout(() => finish(), geolocationTimeoutMs);
+    try {
+      navigator.geolocation.getCurrentPosition(
+        ({ coords }) => finish({
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+          accuracy: coords.accuracy,
+        }),
+        () => finish(),
+        { enableHighAccuracy: false, maximumAge: 0, timeout: geolocationTimeoutMs },
+      );
+    } catch {
+      finish();
+    }
+  });
+}
 
 function ticketFromFragment() {
   const storageKey = "maiocchi-pades-ticket";
@@ -99,11 +166,18 @@ export function PrivatePadesPanel() {
     if (!token || !ticket?.remoteSigningAvailable || ticket.status !== "pending") return;
     setBusy(true);
     setError("");
-    setMessage("Criando sessão protegida no prestador de confiança.");
+    setMessage("Aguardando a localização opcional, caso você autorize no navegador.");
     try {
+      const geolocation = await requestOptionalGeolocation();
+      const clientMetadata: ClientMetadata = {
+        ...collectBrowserMetadata(),
+        ...(geolocation ? { geolocation } : {}),
+      };
+      setMessage("Criando sessão protegida no prestador de confiança.");
       const session = await responseJson<{ redirectUrl: string }>(await fetch(`${bridgeBase}/api/pades/remote/session`, {
         method: "POST",
-        headers: { authorization: `Bearer ${token}` },
+        headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+        body: JSON.stringify({ clientMetadata }),
       }));
       const destination = new URL(session.redirectUrl);
       if (destination.protocol !== "https:") throw new Error("O prestador retornou um endereço inseguro.");
@@ -143,12 +217,15 @@ export function PrivatePadesPanel() {
       </div>
 
       <div className="icp-status-grid">
-        <div><span className="mode-tag"><FileKey aria-hidden="true" size={13} /> DOCUMENTO</span><strong>{ticket?.documentName || "Não identificado"}</strong><p className="hash-value">{ticket?.documentSha256 || "-"}</p></div>
+        <div><span className="mode-tag"><FileKey aria-hidden="true" size={13} /> DOCUMENTO</span><strong>{ticket?.documentName || "Não identificado"}</strong><p>{ticket?.publicId || "-"}</p><p className="hash-value">{ticket?.documentSha256 || "-"}</p></div>
         <div><span className="mode-tag"><KeyRound aria-hidden="true" size={13} /> MODALIDADE</span><strong>{ticket?.remoteSigningAvailable ? (ticket.localSigningAvailable ? "Nuvem ou token" : "Certificado em nuvem") : "Token local"}</strong><p>{ticket?.remoteSigningAvailable ? "PSC ICP-Brasil · sem instalação" : "Agente protegido · porta 35100"}</p></div>
-        <div><span className="mode-tag mode-tag--yellow"><BadgeCheck aria-hidden="true" size={13} /> PADES</span><strong>{ticket?.status === "completed" ? "Validado" : "Aguardando assinatura"}</strong><p className="hash-value">{ticket?.signedPdfSha256 || "-"}</p></div>
+        <div><span className="mode-tag mode-tag--yellow"><BadgeCheck aria-hidden="true" size={13} /> PADES</span><strong>{ticket?.status === "completed" ? "Validado" : "Aguardando assinatura"}</strong><p className="hash-value">{ticket?.signedPdfSha256 || ticket?.postQuantumCode || "-"}</p>{ticket?.finalPostQuantumCode && <p className="hash-value">{ticket.finalPostQuantumCode}</p>}</div>
       </div>
 
       {error && <p className="icp-message icp-message--error" role="alert"><ShieldAlert aria-hidden="true" size={17} /><span>{error}</span></p>}
+      {ticket?.remoteSigningAvailable && ticket.status !== "completed" && (
+        <p className="icp-message"><MapPin aria-hidden="true" size={17} /><span>A localização é opcional. Se autorizada, será incorporada à página final e ficará visível a quem receber o PDF ou o código de verificação; a recusa não impede a assinatura.</span></p>
+      )}
 
       <div className="icp-console__actions">
         {ticket?.status === "completed" ? (

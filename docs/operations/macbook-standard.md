@@ -33,7 +33,8 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 - O DocuSeal administra modelos, participantes, evidências de fluxo e arquivos nas rotas operacionais do mesmo domínio `assinatura.maiocchi.adv.br`.
 - O subdomínio `documentos.assinatura.maiocchi.adv.br` é somente compatibilidade e redireciona de forma permanente, preservando caminho e consulta.
 - O `pki-bridge` é um serviço separado e fail-closed para PAdES/ICP-Brasil. O provider privado DSS + agente CryptoTokenKit está ativo; o registro de autenticidade só opera depois de receber validação estruturada.
-- O PDF PAdES final é imutável. ID, hash e QR ficam no envelope externo e na folha A4 separada.
+- O PDF PAdES final é imutável. Antes da assinatura, o bridge carimba todas as páginas e acrescenta uma página A4 final com ID, hash da entrada, QR, Code 128, metadados e área do signatário. O hash binário final permanece externo porque um arquivo não pode conter o próprio hash sem alterá-lo.
+- A página final recebe atestado ML-DSA-65 do manifesto pré-assinatura. Esse atestado é uma prova adicional do portal e não substitui nem renomeia a assinatura PAdES ICP-Brasil, que segue os algoritmos e políticas homologados.
 - O verificador público mostra apenas metadados mínimos; o original permanece restrito por padrão e a comparação de arquivo ocorre localmente no navegador.
 - O GOV.BR permanece um percurso externo para este escritório privado; o arquivo assinado deve ser preservado e validado no canal oficial.
 
@@ -57,6 +58,7 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 - O aceite visual exige screenshots em 1440 por 900, 820 por 1180 e 390 por 844, sem sobreposição, corte, overflow horizontal ou texto fora do contêiner; o hero deve deixar visível o início da próxima seção.
 - Nenhuma afirmação de acessibilidade ou conformidade é publicada sem auditoria da implementação real.
 - O agente PAdES privado escuta apenas em `127.0.0.1:35100`, aceita origens explícitas e acessa o A3 pelo CryptoTokenKit. O link documental contém ticket de uso único; PIN e chave nunca transitam pelo portal. A compatibilidade depende da combinação de mídia, driver, gerenciador e macOS registrada na matriz Certisign.
+- Metadados do ambiente são coletados no clique: IP observado pelo servidor, plataforma, navegador, fuso e data/hora. Geolocalização é opcional e só ingressa no manifesto quando o usuário autoriza o navegador; recusa não impede a assinatura.
 
 ## Critério de conclusão
 
