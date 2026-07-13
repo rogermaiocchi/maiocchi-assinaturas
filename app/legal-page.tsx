@@ -15,7 +15,7 @@ export function LegalPage({ title, lead, currentPath, children }: { title: strin
             <ChevronRight aria-hidden="true" size={13} />
             <span aria-current="page">{title}</span>
           </nav>
-          <p className="eyebrow"><span className="status-dot" /> Maiocchi Assinaturas</p>
+          <p className="eyebrow"><span className="status-dot" /> Maiocchi. Assinatura</p>
           <h1 id="page-title">{title}</h1>
           <p className="legal-lead">{lead}</p>
         </div>

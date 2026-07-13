@@ -4,12 +4,12 @@ import "./globals.css";
 export const metadata: Metadata = {
   metadataBase: new URL("https://assinatura.maiocchi.adv.br"),
   title: {
-    default: "Maiocchi Assinaturas | Maiocchi Advogado",
-    template: "%s | Maiocchi Assinaturas",
+    default: "Maiocchi. Assinatura | Maiocchi Advogado",
+    template: "%s | Maiocchi. Assinatura",
   },
   description:
     "Portal seguro para envio, acompanhamento e assinatura de documentos do Maiocchi Advogado.",
-  applicationName: "Maiocchi Assinaturas",
+  applicationName: "Maiocchi. Assinatura",
   manifest: "/site.webmanifest",
   icons: {
     icon: [
@@ -23,14 +23,14 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "pt_BR",
-    siteName: "Maiocchi Assinaturas",
-    title: "Maiocchi Assinaturas | Maiocchi Advogado",
+    siteName: "Maiocchi. Assinatura",
+    title: "Maiocchi. Assinatura | Maiocchi Advogado",
     description: "Assine com clareza. Acompanhe com confiança.",
-    images: [{ url: "/og.png", width: 1200, height: 630, alt: "Maiocchi Assinaturas, portal do Maiocchi Advogado" }],
+    images: [{ url: "/og.png", width: 1200, height: 630, alt: "Maiocchi. Assinatura, portal do Maiocchi Advogado" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Maiocchi Assinaturas | Maiocchi Advogado",
+    title: "Maiocchi. Assinatura | Maiocchi Advogado",
     description: "Assine com clareza. Acompanhe com confiança.",
     images: ["/og.png"],
   },

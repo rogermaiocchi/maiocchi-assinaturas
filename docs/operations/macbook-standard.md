@@ -39,7 +39,7 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 
 ## Padrão visual e de interação
 
-- A marca canônica do portal é `m.` em CSS, com fundo transparente e ponto em `#FFB800`; `public/icon-512.png` e os favicons reproduzem a mesma marca nas superfícies do navegador.
+- A arquitetura nominal segue `Maiocchi. + atividade`: o produto chama-se **Maiocchi. Assinatura** e a marca compacta é `m.` em CSS, com fundo transparente e ponto em `#FFB800`; `public/icon-512.png` e os favicons reproduzem a mesma marca nas superfícies do navegador.
 - O primeiro viewport prioriza uma única tarefa: abrir o documento pelo link ou código recebido.
 - O cabeçalho principal exibe apenas a marca `m.` e as âncoras Assinar, Validar e Advogados. Não se repete “Maiocchi” ao lado do símbolo.
 - Login, certificado digital, chave de autenticidade e VALIDAR ITI são iniciados na página inicial. `/sign_in`, `/dashboard` não autenticado e `/validar/` são compatibilidades de rota, não páginas públicas de navegação.

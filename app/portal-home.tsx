@@ -90,7 +90,7 @@ export function PortalHome() {
           <div className="shell hero__content">
             <div className="hero-copy">
               <p className="eyebrow"><span className="status-dot" /> Portal oficial do escritório</p>
-              <h1>Maiocchi <span>Assinaturas.</span></h1>
+              <h1>Maiocchi<span>.</span> <strong>Assinatura</strong></h1>
               <p className="hero-lead">Abra, assine e valide documentos em um único endereço.</p>
 
               <form className="hero-access" id="acessar-documento" onSubmit={onSubmit} noValidate aria-labelledby="access-title">

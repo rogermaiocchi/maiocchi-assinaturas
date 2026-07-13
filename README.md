@@ -1,4 +1,4 @@
-# Maiocchi Assinaturas
+# Maiocchi. Assinatura
 
 Porta de entrada institucional para o ambiente de documentos e assinaturas do Maiocchi Advogado.
 

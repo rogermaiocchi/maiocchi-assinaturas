@@ -164,7 +164,7 @@ export function SiteFooter() {
       <div className="shell footer-main">
         <Brand compact />
         <div className="footer-summary">
-          <strong>Maiocchi Assinaturas</strong>
+          <strong>Maiocchi. Assinatura</strong>
           <p>Documentos, assinaturas e validação em um único endereço.</p>
         </div>
         <nav className="footer-primary" aria-label="Acessos principais">
