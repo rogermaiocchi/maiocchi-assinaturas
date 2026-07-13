@@ -16,7 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 final class ItiPadesAdRbAttributes {
-    static final String APPLICATION_NAME = "Maiocchi Assinatura PAdES Provider 1.2.1";
+    static final String APPLICATION_NAME = "Maiocchi Assinatura PAdES Provider 1.2.2";
     static final String DEFAULT_REASON = "Assinatura digital ICP-Brasil";
     static final String DEFAULT_SIGNER_ROLE = "Signatário ICP-Brasil";
 

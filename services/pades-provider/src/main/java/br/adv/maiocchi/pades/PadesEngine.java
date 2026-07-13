@@ -1,9 +1,7 @@
 package br.adv.maiocchi.pades;
 
 import eu.europa.esig.dss.enumerations.DigestAlgorithm;
-import eu.europa.esig.dss.enumerations.ImageScaling;
 import eu.europa.esig.dss.enumerations.Indication;
-import eu.europa.esig.dss.enumerations.SignerTextPosition;
 import eu.europa.esig.dss.enumerations.SignatureAlgorithm;
 import eu.europa.esig.dss.enumerations.SignatureLevel;
 import eu.europa.esig.dss.model.DSSDocument;
@@ -30,12 +28,8 @@ import eu.europa.esig.dss.validation.reports.Reports;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Font;
-import java.awt.Graphics2D;
-import java.awt.RenderingHints;
-import java.awt.image.BufferedImage;
 import java.security.MessageDigest;
 import java.security.Signature;
 import java.time.Clock;
@@ -53,8 +47,6 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import javax.imageio.ImageIO;
 
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -99,10 +91,10 @@ final class PadesEngine {
     private static final String CERTIFICATE_TYPE = "A3";
     private static final String PDF_LOCATION = "Brasil";
     private static final String PDF_CONTACT_INFO = "roger@maiocchi.adv.br";
-    private static final float VISIBLE_SIGNATURE_X = 72f;
-    private static final float VISIBLE_SIGNATURE_BOTTOM = 52f;
-    private static final float VISIBLE_SIGNATURE_WIDTH = 451f;
-    private static final float VISIBLE_SIGNATURE_HEIGHT = 92f;
+    private static final float VISIBLE_SIGNATURE_X = 105.04f;
+    private static final float VISIBLE_SIGNATURE_BOTTOM = 82.89f;
+    private static final float VISIBLE_SIGNATURE_WIDTH = 320f;
+    private static final float VISIBLE_SIGNATURE_HEIGHT = 66f;
     private static final Pattern NATIONAL_ID = Pattern.compile("(?<!\\d)(\\d{3}[.]?\\d{3}[.]?\\d{3}-?\\d{2})(?!\\d)");
     private static final DateTimeFormatter VISIBLE_SIGNING_TIME = DateTimeFormatter
             .ofPattern("dd/MM/uuuu HH:mm:ss 'UTC'").withZone(ZoneOffset.UTC);
@@ -438,61 +430,28 @@ final class PadesEngine {
         field.setHeight(VISIBLE_SIGNATURE_HEIGHT);
 
         SignatureImageTextParameters text = new SignatureImageTextParameters();
-        text.setSignerTextPosition(SignerTextPosition.RIGHT);
-        text.setFont(new DSSJavaFont(Font.SANS_SERIF, Font.PLAIN, 5));
+        text.setFont(new DSSJavaFont(Font.SANS_SERIF, Font.PLAIN, 8));
         text.setTextColor(new Color(17, 18, 16));
         text.setBackgroundColor(Color.WHITE);
-        text.setPadding(4f);
-        String nationalIdLine = signerIdentity.nationalIdMasked() == null
-                ? "" : "\nCPF: " + signerIdentity.nationalIdMasked();
+        text.setPadding(3f);
+        String signerLine = signerIdentity.signedBy() + (signerIdentity.nationalIdMasked() == null
+                ? "" : " · CPF " + signerIdentity.nationalIdMasked());
         String actLine = hasActTimestamps
-                ? "ACT: carimbos de conteúdo e assinatura incorporados"
+                ? "ACT: carimbos incorporados"
                 : "ACT: carimbos condicionais não aplicados";
-        text.setText("ASSINADO DIGITALMENTE\n" + signerIdentity.signedBy()
-                + nationalIdLine
-                + "\n" + VISIBLE_SIGNING_TIME.format(signingTime)
-                + "\nICP-Brasil | A3 | PAdES AD-RB"
+        text.setText("ASSINATURA DIGITAL ICP-BRASIL · PAdES AD-RB"
+                + "\n" + signerLine
+                + "\n" + VISIBLE_SIGNING_TIME.format(signingTime) + " · certificado A3"
                 + "\nsignerAttr: " + safeMetadata(signerRole, ItiPadesAdRbAttributes.DEFAULT_SIGNER_ROLE, 42)
-                + "\n/Location: " + PDF_LOCATION + " | /Reason: "
-                + safeMetadata(reason, ItiPadesAdRbAttributes.DEFAULT_REASON, 44)
-                + "\n/Name /M /ContactInfo /Prop_Build: incorporados"
-                + "\n" + actLine);
+                + "\n/Location: " + PDF_LOCATION + " · /Reason: "
+                + safeMetadata(reason, ItiPadesAdRbAttributes.DEFAULT_REASON, 26)
+                + "\nAtributos PAdES incorporados · " + actLine);
 
         SignatureImageParameters image = new SignatureImageParameters();
         image.setFieldParameters(field);
-        image.setImage(new InMemoryDocument(visibleMarker(), "maiocchi-pades-marker.png"));
-        image.setImageScaling(ImageScaling.ZOOM_AND_CENTER);
         image.setBackgroundColor(Color.WHITE);
         image.setTextParameters(text);
         parameters.setImageParameters(image);
-    }
-
-    private static byte[] visibleMarker() {
-        BufferedImage image = new BufferedImage(160, 96, BufferedImage.TYPE_INT_ARGB);
-        Graphics2D graphics = image.createGraphics();
-        try (ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-            graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            graphics.setColor(Color.WHITE);
-            graphics.fillRect(0, 0, image.getWidth(), image.getHeight());
-            graphics.setColor(new Color(255, 184, 0));
-            graphics.fillRect(0, 0, 7, image.getHeight());
-            graphics.setColor(new Color(17, 18, 16));
-            graphics.setStroke(new BasicStroke(2f));
-            graphics.drawRect(7, 1, image.getWidth() - 9, image.getHeight() - 3);
-            graphics.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 48));
-            graphics.drawString("m", 33, 57);
-            graphics.setColor(new Color(255, 184, 0));
-            graphics.drawString(".", 80, 57);
-            graphics.setColor(new Color(72, 73, 68));
-            graphics.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 9));
-            graphics.drawString("MAIOCCHI", 31, 78);
-            ImageIO.write(image, "png", output);
-            return output.toByteArray();
-        } catch (IOException error) {
-            throw new ProviderException(500, "visible_signature_failed", "Não foi possível gerar a marca visual da assinatura.");
-        } finally {
-            graphics.dispose();
-        }
     }
 
     private static SignerIdentity signerIdentity(CertificateToken certificate) {

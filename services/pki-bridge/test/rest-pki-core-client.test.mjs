@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { PkiConfigurationError, PkiProviderError } from "../src/errors.mjs";
 import { RestPkiCoreClient, sha256Base64 } from "../src/rest-pki-core-client.mjs";
+import { SIGNATURE_BOX } from "../src/pades-evidence-layout.mjs";
 
 function jsonResponse(body, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -100,10 +101,13 @@ test("cria e conclui sessão remota com certificado em nuvem", async () => {
   assert.deepEqual(calls[0].body.certificateRequirements, [{ type: "CryptoDevice" }]);
   const visual = calls[0].body.documents[0].pdfSignatureOptions.visualRepresentation;
   assert.equal(visual.position.pageNumber, -1);
-  assert.deepEqual(visual.position.manual, { left: 72, bottom: 52, width: 451, height: 92 });
-  assert.match(visual.text.text, /Atributos ITI/);
+  assert.deepEqual(visual.position.manual, SIGNATURE_BOX);
+  assert.match(visual.text.text, /atributos PAdES/i);
   assert.match(visual.text.text, /\{\{signerName\}\}/);
   assert.match(visual.text.text, /\{\{signerNationalId\}\}/);
+  assert.equal(visual.text.fontSize, 8);
+  assert.equal(visual.text.container.left, 4);
+  assert.equal(visual.image, undefined);
   const session = await client.getSignatureSession(created.sessionId);
   assert.deepEqual((await client.signedPdfFromSession(session)).pdf, signed);
 });

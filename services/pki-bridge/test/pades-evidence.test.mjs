@@ -1,8 +1,16 @@
 import assert from "node:assert/strict";
 import { createHash, generateKeyPairSync } from "node:crypto";
 import test from "node:test";
-import { PDFDocument, StandardFonts } from "pdf-lib";
-import { buildEvidenceManifest, composePadesEvidence, inspectUnsignedPdf } from "../src/pades-evidence.mjs";
+import { PDFArray, PDFDict, PDFDocument, PDFName, StandardFonts } from "pdf-lib";
+import {
+  PAGE_MARGINS,
+  SIGNATURE_BOX,
+  SIGNATURE_FRAME,
+  buildEvidenceManifest,
+  composePadesEvidence,
+  inspectUnsignedPdf,
+  isIcpBrasilSignature,
+} from "../src/pades-evidence.mjs";
 import { createPostQuantumSigner, verifyPostQuantumAttestation } from "../src/post-quantum-evidence.mjs";
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
@@ -17,7 +25,7 @@ async function sourceDocument(pageCount = 2) {
   return Buffer.from(await pdf.save({ useObjectStreams: false }));
 }
 
-function manifestFor(source, pageCount = 2) {
+function manifestFor(source, pageCount = 2, infrastructure = "ICP-Brasil") {
   return buildEvidenceManifest({
     publicId: "MAI-2026-1111-2222-3333-4444",
     documentNumber: "20260713010000123456789012345",
@@ -38,7 +46,10 @@ function manifestFor(source, pageCount = 2) {
       locale: "pt-BR",
       geolocation: { latitude: -15.79389, longitude: -47.88278, accuracyMeters: 20 },
       capturedAt: "2026-07-13T01:00:00.000Z",
-      tokenType: "Certificado ICP-Brasil A3 / token criptografico",
+      tokenType: infrastructure === "ICP-Brasil" ? "Certificado ICP-Brasil A3 / token criptografico" : "Conta verificada",
+      format: "PAdES",
+      profile: infrastructure === "ICP-Brasil" ? "AD-RB" : "Avançada",
+      infrastructure,
     },
   });
 }
@@ -57,10 +68,28 @@ test("acrescenta pagina de evidencias e carimba todas as paginas antes do PAdES"
   assert.equal(composed.getPageCount(), 3);
   assert.equal(sheet.getPageCount(), 1);
   assert.equal(result.totalPages, 3);
-  assert.deepEqual(result.signatureBox, { left: 72, bottom: 52, width: 451, height: 92 });
-  assert.match(result.verificationUrl, /validar\/\?codigo=MAI-2026-1111-2222-3333-4444/);
+  assert.deepEqual(result.signatureBox, SIGNATURE_BOX);
+  assert.deepEqual(result.signatureFrame, SIGNATURE_FRAME);
+  assert.deepEqual(result.pageMargins, PAGE_MARGINS);
+  assert.deepEqual(PAGE_MARGINS, { top: 85.04, right: 56.69, bottom: 56.69, left: 85.04 });
+  assert.equal(SIGNATURE_FRAME.left, PAGE_MARGINS.left);
+  assert.ok(Math.abs(SIGNATURE_FRAME.width - (595.28 - PAGE_MARGINS.left - PAGE_MARGINS.right)) < 1e-9);
+  for (const page of composed.getPages()) {
+    const xObjects = page.node.Resources().lookup(PDFName.of("XObject"), PDFDict);
+    assert.ok(xObjects.keys().length >= 1, "cada página deve conter o micro logo marginal");
+  }
+  const evidence = composed.getPage(2);
+  const evidenceImages = evidence.node.Resources().lookup(PDFName.of("XObject"), PDFDict);
+  assert.ok(evidenceImages.keys().length >= 5, "a folha ICP deve conter marca, QR, Code128, fundo PAdES e logo ICP-Brasil");
+  const annotations = evidence.node.lookup(PDFName.of("Annots"), PDFArray);
+  assert.equal(annotations.size(), 2, "QR e bloco textual devem ser links completos");
+  assert.match(result.verificationUrl, /\/v\/MAI-2026-1111-2222-3333-4444$/);
+  assert.equal(result.barcodeValue, "MAI|MAI-2026-1111-2222-3333-4444|R1");
+  assert.equal(result.icpBrasilSealIncluded, true);
+  assert.equal(isIcpBrasilSignature(manifest.signature), true);
   assert.equal(composed.getTitle(), "relatorio");
   assert.match(composed.getSubject(), /ICP-Brasil/);
+  assert.match(composed.catalog.get(PDFName.of("Lang")).toString(), /pt-BR/);
   assert.equal(manifest.signature.policyOid, "2.16.76.1.7.1.11.1.3");
   assert.equal(manifest.signature.optionalAttributes.assurance, "private-provider-enforced");
   assert.deepEqual(manifest.signature.optionalAttributes.incorporated, [
@@ -73,6 +102,25 @@ test("acrescenta pagina de evidencias e carimba todas as paginas antes do PAdES"
     "/Reference", "/Changes", "/V=0", "/Prop_AuthTime", "DSS", "VRI",
   ]);
   assert.doesNotMatch(manifest.purpose, /⚖/u);
+});
+
+test("omite sinais ICP-Brasil quando a modalidade não é ICP-Brasil", async () => {
+  const source = await sourceDocument(1);
+  const manifest = manifestFor(source, 1, "Assinatura eletrônica avançada");
+  const attestation = {
+    algorithm: "ML-DSA-65", keyId: "ml-dsa-65-test",
+    code: "PQC-MLDSA65-1111-2222-3333-4444", manifestSha256: sha256(JSON.stringify(manifest)),
+  };
+  const result = await composePadesEvidence({ sourcePdf: source, manifest, attestation });
+  const composed = await PDFDocument.load(result.presentation);
+  const evidence = composed.getPage(1);
+  const evidenceImages = evidence.node.Resources().lookup(PDFName.of("XObject"), PDFDict);
+  assert.equal(result.icpBrasilSealIncluded, false);
+  assert.equal(isIcpBrasilSignature(manifest.signature), false);
+  assert.equal(manifest.signature.policyOid, null);
+  assert.equal(manifest.signature.optionalAttributes, null);
+  assert.doesNotMatch(composed.getSubject(), /ICP-Brasil/);
+  assert.equal(evidenceImages.keys().length, 3, "modalidade não ICP deve conter somente marca, QR e Code128");
 });
 
 test("recusa PDF que já contém ByteRange de assinatura", async () => {

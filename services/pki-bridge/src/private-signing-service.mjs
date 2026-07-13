@@ -73,6 +73,9 @@ function normalizeSigningMetadata(value, { observedIp, modality }) {
     tokenType: modality === "remote"
       ? "Certificado ICP-Brasil em nuvem (PSC)"
       : "Certificado ICP-Brasil A3 / token criptográfico",
+    format: "PAdES",
+    profile: "AD-RB",
+    infrastructure: "ICP-Brasil",
     modality,
   };
 }
@@ -525,7 +528,7 @@ export class PrivateSigningService {
             hash: { algorithm: "SHA-256", value: bufferHex(ticket.evidence_page_sha256) },
           },
           goldStandard: {
-            barcodeValue: `${ticket.public_id}|${ticket.document_number}`,
+            barcodeValue: `MAI|${ticket.public_id}|R1`,
             intendedFor: manifest.intendedFor,
             purpose: manifest.purpose,
             signingLocation: manifest.signingEnvironment.geolocation

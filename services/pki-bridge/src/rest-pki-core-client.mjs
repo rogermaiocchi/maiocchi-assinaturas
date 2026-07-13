@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { PkiConfigurationError, PkiProviderError } from "./errors.mjs";
+import { SIGNATURE_BOX } from "./pades-evidence-layout.mjs";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const MAX_REMOTE_FILE_BYTES = 40 * 1024 * 1024;
@@ -69,16 +70,16 @@ function padesSignatureOptions() {
     reason: "Assinatura eletrônica qualificada ICP-Brasil",
     visualRepresentation: {
       text: {
-        fontSize: 6,
-        text: "ASSINADO DIGITALMENTE\n{{signerName}}\nCPF {{signerNationalId}} · ICP-Brasil · PAdES AD-RB\nAtributos ITI: conferir no relatório final e no VALIDAR ITI",
+        fontSize: 8,
+        text: "ASSINATURA DIGITAL ICP-BRASIL · PAdES AD-RB\n{{signerName}} · CPF {{signerNationalId}}\nCertificado digital qualificado · atributos PAdES incorporados\nA representação visual não substitui a validação criptográfica",
         includeSigningTime: true,
         horizontalAlign: "Left",
-        container: { left: 10, right: 10, top: 7, bottom: 7 },
+        container: { left: 4, right: 4, top: 4, bottom: 4 },
       },
       position: {
         pageNumber: -1,
         measurementUnits: "PdfPoints",
-        manual: { left: 72, bottom: 52, width: 451, height: 92 },
+        manual: { ...SIGNATURE_BOX },
       },
     },
   };
