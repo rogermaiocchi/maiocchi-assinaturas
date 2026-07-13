@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { BadgeHelp, CircleStop, FileSearch, Mail } from "lucide-react";
 import { FlowMap } from "../flow-map";
 import { LegalPage } from "../legal-page";
@@ -19,7 +20,7 @@ export default function HelpPage() {
     <h2>Qual modalidade estou usando?</h2><p>O próprio fluxo deve identificar a modalidade. O acesso por link e a assinatura desenhada são tratados como assinatura eletrônica simples por padrão. Consulte a <a href="/assinaturas-eletronicas/">comparação das modalidades</a>.</p>
     <h2>Assinatura com certificado ICP-Brasil</h2><p>Quando essa opção estiver indicada no documento, selecione seu certificado no componente seguro. A chave privada e o PIN permanecem sob seu controle. O Maiocchi Advogado nunca solicita PIN, arquivo A1 ou senha por mensagem, e-mail ou telefone.</p>
     <h2>Assinatura pelo GOV.BR</h2><p>O GOV.BR é um serviço externo. Siga o <a href="/assinatura-gov-br/">percurso oficial</a>, baixe o arquivo assinado sem usar a função de impressão e confira a assinatura no Validador do ITI.</p>
-    <h2>Conferir um documento assinado</h2><p>Use o bloco <a href="/#validar">Validar</a> da página inicial para consultar a chave, comparar o PDF e acessar o serviço oficial do ITI.</p>
+    <h2>Conferir um documento assinado</h2><p>Use o bloco <Link href="/#validar">Validar</Link> da página inicial para consultar a chave, comparar o PDF e acessar o serviço oficial do ITI.</p>
     <h2>Atendimento</h2><p>Envie uma mensagem para <a href="mailto:roger@maiocchi.adv.br?subject=Ajuda%20com%20assinatura">roger@maiocchi.adv.br</a>, informando apenas o nome do documento e a dificuldade encontrada. Não envie senha, PIN, chave privada ou código de acesso.</p>
   </LegalPage>;
 }

@@ -65,8 +65,8 @@ test("publica páginas legais e de ajuda", async () => {
   assert.match(terms, /OAB\/DF/i);
   assert.match(help, /Assinatura com certificado ICP-Brasil/i);
   assert.match(source, /GNU Affero General Public License/i);
-  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/archive\/refs\/tags\/portal-v1\.9\.0\.zip/i);
-  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/tree\/portal-v1\.9\.0/i);
+  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/archive\/refs\/tags\/portal-v1\.9\.1\.zip/i);
+  assert.match(source, /github\.com\/rogermaiocchi\/maiocchi-assinaturas\/tree\/portal-v1\.9\.1/i);
   assert.doesNotMatch(source, /href="\/codigo-fonte\/docuseal-maiocchi-3\.0\.1\.tar\.gz"/i);
   assert.doesNotMatch(source, /termos adicionais/i);
   for (const html of [privacy, terms, help]) {
@@ -187,6 +187,7 @@ test("padroniza páginas inexistentes e redirecionamentos internos", async () =>
   assert.match(traefik, /documents-to-main:/i);
   assert.match(traefik, /replacement: 'https:\/\/assinatura\.maiocchi\.adv\.br\/\$\{1\}'/i);
   assert.match(docuseal, /APP_URL: https:\/\/assinatura\.maiocchi\.adv\.br/i);
+  assert.match(docuseal, /image: maiocchi\/docuseal:3\.0\.1-maiocchi\.2/i);
   assert.match(docuseal, /CERTIFICATE_AUTH_APP_HOST: assinatura\.maiocchi\.adv\.br/i);
   assert.doesNotMatch(docuseal, /documentos\.assinatura\.maiocchi\.adv\.br/i);
 });
