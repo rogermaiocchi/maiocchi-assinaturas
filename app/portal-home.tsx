@@ -89,8 +89,11 @@ export function PortalHome() {
           <div className="hero__shade" aria-hidden="true" />
           <div className="shell hero__content">
             <div className="hero-copy">
-              <p className="eyebrow"><span className="status-dot" /> Portal oficial do escritório</p>
-              <h1>Maiocchi<span>.</span> <strong>Assinatura</strong></h1>
+              <p className="eyebrow"><span className="status-dot" /> Portal oficial de Maiocchi Advogado</p>
+              <h1 className="hero-logo-title">
+                <span className="sr-only">Maiocchi. Assinatura</span>
+                <span className="hero-logo-mark" aria-hidden="true"><span>m</span><i>.</i></span>
+              </h1>
               <p className="hero-lead">Abra, assine e valide documentos em um único endereço.</p>
 
               <form className="hero-access" id="acessar-documento" onSubmit={onSubmit} noValidate aria-labelledby="access-title">
@@ -99,7 +102,6 @@ export function PortalHome() {
                     <span className="secure-label"><LockKeyhole aria-hidden="true" size={14} /> Acesso protegido</span>
                     <h2 id="access-title">Recebeu um documento?</h2>
                   </div>
-                  <span className="hero-access__mark" aria-hidden="true">m<i>.</i></span>
                 </div>
                 <label htmlFor="document-code">Cole o link ou informe o código enviado pelo escritório</label>
                 <div className={`code-field${error ? " code-field--error" : ""}`}>

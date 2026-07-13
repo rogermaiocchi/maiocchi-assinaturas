@@ -117,20 +117,28 @@ export function SiteHeader() {
           <Brand />
           <nav className="desktop-nav" aria-label="Navegação principal">
             {mainNav.map(({ href, label, icon: Icon }) => (
-              <Link href={href} key={href} aria-current={isCurrent(href) ? "page" : undefined}>
-                <Icon aria-hidden="true" size={16} strokeWidth={1.9} />
-                <span>{label}</span>
+              <Link
+                className="icon-nav-link"
+                href={href}
+                key={href}
+                aria-label={label}
+                title={label}
+                data-tooltip={label}
+                aria-current={isCurrent(href) ? "page" : undefined}
+              >
+                <Icon aria-hidden="true" size={19} strokeWidth={1.9} />
+                <span className="sr-only">{label}</span>
               </Link>
             ))}
           </nav>
-          <Link className="button button--yellow mobile-access" href="/#advogados">
+          <Link className="header-icon-action mobile-access" href="/#advogados" aria-label="Entrar como advogado" title="Entrar como advogado">
             <LogIn aria-hidden="true" size={17} />
-            <span>Entrar</span>
+            <span className="sr-only">Entrar como advogado</span>
           </Link>
           <div className="mobile-nav">
             <button
               ref={menuButton}
-              className="mobile-menu-toggle"
+              className="header-icon-action mobile-menu-toggle"
               type="button"
               aria-label={menuOpen ? "Fechar navegação" : "Abrir navegação"}
               aria-expanded={menuOpen}

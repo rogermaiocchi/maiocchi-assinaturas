@@ -40,6 +40,8 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 ## Padrão visual e de interação
 
 - A arquitetura nominal segue `Maiocchi. + atividade`: o produto chama-se **Maiocchi. Assinatura** e a marca compacta é `m.` em CSS, com fundo transparente e ponto em `#FFB800`; `public/icon-512.png` e os favicons reproduzem a mesma marca nas superfícies do navegador.
+- O hero inicial exibe a marca `m.` em escala de destaque; o nome completo permanece em metadados e texto acessível, sem duplicação visual.
+- O menu superior usa controles iconográficos circulares, com Lucide, tooltip, foco visível e efeito de profundidade. Caixas quadradas não são usadas para envolver ícones; comandos textuais continuam rotulados quando a ação não for universalmente reconhecível.
 - O primeiro viewport prioriza uma única tarefa: abrir o documento pelo link ou código recebido.
 - O cabeçalho principal exibe apenas a marca `m.` e as âncoras Assinar, Validar e Advogados. Não se repete “Maiocchi” ao lado do símbolo.
 - Login, certificado digital, chave de autenticidade e VALIDAR ITI são iniciados na página inicial. `/sign_in`, `/dashboard` não autenticado e `/validar/` são compatibilidades de rota, não páginas públicas de navegação.

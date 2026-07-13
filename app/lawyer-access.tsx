@@ -173,7 +173,7 @@ export function LawyerAccess() {
                     autoComplete="current-password"
                     required
                   />
-                  <button type="button" onClick={() => setShowPassword((visible) => !visible)} title={showPassword ? "Ocultar senha" : "Exibir senha"} aria-label={showPassword ? "Ocultar senha" : "Exibir senha"}>
+                  <button className="password-toggle" type="button" onClick={() => setShowPassword((visible) => !visible)} title={showPassword ? "Ocultar senha" : "Exibir senha"} aria-label={showPassword ? "Ocultar senha" : "Exibir senha"}>
                     {showPassword ? <EyeOff aria-hidden="true" size={18} /> : <Eye aria-hidden="true" size={18} />}
                   </button>
                 </div>
