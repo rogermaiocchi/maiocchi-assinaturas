@@ -34,6 +34,7 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 - O subdomínio `documentos.assinatura.maiocchi.adv.br` é somente compatibilidade e redireciona de forma permanente, preservando caminho e consulta.
 - O `pki-bridge` é um serviço separado e fail-closed para PAdES/ICP-Brasil. O provider privado DSS + agente CryptoTokenKit está ativo; o registro de autenticidade só opera depois de receber validação estruturada.
 - O PDF PAdES final é imutável. Antes da assinatura, o bridge carimba todas as páginas e acrescenta uma página A4 final com ID, hash da entrada, QR, Code 128, metadados e área do signatário. O hash binário final permanece externo porque um arquivo não pode conter o próprio hash sem alterá-lo.
+- A página final apresenta os atributos opcionais ITI como sinais físicos separados em incorporados, condicionais de ACT e contextuais/default. A aparência deve refletir o estado criptográfico efetivo e nunca apresentar um atributo ausente como incorporado.
 - A página final recebe atestado ML-DSA-65 do manifesto pré-assinatura. Esse atestado é uma prova adicional do portal e não substitui nem renomeia a assinatura PAdES ICP-Brasil, que segue os algoritmos e políticas homologados.
 - O verificador público mostra apenas metadados mínimos; o original permanece restrito por padrão e a comparação de arquivo ocorre localmente no navegador.
 - O GOV.BR permanece um percurso externo para este escritório privado; o arquivo assinado deve ser preservado e validado no canal oficial.
@@ -62,15 +63,19 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 
 ## Perfil A3 homologado
 
-O padrão de sucesso do MacBook primário é o provider `1.1.3`, agente local em
-`127.0.0.1:35100`, token ICP-Brasil A3 via CryptoTokenKit e política PAdES
-AD-RB v1.3. O ensaio de 13/07/2026 foi aprovado pelo VALIDAR ITI, com cadeia
-`Valid`, estrutura conforme e todos os atributos obrigatórios `Valid`.
+O padrão de sucesso atual do MacBook primário é portal `1.11.1`, bridge `1.3.3`,
+provider `1.2.1`, agente local em `127.0.0.1:35100`, token ICP-Brasil A3 via
+CryptoTokenKit e política PAdES AD-RB v1.3. O ensaio final de 13/07/2026 foi
+aprovado novamente pelo VALIDAR ITI, com cadeia `Valid`, estrutura conforme,
+resumo criptográfico `true`, atributos obrigatórios aprovados e
+`IdAaEtsSignerAttr` opcional `Valid`.
 
-Os valores canônicos e os hashes da evidência estão na
-[baseline PAdES homologada](../baseline/2026-07-13-pades-iti-approved.md).
-Para ajustes visuais, editar somente a composição pré-assinatura. Nunca abrir e
-salvar o PDF PAdES final em editor, compressor ou biblioteca de pós-processamento.
+Os valores canônicos, os sinais físicos e os hashes da evidência estão na
+[baseline dos sinais físicos ITI](../baseline/2026-07-13-pades-iti-physical-signals-approved.md).
+A [baseline criptográfica original](../baseline/2026-07-13-pades-iti-approved.md)
+permanece como histórico. Para ajustes visuais, editar somente a composição
+pré-assinatura. Nunca abrir e salvar o PDF PAdES final em editor, compressor ou
+biblioteca de pós-processamento.
 
 ## Critério de conclusão
 
