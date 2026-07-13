@@ -1,7 +1,9 @@
 package br.adv.maiocchi.pades;
 
 import eu.europa.esig.dss.enumerations.DigestAlgorithm;
+import eu.europa.esig.dss.enumerations.ImageScaling;
 import eu.europa.esig.dss.enumerations.Indication;
+import eu.europa.esig.dss.enumerations.SignerTextPosition;
 import eu.europa.esig.dss.enumerations.SignatureAlgorithm;
 import eu.europa.esig.dss.enumerations.SignatureLevel;
 import eu.europa.esig.dss.model.DSSDocument;
@@ -11,6 +13,10 @@ import eu.europa.esig.dss.model.SignatureValue;
 import eu.europa.esig.dss.model.ToBeSigned;
 import eu.europa.esig.dss.model.x509.CertificateToken;
 import eu.europa.esig.dss.pades.PAdESSignatureParameters;
+import eu.europa.esig.dss.pades.DSSJavaFont;
+import eu.europa.esig.dss.pades.SignatureFieldParameters;
+import eu.europa.esig.dss.pades.SignatureImageParameters;
+import eu.europa.esig.dss.pades.SignatureImageTextParameters;
 import eu.europa.esig.dss.pades.signature.PAdESService;
 import eu.europa.esig.dss.service.crl.OnlineCRLSource;
 import eu.europa.esig.dss.service.http.commons.CommonsDataLoader;
@@ -23,11 +29,19 @@ import eu.europa.esig.dss.validation.reports.Reports;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.awt.BasicStroke;
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
 import java.security.MessageDigest;
 import java.security.Signature;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Date;
@@ -36,11 +50,21 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import javax.imageio.ImageIO;
+
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
 
 final class PadesEngine {
     static final int MAX_PDF_BYTES = 40 * 1024 * 1024;
     static final Duration SESSION_TTL = Duration.ofMinutes(3);
     static final int MAX_ACTIVE_SESSIONS = 100;
+    private static final Pattern COMMON_NAME = Pattern.compile("(?:^|,)CN=([^,]+)");
+    private static final DateTimeFormatter VISIBLE_SIGNING_TIME = DateTimeFormatter
+            .ofPattern("dd/MM/uuuu HH:mm:ss 'UTC'").withZone(ZoneOffset.UTC);
 
     record PrepareRequest(String pdfBase64, String name, String certificateBase64, List<String> chainBase64) {}
     record PrepareResult(String sessionId, String toBeSignedBase64, String digestAlgorithm,
@@ -130,6 +154,8 @@ final class PadesEngine {
         parameters.bLevel().setSignaturePolicy(policy);
         parameters.setLocation("Brasil");
         parameters.setContactInfo("roger@maiocchi.adv.br");
+        parameters.setSignerName(commonName(certificate));
+        configureVisibleSignature(parameters, pdf, certificate, now);
 
         DSSDocument document = new InMemoryDocument(pdf, safeName(request.name()));
         ToBeSigned toBeSigned = service.getDataToSign(document, parameters);
@@ -213,6 +239,77 @@ final class PadesEngine {
         } catch (Exception error) {
             throw new ProviderException(422, "signature_verification_failed", "Não foi possível verificar a assinatura do token.");
         }
+    }
+
+    private static void configureVisibleSignature(PAdESSignatureParameters parameters, byte[] pdf,
+                                                  CertificateToken certificate, Instant signingTime) {
+        int page;
+        try (PDDocument document = Loader.loadPDF(pdf)) {
+            page = document.getNumberOfPages();
+        } catch (IOException error) {
+            throw new ProviderException(400, "invalid_pdf", "Não foi possível posicionar a assinatura visual no PDF.");
+        }
+        if (page < 1) throw new ProviderException(400, "invalid_pdf", "O PDF não possui página para assinatura visual.");
+
+        SignatureFieldParameters field = new SignatureFieldParameters();
+        field.setPage(page);
+        field.setOriginX(42f);
+        field.setOriginY(38f);
+        field.setWidth(320f);
+        field.setHeight(58f);
+
+        SignatureImageTextParameters text = new SignatureImageTextParameters();
+        text.setSignerTextPosition(SignerTextPosition.RIGHT);
+        text.setFont(new DSSJavaFont(Font.SANS_SERIF, Font.PLAIN, 6));
+        text.setTextColor(new Color(17, 18, 16));
+        text.setBackgroundColor(Color.WHITE);
+        text.setPadding(4f);
+        text.setText("ASSINADO DIGITALMENTE\n" + commonName(certificate)
+                + "\nICP-Brasil · Certificado A3"
+                + "\n" + VISIBLE_SIGNING_TIME.format(signingTime)
+                + " · PAdES AD-RB");
+
+        SignatureImageParameters image = new SignatureImageParameters();
+        image.setFieldParameters(field);
+        image.setImage(new InMemoryDocument(visibleMarker(), "maiocchi-pades-marker.png"));
+        image.setImageScaling(ImageScaling.ZOOM_AND_CENTER);
+        image.setBackgroundColor(Color.WHITE);
+        image.setTextParameters(text);
+        parameters.setImageParameters(image);
+    }
+
+    private static byte[] visibleMarker() {
+        BufferedImage image = new BufferedImage(160, 96, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D graphics = image.createGraphics();
+        try (ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            graphics.setColor(Color.WHITE);
+            graphics.fillRect(0, 0, image.getWidth(), image.getHeight());
+            graphics.setColor(new Color(255, 184, 0));
+            graphics.fillRect(0, 0, 7, image.getHeight());
+            graphics.setColor(new Color(17, 18, 16));
+            graphics.setStroke(new BasicStroke(2f));
+            graphics.drawRect(7, 1, image.getWidth() - 9, image.getHeight() - 3);
+            graphics.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 48));
+            graphics.drawString("m", 33, 57);
+            graphics.setColor(new Color(255, 184, 0));
+            graphics.drawString(".", 80, 57);
+            graphics.setColor(new Color(72, 73, 68));
+            graphics.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 9));
+            graphics.drawString("MAIOCCHI", 31, 78);
+            ImageIO.write(image, "png", output);
+            return output.toByteArray();
+        } catch (IOException error) {
+            throw new ProviderException(500, "visible_signature_failed", "Não foi possível gerar a marca visual da assinatura.");
+        } finally {
+            graphics.dispose();
+        }
+    }
+
+    private static String commonName(CertificateToken certificate) {
+        String subject = certificate.getCertificate().getSubjectX500Principal().getName();
+        Matcher matcher = COMMON_NAME.matcher(subject);
+        return matcher.find() ? matcher.group(1).trim() : "Titular do certificado";
     }
 
     private void cleanup() {

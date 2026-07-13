@@ -14,6 +14,9 @@ import org.junit.jupiter.api.Test;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotationWidget;
+import org.apache.pdfbox.pdmodel.interactive.form.PDField;
+import org.apache.pdfbox.pdmodel.interactive.form.PDSignatureField;
 
 import java.io.ByteArrayOutputStream;
 import java.math.BigInteger;
@@ -70,6 +73,20 @@ class PadesEngineTest {
         assertEquals(POLICY.oid(), completed.validation().policyOid());
         try (PDDocument parsed = Loader.loadPDF(signedPdf)) {
             assertFalse(parsed.getSignatureDictionaries().isEmpty());
+            assertNotNull(parsed.getDocumentCatalog().getAcroForm());
+            PDSignatureField field = null;
+            for (PDField candidate : parsed.getDocumentCatalog().getAcroForm().getFieldTree()) {
+                if (candidate instanceof PDSignatureField signatureField) {
+                    field = signatureField;
+                    break;
+                }
+            }
+            assertNotNull(field, "O PAdES deve conter campo de assinatura visível.");
+            PDAnnotationWidget widget = field.getWidgets().getFirst();
+            assertTrue(widget.getRectangle().getWidth() >= 300);
+            assertTrue(widget.getRectangle().getHeight() >= 50);
+            assertNotNull(widget.getAppearance());
+            assertNotNull(widget.getAppearance().getNormalAppearance());
         }
         ProviderException replay = assertThrows(ProviderException.class,
                 () -> engine.complete(prepared.sessionId(), new PadesEngine.CompleteRequest(signature)));

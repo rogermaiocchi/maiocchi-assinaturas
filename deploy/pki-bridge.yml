@@ -45,7 +45,7 @@ services:
     build:
       context: "${PORTAL_SOURCE_DIR:-..}"
       dockerfile: services/pades-provider/Dockerfile
-    image: maiocchi/pades-provider:1.0.0
+    image: maiocchi/pades-provider:1.0.1
     container_name: pades-provider
     restart: unless-stopped
     mem_limit: 768m
