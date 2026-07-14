@@ -622,6 +622,32 @@ index 4aeae39..418c48c 100644
  <p><b><%= @otp_code %></b></p>
 -<p><%= t('please_reply_to_this_email_if_you_didnt_request_this') %></p>
 +<p>Se você não solicitou este código, ignore a mensagem e não compartilhe o conteúdo.</p>
+diff --git a/app/views/templates/_dropzone.html.erb b/app/views/templates/_dropzone.html.erb
+index 5ddec4c..4d65f8a 100644
+--- a/app/views/templates/_dropzone.html.erb
++++ b/app/views/templates/_dropzone.html.erb
+@@ -30,7 +30,7 @@
+             </div>
+           </span>
+         </div>
+-        <input id="file_dropzone_input" name="files[]" class="hidden" data-action="change:file-dropzone#onSelectFiles" data-target="file-dropzone.input" type="file" accept="image/*, application/pdf, application/zip, application/json<%= ", #{Templates::CreateAttachments::DOCUMENT_EXTENSIONS.join(', ')}" if Docuseal.advanced_formats? %>" multiple>
++        <input id="file_dropzone_input" name="files[]" class="hidden" data-action="change:file-dropzone#onSelectFiles" data-target="file-dropzone.input" type="file" accept="<%= ImageUtils::ACCEPTED_CONTENT_TYPES.join(',') %>, application/pdf, application/zip, application/json<%= ", #{Templates::CreateAttachments::DOCUMENT_EXTENSIONS.join(', ')}" if Docuseal.advanced_formats? %>" multiple>
+       </div>
+     </label>
+   </file-dropzone>
+diff --git a/app/views/templates/_upload_button.html.erb b/app/views/templates/_upload_button.html.erb
+index dbf104c..d0e23a3 100644
+--- a/app/views/templates/_upload_button.html.erb
++++ b/app/views/templates/_upload_button.html.erb
+@@ -16,7 +16,7 @@
+   </label>
+   <input type="hidden" name="form_id" value="<%= form_id %>">
+   <convert-upload>
+-    <input id="upload_template" name="files[]" class="hidden" type="file" accept="image/*, application/pdf, application/zip, application/json<%= ", #{Templates::CreateAttachments::DOCUMENT_EXTENSIONS.join(', ')}" if Docuseal.advanced_formats? %>" multiple>
++    <input id="upload_template" name="files[]" class="hidden" type="file" accept="<%= ImageUtils::ACCEPTED_CONTENT_TYPES.join(',') %>, application/pdf, application/zip, application/json<%= ", #{Templates::CreateAttachments::DOCUMENT_EXTENSIONS.join(', ')}" if Docuseal.advanced_formats? %>" multiple>
+   </convert-upload>
+   <input hidden name="folder_name" value="<%= local_assigns[:folder_name] %>">
+ <% end %>
 diff --git a/app/views/templates_preferences/_submitter_completed_email_form.html.erb b/app/views/templates_preferences/_submitter_completed_email_form.html.erb
 index 18954ab..82f87e2 100644
 --- a/app/views/templates_preferences/_submitter_completed_email_form.html.erb
@@ -856,6 +882,42 @@ index 1001f40..04aecbd 100644
  
      result = process_nodes(doc, line_length)
  
+diff --git a/lib/image_utils.rb b/lib/image_utils.rb
+index d3a8695..5ee0e58 100644
+--- a/lib/image_utils.rb
++++ b/lib/image_utils.rb
+@@ -1,13 +1,30 @@
+ # frozen_string_literal: true
+ 
+ module ImageUtils
++  ACCEPTED_CONTENT_TYPES = %w[
++    image/png
++    image/jpeg
++    image/webp
++    image/gif
++    image/x-icon
++    image/vnd.microsoft.icon
++    image/bmp
++    image/x-bmp
++    image/x-ms-bmp
++  ].freeze
+   ICO_REGEXP = %r{\Aimage/(?:x-icon|vnd\.microsoft\.icon)\z}
+   BMP_REGEXP = %r{\Aimage/(?:bmp|x-bmp|x-ms-bmp)\z}
+ 
+   module_function
+ 
+   def load_vips(data, content_type: nil, autorot: false)
+-    content_type ||= Marcel::MimeType.for(data)
++    detected_content_type = Marcel::MimeType.for(StringIO.new(data))
++
++    unless ACCEPTED_CONTENT_TYPES.include?(detected_content_type)
++      raise Vips::Error, "Formato de imagem não permitido: #{detected_content_type}"
++    end
++
++    content_type = detected_content_type
+ 
+     if ICO_REGEXP.match?(content_type)
+       LoadIco.call(data)
 diff --git a/lib/maiocchi_brand.rb b/lib/maiocchi_brand.rb
 index e32a750..f367265 100644
 --- a/lib/maiocchi_brand.rb
@@ -954,6 +1016,32 @@ index 6ebebbc..95433a8 100644
      office_box = draw.textbbox((0, 0), office, font=body_font)
      draw.text(((size - (office_box[2] - office_box[0])) / 2, 505), office, font=body_font, fill="#68645d")
      draw.rounded_rectangle((180, 610, 620, 618), radius=4, fill=ACCENT)
+diff --git a/spec/lib/image_utils_spec.rb b/spec/lib/image_utils_spec.rb
+new file mode 100644
+index 0000000..b796b80
+--- /dev/null
++++ b/spec/lib/image_utils_spec.rb
+@@ -0,0 +1,20 @@
++# frozen_string_literal: true
++
++RSpec.describe ImageUtils do
++  it 'loads an allowed image from its detected content type' do
++    data = Rails.root.join('spec/fixtures/sample-image.png').binread
++
++    image = described_class.load_vips(data, content_type: 'application/octet-stream')
++
++    expect(image.width).to be_positive
++    expect(image.height).to be_positive
++  end
++
++  it 'rejects TIFF input even when the declared content type is allowed' do
++    tiff_header = "II*\x00\x08\x00\x00\x00".b
++
++    expect do
++      described_class.load_vips(tiff_header, content_type: 'image/jpeg')
++    end.to raise_error(Vips::Error, /Formato de imagem não permitido: image\/tiff/)
++  end
++end
 diff --git a/spec/mailers/maiocchi_email_standard_spec.rb b/spec/mailers/maiocchi_email_standard_spec.rb
 new file mode 100644
 index 0000000..4c2c01a

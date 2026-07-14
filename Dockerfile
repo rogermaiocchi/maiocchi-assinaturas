@@ -17,7 +17,7 @@ ENV NEXT_PUBLIC_WEB_PKI_LICENSE=$NEXT_PUBLIC_WEB_PKI_LICENSE
 ENV NEXT_PUBLIC_PKI_BRIDGE_URL=$NEXT_PUBLIC_PKI_BRIDGE_URL
 RUN npm run build
 
-FROM nginxinc/nginx-unprivileged:1.27-alpine
+FROM nginxinc/nginx-unprivileged:1.30.3-alpine3.23-slim@sha256:3b24c4bfb2b9f60359b1475605ca1c8ed6e4963eb8369c6835be4d96bdb3ea81
 ARG SOURCE_REVISION=unknown
 LABEL org.opencontainers.image.title="Maiocchi. Assinatura" \
       org.opencontainers.image.vendor="Maiocchi Advogado" \

@@ -8,7 +8,8 @@ LABEL org.opencontainers.image.title="Maiocchi. Assinatura PKI Bridge" \
 
 WORKDIR /app
 COPY services/pki-bridge/package.json services/pki-bridge/package-lock.json ./
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev && \
+    rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 
 COPY services/pki-bridge/src ./src
 COPY services/pki-bridge/db ./db
