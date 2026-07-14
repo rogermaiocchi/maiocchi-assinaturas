@@ -36,6 +36,7 @@ test("mantém uma única geometria entre renderer, editor e provider PAdES", asy
   assert.deepEqual(editorBox(EVIDENCE_BLOCKS.seal), { x: 113, y: 877, w: 605, h: 123 });
   assert.equal(Math.round(A4.width * EDITOR_SCALE), 794);
   assert.equal(Math.round(A4.height * EDITOR_SCALE), 1123);
+  assert.equal(PAGE_CHROME.topRuleHeight, 2.5, "o filete dourado superior mantém a espessura canônica");
   assert.ok(PAGE_CHROME.sideRailWidth < PAGE_MARGINS.right, "a faixa lateral cabe na margem direita");
   assert.equal(PAGE_CHROME.sideRegistryRight, PAGE_CHROME.sideRailWidth / 2, "a inscrição lateral fica centralizada");
   const usableBottom = A4.height - PAGE_MARGINS.bottom;

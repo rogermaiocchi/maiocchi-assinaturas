@@ -37,7 +37,8 @@ isso a composição visual corresponde ao PDF preparado para assinatura.
 - QR e Code 128: amostras do contrato canônico `/validar?codigo=:publicId` e
   `MAI|<publicId>|R1`. O payload do Code 128 permanece codificado nas barras,
   sem repetição textual acima delas.
-- páginas originais: linha dourada superior e faixa lateral direita sem divisor,
+- todas as páginas: linha dourada superior de `2,5 pt`;
+- páginas originais: faixa lateral direita sem divisor,
   com a marca `m.` centralizada e uma única inscrição vertical contínua, sem
   quebra: `DOCUMENTO <número> - HASH <SHA-256> - CÓDIGO <PQC-MLDSA65>`. A folha
   final não recebe essa faixa.
