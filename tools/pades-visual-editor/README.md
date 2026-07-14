@@ -37,10 +37,10 @@ isso a composição visual corresponde ao PDF preparado para assinatura.
 - QR e Code 128: amostras do contrato canônico `/validar?codigo=:publicId` e
   `MAI|<publicId>|R1`. O payload do Code 128 permanece codificado nas barras,
   sem repetição textual acima delas.
-- todas as páginas: linha dourada superior de `2,5 pt`;
+- todas as páginas: linha dourada superior de `3 pt`;
 - páginas originais: faixa lateral direita sem divisor, com a marca `m.`
   centralizada e uma única inscrição vertical contínua, sem quebra:
-  `DOCUMENTO <número> - HASH <SHA-256> - CÓDIGO <PQC-MLDSA65> - VERIFICAÇÃO <ID público>`.
+  `ASSINATURA.MAIOCCHI.ADV.BR - DOCUMENTO <número> - HASH <SHA-256> - CÓDIGO <PQC-MLDSA65> - VERIFICAÇÃO <ID público> - PÁG <atual> DE <total>`.
   A folha final não recebe essa faixa.
 - validação: o quadro `VALIDAR O ORIGINAL` exibe o endereço do portal e,
   somente nos modos ICP-Brasil e GOV.BR reconhecido, o link clicável

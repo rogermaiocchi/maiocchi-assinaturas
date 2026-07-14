@@ -35,7 +35,7 @@ export const EVIDENCE_BLOCKS = Object.freeze({
 });
 
 export const PAGE_CHROME = Object.freeze({
-  topRuleHeight: 2.5,
+  topRuleHeight: 3,
   sideRailWidth: 31,
   sideMarkSize: 16,
   sideMarkTop: 8,

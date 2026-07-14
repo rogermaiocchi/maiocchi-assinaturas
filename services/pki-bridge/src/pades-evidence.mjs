@@ -316,10 +316,10 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
       color: GOLD,
     });
   };
-  const drawContentRail = (page) => {
+  const drawContentRail = (page, pageNumber) => {
     const width = page.getWidth();
     const height = page.getHeight();
-    const registry = `DOCUMENTO ${manifest.documentNumber} - HASH ${manifest.source.sha256} - CÓDIGO ${attestation.code} - VERIFICAÇÃO ${manifest.publicId}`;
+    const registry = `ASSINATURA.MAIOCCHI.ADV.BR - DOCUMENTO ${manifest.documentNumber} - HASH ${manifest.source.sha256} - CÓDIGO ${attestation.code} - VERIFICAÇÃO ${manifest.publicId} - PÁG ${pageNumber} DE ${totalPages}`;
     const railLeft = width - PAGE_CHROME.sideRailWidth;
     const markY = height - PAGE_CHROME.sideMarkTop - PAGE_CHROME.sideMarkSize;
     const registryStartY = markY - PAGE_CHROME.sideRegistryGap;
@@ -356,8 +356,8 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
       rotate: degrees(-90),
     });
   };
-  originalPages.forEach((originalPage) => {
-    drawContentRail(originalPage);
+  originalPages.forEach((originalPage, index) => {
+    drawContentRail(originalPage, index + 1);
     drawTopRule(originalPage);
   });
 

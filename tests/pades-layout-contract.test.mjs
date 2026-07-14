@@ -36,7 +36,7 @@ test("mantém uma única geometria entre renderer, editor e provider PAdES", asy
   assert.deepEqual(editorBox(EVIDENCE_BLOCKS.seal), { x: 113, y: 877, w: 605, h: 123 });
   assert.equal(Math.round(A4.width * EDITOR_SCALE), 794);
   assert.equal(Math.round(A4.height * EDITOR_SCALE), 1123);
-  assert.equal(PAGE_CHROME.topRuleHeight, 2.5, "o filete dourado superior mantém a espessura canônica");
+  assert.equal(PAGE_CHROME.topRuleHeight, 3, "o filete dourado superior mantém a espessura canônica");
   assert.ok(PAGE_CHROME.sideRailWidth < PAGE_MARGINS.right, "a faixa lateral cabe na margem direita");
   assert.equal(PAGE_CHROME.sideRegistryRight, PAGE_CHROME.sideRailWidth / 2, "a inscrição lateral fica centralizada");
   const usableBottom = A4.height - PAGE_MARGINS.bottom;
@@ -61,7 +61,7 @@ test("mantém uma única geometria entre renderer, editor e provider PAdES", asy
   assert.match(editor, /https:\/\/validar[.]iti[.]gov[.]br\//);
   assert.doesNotMatch(editor, /Resumo visual da assinatura/);
   assert.doesNotMatch(renderer, /drawFingerprintPattern/);
-  assert.match(renderer, /drawContentRail\(originalPage\)/);
+  assert.match(renderer, /drawContentRail\(originalPage, index \+ 1\)/);
   assert.doesNotMatch(renderer, /drawContentRail\(page\)/);
   assert.doesNotMatch(renderer, /drawContentHeader/);
   assert.match(renderer, /drawTopRule\(originalPage\)/);
@@ -73,10 +73,11 @@ test("mantém uma única geometria entre renderer, editor e provider PAdES", asy
   assert.doesNotMatch(renderer, /drawPageFooter|Página \$\{index \+ 1\} de \$\{totalPages\}/);
   assert.match(renderer, /degrees\(-90\)/);
   const railRenderer = renderer.slice(renderer.indexOf("const drawContentRail"), renderer.indexOf("originalPages.forEach"));
-  assert.match(railRenderer, /DOCUMENTO \$\{manifest[.]documentNumber\} - HASH \$\{manifest[.]source[.]sha256\} - CÓDIGO \$\{attestation[.]code\} - VERIFICAÇÃO \$\{manifest[.]publicId\}/);
+  assert.match(railRenderer, /ASSINATURA[.]MAIOCCHI[.]ADV[.]BR - DOCUMENTO \$\{manifest[.]documentNumber\} - HASH \$\{manifest[.]source[.]sha256\} - CÓDIGO \$\{attestation[.]code\} - VERIFICAÇÃO \$\{manifest[.]publicId\} - PÁG \$\{pageNumber\} DE \$\{totalPages\}/);
   assert.match(railRenderer, /fitUnbrokenValue/);
   assert.match(railRenderer, /railLeft \+ \(PAGE_CHROME[.]sideRailWidth - PAGE_CHROME[.]sideMarkSize\) \/ 2/);
   assert.doesNotMatch(railRenderer, /drawLine|fitValue\(|registryLines|ATESTADO PÓS-QUÂNTICO/);
+  assert.match(renderer, /originalPages[.]forEach\(\(originalPage, index\) => \{/);
   assert.doesNotMatch(editor, /Página 13 de 13/);
   assert.doesNotMatch(editor, /MAI\|MAI-/);
   assert.doesNotMatch(editor, />VALIDAR<\/span>/);
