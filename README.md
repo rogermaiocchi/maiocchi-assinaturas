@@ -7,7 +7,8 @@ Porta de entrada institucional para o ambiente de documentos e assinaturas do Ma
 - `assinatura.maiocchi.adv.br`: entrada única para o portal estático e para as rotas operacionais do DocuSeal.
 - As rotas de signatários (`/s`, `/d`, `/e` e `/p`) são encaminhadas ao DocuSeal no mesmo domínio.
 - A autenticação de advogados é iniciada na página inicial por endpoints internos de sessão; `/sign_in` e o `/dashboard` não autenticado reconduzem ao bloco `#advogados`. O dashboard operacional só é apresentado depois do login.
-- A validação Maiocchi e o VALIDAR ITI ficam incorporados no bloco `#validar`; a rota legada `/validar/` preserva consultas e reconduz à página inicial.
+- A validação Maiocchi usa a página canônica `/validar?codigo={id}`; `/validar/` preserva a mesma função e `/v/{id}` existe somente como redirecionamento legado.
+- O endereço `https://validar.iti.gov.br/` aparece no registro e no PDF somente para assinaturas ICP-Brasil ou GOV.BR reconhecidas pelo serviço oficial.
 - `documentos.assinatura.maiocchi.adv.br` existe somente para redirecionar links antigos ao domínio principal, preservando caminho e consulta.
 - A assinatura ICP-Brasil oferece sessão em certificado de nuvem, sem software local, quando o PSC está configurado; A3 físico permanece disponível pelo agente local porque navegadores não acessam a chave privada do token diretamente.
 - Artefatos probatórios ficam cifrados com AES-256-GCM e a borda TLS adota negociação híbrida X25519+ML-KEM-768 sem alterar a assinatura PAdES regulada pela ICP-Brasil.
@@ -38,8 +39,8 @@ Variáveis públicas de build:
 O agente macOS privado fica em `clients/pades-token-agent`. O motor DSS fica em `services/pades-provider` e não possui rota pública.
 
 O perfil A3 aprovado pelo VALIDAR ITI e os gates obrigatórios para qualquer
-mudança visual estão na
-[`baseline do layout PAdES homologado`](docs/baseline/2026-07-13-pades-canonical-layout-iti-approved.md).
+mudança estão na
+[`baseline dos endereços de validação`](docs/baseline/2026-07-13-validator-address-iti-approved.md).
 
 Segredos não pertencem a este repositório. O painel DocuSeal, o PostgreSQL e as credenciais administrativas são geridos separadamente no VPS e no Keychain do operador.
 
