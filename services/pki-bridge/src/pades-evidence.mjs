@@ -309,10 +309,7 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
   const drawContentRail = (page) => {
     const width = page.getWidth();
     const height = page.getHeight();
-    const registryLines = [
-      `CÓDIGO ${manifest.publicId} · NÚMERO ${manifest.documentNumber}`,
-      `SHA-256 ${manifest.source.sha256} · ATESTADO PÓS-QUÂNTICO ML-DSA-65 ${attestation.code}`,
-    ];
+    const registry = `DOCUMENTO ${manifest.documentNumber} - HASH ${manifest.source.sha256}`;
     const railLeft = width - PAGE_CHROME.sideRailWidth;
     const markY = height - PAGE_CHROME.sideMarkTop - PAGE_CHROME.sideMarkSize;
     const registryStartY = markY - PAGE_CHROME.sideRegistryGap;
@@ -325,13 +322,6 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
       color: rgb(1, 1, 1),
       opacity: 0.92,
     });
-    page.drawLine({
-      start: { x: railLeft, y: PAGE_MARGINS.bottom },
-      end: { x: railLeft, y: height - PAGE_CHROME.topRuleHeight },
-      thickness: 0.35,
-      color: LINE,
-      opacity: 0.7,
-    });
     page.drawImage(maiocchiMark, {
       x: railLeft + (PAGE_CHROME.sideRailWidth - PAGE_CHROME.sideMarkSize) / 2,
       y: markY,
@@ -339,23 +329,21 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
       height: PAGE_CHROME.sideMarkSize,
       opacity: 0.9,
     });
-    registryLines.forEach((line, index) => {
-      const fitted = fitValue(
-        fonts.bold,
-        line,
-        PAGE_CHROME.sideRegistryFontSize,
-        availableLength,
-        PAGE_CHROME.sideRegistryMinimumFontSize,
-      );
-      page.drawText(fitted.text, {
-        x: width - (index === 0 ? PAGE_CHROME.sideLineOneRight : PAGE_CHROME.sideLineTwoRight),
-        y: registryStartY,
-        font: fonts.bold,
-        size: fitted.size,
-        color: MUTED,
-        opacity: 0.88,
-        rotate: degrees(-90),
-      });
+    const fitted = fitValue(
+      fonts.bold,
+      registry,
+      PAGE_CHROME.sideRegistryFontSize,
+      availableLength,
+      PAGE_CHROME.sideRegistryMinimumFontSize,
+    );
+    page.drawText(fitted.text, {
+      x: width - PAGE_CHROME.sideRegistryRight,
+      y: registryStartY,
+      font: fonts.bold,
+      size: fitted.size,
+      color: MUTED,
+      opacity: 0.88,
+      rotate: degrees(-90),
     });
   };
   originalPages.forEach((originalPage) => {

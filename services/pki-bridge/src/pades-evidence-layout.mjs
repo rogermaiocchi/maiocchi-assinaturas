@@ -42,8 +42,7 @@ export const PAGE_CHROME = Object.freeze({
   sideRegistryGap: 8,
   sideRegistryFontSize: 5.2,
   sideRegistryMinimumFontSize: 4.2,
-  sideLineOneRight: 8,
-  sideLineTwoRight: 17,
+  sideRegistryRight: 15.5,
 });
 
 export const SIGNATURE_FRAME = Object.freeze({
