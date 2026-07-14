@@ -1,0 +1,50 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "merged-vex-81e78dce34f8bad3de6391841f87ef5456aab325b9dcce364ccb0f823c02030f",
+  "author": "Maiocchi Advogado",
+  "role": "Fornecedor do produto",
+  "version": 1,
+  "statements": [
+    {
+      "vulnerability": {
+        "name": "CVE-2023-52356"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/docuseal@3.0.1-maiocchi.5?repository_url=maiocchi%2Fdocuseal",
+          "subcomponents": [
+            {
+              "@id": "pkg:apk/alpine/tiff@4.7.1-r0?arch=aarch64\u0026distro=alpine-3.24.1"
+            }
+          ]
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Validado no fork DocuSeal pelos commits 82c5131 e 532750b; o seletor de upload publica a mesma allowlist aplicada no servidor.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "O portal detecta o MIME pelos bytes e rejeita image/tiff antes do decoder libvips; extensão e Content-Type declarados não alteram a decisão. A prova automatizada está em spec/lib/image_utils_spec.rb, com regressão integral de 254 exemplos e zero falhas.",
+      "timestamp": "2026-07-14T19:27:50Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-4775"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/docuseal@3.0.1-maiocchi.5?repository_url=maiocchi%2Fdocuseal",
+          "subcomponents": [
+            {
+              "@id": "pkg:apk/alpine/tiff@4.7.1-r0?arch=aarch64\u0026distro=alpine-3.24.1"
+            }
+          ]
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Validado no fork DocuSeal pelos commits 82c5131 e 532750b; o seletor de upload publica a mesma allowlist aplicada no servidor.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "O portal detecta o MIME pelos bytes e rejeita image/tiff antes do decoder libvips; extensão e Content-Type declarados não alteram a decisão. A prova automatizada está em spec/lib/image_utils_spec.rb, com regressão integral de 254 exemplos e zero falhas.",
+      "timestamp": "2026-07-14T19:27:50Z"
+    }
+  ],
+  "timestamp": "2026-07-14T19:35:24Z"
+}

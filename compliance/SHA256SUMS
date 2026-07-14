@@ -1,0 +1,11 @@
+2f2c9ff6a353578bab8be2d7f27c5c97fea16dd01e1b338e54f27ce69c332530  compliance/docuseal-maiocchi-3.0.1-maiocchi.5.tar.gz
+8ef418562882f1a26b38025d66202c58eeaea7fcfc450ff4ee930bfd3d2de2cc  compliance/sbom/docuseal-3.0.1-maiocchi.5.cdx.json
+152c3677e8569927b51a7b3a601489df889a3d470abf0aa6abf9f489d3d73744  compliance/sbom/pades-provider-1.2.5.cdx.json
+658027e5cdaa10280907b68bfee98aec13323de803cf6874d6e4016fde024285  compliance/sbom/pki-bridge-1.3.17.cdx.json
+9cbcdbfdfb027c694305f27e07f09d82b61dae6c43101714e8d380be19ffe218  compliance/sbom/portal-1.14.0.cdx.json
+9de360326c5ce7702b105ad1d1765baefeca80e25a1321c92adf5247f4f4af42  compliance/vex/docuseal-3.0.1-maiocchi.5.openvex.json
+5644a9d5112e7d4dadbc2c0f8befe02fe85e8655bf8d6f5ea38145258b3002ee  compliance/vulnerability/docuseal-3.0.1-maiocchi.5.grype.json
+9a45b2b67fb0959770d54547e8ad6d30e45b393aea3e0a8a6b8232969708f159  compliance/vulnerability/pades-provider-1.2.5.grype.json
+9d9d02a3210fa35437e4c6ed6020f892cdd5318e2fbae2ce1710370ff7709977  compliance/vulnerability/pki-bridge-1.3.17.grype.json
+e1dec9c6f14c5d7e164cd6d3d5257e6496bd3a92b609d49b6abb56325ae54524  compliance/vulnerability/portal-1.14.0.grype.json
+16b1bf3476b1347b80813d30989147a486101811ead82ccacd1e572adef0b841  patches/docuseal/0004-unified-email-standard.patch
