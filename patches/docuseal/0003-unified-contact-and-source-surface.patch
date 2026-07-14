@@ -1,0 +1,497 @@
+diff --git a/Dockerfile b/Dockerfile
+index 3a5851c..9b37965 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -50,7 +50,7 @@ ENV OPENSSL_CONF=/etc/openssl_legacy.cnf
+ 
+ LABEL org.opencontainers.image.title="Maiocchi Assinaturas" \
+       org.opencontainers.image.vendor="Roger Maiocchi, advogado" \
+-      org.opencontainers.image.source="https://assinatura.maiocchi.adv.br/codigo-fonte/" \
++      org.opencontainers.image.source="https://github.com/rogermaiocchi/maiocchi-assinaturas/tree/portal-v1.13.1" \
+       org.opencontainers.image.revision="${SOURCE_REVISION}" \
+       org.opencontainers.image.licenses="AGPL-3.0-only"
+ 
+diff --git a/NOTICE-MAIOCCHI.md b/NOTICE-MAIOCCHI.md
+index 4547a99..843859d 100644
+--- a/NOTICE-MAIOCCHI.md
++++ b/NOTICE-MAIOCCHI.md
+@@ -5,15 +5,15 @@ Este repositório contém uma distribuição personalizada do DocuSeal 3.0.1 par
+ ## Identidade aplicada
+ 
+ - produto visível: **Maiocchi Assinaturas**;
+-- contato administrativo: **admin@maiocchi.adv.br**;
++- contato administrativo: **roger@maiocchi.adv.br**;
+ - paleta institucional: `#0a0a0a`, `#f6f5f1` e `#ffc400`;
+ - marca visual e ícones próprios do escritório nas interfaces web, PWA e e-mails.
+ 
+ ## Software de origem e licença
+ 
+-O motor de documentos e assinaturas permanece DocuSeal. A atribuição discreta “Tecnologia de código aberto DocuSeal” e os links para o código-fonte e a licença são preservados nas interfaces aplicáveis.
++O motor de documentos e assinaturas permanece DocuSeal. A atribuição discreta “Tecnologia de código aberto DocuSeal” e a oferta de fonte correspondente exigida pela AGPL são preservadas uma única vez em cada interface interativa aplicável.
+ 
+-- fonte correspondente da versão disponibilizada: <https://assinatura.maiocchi.adv.br/codigo-fonte/>;
++- fonte correspondente da versão disponibilizada: <https://github.com/rogermaiocchi/maiocchi-assinaturas/raw/refs/tags/portal-v1.13.1/compliance/docuseal-maiocchi-3.0.1-maiocchi.4.tar.gz>;
+ - projeto de origem: <https://github.com/docusealco/docuseal/tree/3.0.1>;
+ - licença do projeto de origem: <https://github.com/docusealco/docuseal/blob/3.0.1/LICENSE>;
+ - termos adicionais do projeto de origem: <https://github.com/docusealco/docuseal/blob/3.0.1/LICENSE_ADDITIONAL_TERMS>.
+@@ -22,4 +22,4 @@ A personalização não altera o motor criptográfico, a geração de anexos ou
+ 
+ ## Operação
+ 
+-Solicitações relacionadas ao portal devem ser encaminhadas exclusivamente a **admin@maiocchi.adv.br**. A publicação deve manter acessível a fonte correspondente exata da versão implantada no endereço indicado acima.
++Solicitações relacionadas ao portal devem ser encaminhadas exclusivamente a **roger@maiocchi.adv.br**. A publicação deve manter acessível a fonte correspondente exata da versão implantada no endereço indicado acima, sem divulgar o vínculo em e-mails ou superfícies editoriais que não estejam sujeitas à oferta da AGPL.
+diff --git a/app/controllers/errors_controller.rb b/app/controllers/errors_controller.rb
+index b1e664e..bd33242 100644
+--- a/app/controllers/errors_controller.rb
++++ b/app/controllers/errors_controller.rb
+@@ -4,7 +4,7 @@ class ErrorsController < ActionController::Base
+   layout false
+ 
+   ENTERPRISE_FEATURE_MESSAGE =
+-    'Este recurso não está habilitado no ambiente Maiocchi Assinaturas. Contato: admin@maiocchi.adv.br'
++    'Este recurso não está habilitado no ambiente Maiocchi Assinaturas. Contato: roger@maiocchi.adv.br'
+ 
+   ENTERPRISE_PATHS = [
+     '/submissions/html',
+diff --git a/app/javascript/submission_form/completed.vue b/app/javascript/submission_form/completed.vue
+index ced883e..1176730 100644
+--- a/app/javascript/submission_form/completed.vue
++++ b/app/javascript/submission_form/completed.vue
+@@ -79,13 +79,7 @@
+       v-if="attribution"
+       class="text-center mt-4"
+     >
+-      Tecnologia de código aberto
+-      <a
+-        href="https://assinatura.maiocchi.adv.br/codigo-fonte/"
+-        target="_blank"
+-        rel="noopener noreferrer nofollow"
+-        class="underline"
+-      >DocuSeal</a>
++      Tecnologia de código aberto DocuSeal
+     </div>
+   </div>
+ </template>
+diff --git a/app/views/errors/404.html b/app/views/errors/404.html
+index d029a75..30f0226 100644
+--- a/app/views/errors/404.html
++++ b/app/views/errors/404.html
+@@ -12,5 +12,5 @@
+       :root{--ink:#0a0a0a;--paper:#f6f5f1;--accent:#ffc400;--line:#dedbd2}*{box-sizing:border-box}body{align-items:center;background:radial-gradient(circle at 80% 10%,rgba(255,196,0,.14),transparent 25rem),var(--paper);color:var(--ink);display:flex;font-family:Arial,Helvetica,sans-serif;justify-content:center;margin:0;min-height:100vh;padding:24px}.card{background:#fff;border:1px solid var(--line);border-radius:22px;box-shadow:0 28px 70px rgba(10,10,10,.09);max-width:600px;padding:48px;text-align:center;width:100%}.mark{font-size:44px;font-weight:900;letter-spacing:-.13em}.mark span{color:var(--accent)}.code{color:#6d685f;font-size:13px;font-weight:800;letter-spacing:.14em;margin-top:24px;text-transform:uppercase}h1{font-size:clamp(32px,8vw,52px);letter-spacing:-.055em;margin:10px 0}p{color:#625e57;line-height:1.6;margin:0 auto 28px;max-width:430px}.button{background:var(--ink);border-radius:12px;color:#fff;display:inline-block;font-weight:800;padding:14px 22px;text-decoration:none}.support,.legal{font-size:12px;margin-top:24px}.support a,.legal a{color:var(--ink);text-decoration-color:var(--accent);text-decoration-thickness:3px}.legal{border-top:1px solid var(--line);color:#68645d;line-height:1.6;padding-top:18px}
+     </style>
+   </head>
+-  <body><main class="card"><div class="mark">m<span>.</span></div><div class="code">Erro 404</div><h1>Página não encontrada</h1><p>O endereço pode estar incorreto ou o conteúdo pode não estar mais disponível.</p><a class="button" href="/">Voltar ao portal</a><div class="support">Suporte: <a href="mailto:admin@maiocchi.adv.br">admin@maiocchi.adv.br</a></div><div class="legal">Tecnologia de código aberto DocuSeal · <a href="https://assinatura.maiocchi.adv.br/codigo-fonte/">Código-fonte</a> · <a href="https://github.com/docusealco/docuseal/blob/3.0.1/LICENSE">Licença</a></div></main></body>
++  <body><main class="card"><div class="mark">m<span>.</span></div><div class="code">Erro 404</div><h1>Página não encontrada</h1><p>O endereço pode estar incorreto ou o conteúdo pode não estar mais disponível.</p><a class="button" href="/">Voltar ao portal</a><div class="support">Suporte: <a href="mailto:roger@maiocchi.adv.br">roger@maiocchi.adv.br</a></div><div class="legal">Tecnologia de código aberto DocuSeal · <a href="https://github.com/docusealco/docuseal/blob/3.0.1/LICENSE">Licença</a></div></main></body>
+ </html>
+diff --git a/app/views/errors/422.html b/app/views/errors/422.html
+index 7712465..9a7026c 100644
+--- a/app/views/errors/422.html
++++ b/app/views/errors/422.html
+@@ -12,5 +12,5 @@
+       :root{--ink:#0a0a0a;--paper:#f6f5f1;--accent:#ffc400;--line:#dedbd2}*{box-sizing:border-box}body{align-items:center;background:radial-gradient(circle at 80% 10%,rgba(255,196,0,.14),transparent 25rem),var(--paper);color:var(--ink);display:flex;font-family:Arial,Helvetica,sans-serif;justify-content:center;margin:0;min-height:100vh;padding:24px}.card{background:#fff;border:1px solid var(--line);border-radius:22px;box-shadow:0 28px 70px rgba(10,10,10,.09);max-width:600px;padding:48px;text-align:center;width:100%}.mark{font-size:44px;font-weight:900;letter-spacing:-.13em}.mark span{color:var(--accent)}.code{color:#6d685f;font-size:13px;font-weight:800;letter-spacing:.14em;margin-top:24px;text-transform:uppercase}h1{font-size:clamp(32px,8vw,52px);letter-spacing:-.055em;margin:10px 0}p{color:#625e57;line-height:1.6;margin:0 auto 28px;max-width:430px}.button{background:var(--ink);border-radius:12px;color:#fff;display:inline-block;font-weight:800;padding:14px 22px;text-decoration:none}.support,.legal{font-size:12px;margin-top:24px}.support a,.legal a{color:var(--ink);text-decoration-color:var(--accent);text-decoration-thickness:3px}.legal{border-top:1px solid var(--line);color:#68645d;line-height:1.6;padding-top:18px}
+     </style>
+   </head>
+-  <body><main class="card"><div class="mark">m<span>.</span></div><div class="code">Erro 422</div><h1>Ação não permitida</h1><p>Não foi possível concluir esta solicitação. Volte ao portal e tente novamente.</p><a class="button" href="/">Voltar ao portal</a><div class="support">Suporte: <a href="mailto:admin@maiocchi.adv.br">admin@maiocchi.adv.br</a></div><div class="legal">Tecnologia de código aberto DocuSeal · <a href="https://assinatura.maiocchi.adv.br/codigo-fonte/">Código-fonte</a> · <a href="https://github.com/docusealco/docuseal/blob/3.0.1/LICENSE">Licença</a></div></main></body>
++  <body><main class="card"><div class="mark">m<span>.</span></div><div class="code">Erro 422</div><h1>Ação não permitida</h1><p>Não foi possível concluir esta solicitação. Volte ao portal e tente novamente.</p><a class="button" href="/">Voltar ao portal</a><div class="support">Suporte: <a href="mailto:roger@maiocchi.adv.br">roger@maiocchi.adv.br</a></div><div class="legal">Tecnologia de código aberto DocuSeal · <a href="https://github.com/docusealco/docuseal/blob/3.0.1/LICENSE">Licença</a></div></main></body>
+ </html>
+diff --git a/app/views/errors/500.html b/app/views/errors/500.html
+index deca0e6..ebbea8e 100644
+--- a/app/views/errors/500.html
++++ b/app/views/errors/500.html
+@@ -12,5 +12,5 @@
+       :root{--ink:#0a0a0a;--paper:#f6f5f1;--accent:#ffc400;--line:#dedbd2}*{box-sizing:border-box}body{align-items:center;background:radial-gradient(circle at 80% 10%,rgba(255,196,0,.14),transparent 25rem),var(--paper);color:var(--ink);display:flex;font-family:Arial,Helvetica,sans-serif;justify-content:center;margin:0;min-height:100vh;padding:24px}.card{background:#fff;border:1px solid var(--line);border-radius:22px;box-shadow:0 28px 70px rgba(10,10,10,.09);max-width:600px;padding:48px;text-align:center;width:100%}.mark{font-size:44px;font-weight:900;letter-spacing:-.13em}.mark span{color:var(--accent)}.code{color:#6d685f;font-size:13px;font-weight:800;letter-spacing:.14em;margin-top:24px;text-transform:uppercase}h1{font-size:clamp(32px,8vw,52px);letter-spacing:-.055em;margin:10px 0}p{color:#625e57;line-height:1.6;margin:0 auto 28px;max-width:430px}.button{background:var(--ink);border-radius:12px;color:#fff;display:inline-block;font-weight:800;padding:14px 22px;text-decoration:none}.support,.legal{font-size:12px;margin-top:24px}.support a,.legal a{color:var(--ink);text-decoration-color:var(--accent);text-decoration-thickness:3px}.legal{border-top:1px solid var(--line);color:#68645d;line-height:1.6;padding-top:18px}
+     </style>
+   </head>
+-  <body><main class="card"><div class="mark">m<span>.</span></div><div class="code">Erro 500</div><h1>Serviço temporariamente indisponível</h1><p>Encontramos uma instabilidade. Aguarde um momento e tente novamente.</p><a class="button" href="/">Voltar ao portal</a><div class="support">Suporte: <a href="mailto:admin@maiocchi.adv.br">admin@maiocchi.adv.br</a></div><div class="legal">Tecnologia de código aberto DocuSeal · <a href="https://assinatura.maiocchi.adv.br/codigo-fonte/">Código-fonte</a> · <a href="https://github.com/docusealco/docuseal/blob/3.0.1/LICENSE">Licença</a></div></main></body>
++  <body><main class="card"><div class="mark">m<span>.</span></div><div class="code">Erro 500</div><h1>Serviço temporariamente indisponível</h1><p>Encontramos uma instabilidade. Aguarde um momento e tente novamente.</p><a class="button" href="/">Voltar ao portal</a><div class="support">Suporte: <a href="mailto:roger@maiocchi.adv.br">roger@maiocchi.adv.br</a></div><div class="legal">Tecnologia de código aberto DocuSeal · <a href="https://github.com/docusealco/docuseal/blob/3.0.1/LICENSE">Licença</a></div></main></body>
+ </html>
+diff --git a/app/views/layouts/application.html.erb b/app/views/layouts/application.html.erb
+index 238735c..f1c5ae5 100644
+--- a/app/views/layouts/application.html.erb
++++ b/app/views/layouts/application.html.erb
+@@ -38,7 +38,7 @@
+       <a href="mailto:<%= MaiocchiBrand::SUPPORT_EMAIL %>"><%= MaiocchiBrand::SUPPORT_EMAIL %></a>
+       <span>
+         <%= MaiocchiBrand.copy(:legal_attribution) %> ·
+-        <a href="<%= MaiocchiBrand::SOURCE_URL %>">Código-fonte</a>
++        <a href="<%= MaiocchiBrand::SOURCE_URL %>" target="_blank" rel="noopener noreferrer nofollow">Fonte correspondente (AGPL)</a>
+       </span>
+     </footer>
+     <%= render 'shared/body_scripts' %>
+diff --git a/app/views/shared/_email_attribution.html.erb b/app/views/shared/_email_attribution.html.erb
+index dc6aeac..abeac2e 100644
+--- a/app/views/shared/_email_attribution.html.erb
++++ b/app/views/shared/_email_attribution.html.erb
+@@ -2,6 +2,5 @@
+   <%= MaiocchiBrand::OFFICE_NAME %> ·
+   <a href="mailto:<%= MaiocchiBrand::SUPPORT_EMAIL %>"><%= MaiocchiBrand::SUPPORT_EMAIL %></a><br>
+   <%= MaiocchiBrand.copy(:legal_attribution) %> ·
+-  <a href="<%= MaiocchiBrand::SOURCE_URL %>">Código-fonte</a> ·
+   <a href="<%= MaiocchiBrand::LICENSE_URL %>">Licença</a>
+ </p>
+diff --git a/app/views/shared/_github.html.erb b/app/views/shared/_github.html.erb
+index bf0334f..2598c73 100644
+--- a/app/views/shared/_github.html.erb
++++ b/app/views/shared/_github.html.erb
+@@ -1,3 +1 @@
+-<a target="_blank" href="<%= MaiocchiBrand::SOURCE_URL %>" rel="noopener noreferrer nofollow" class="relative flex items-center rounded-full px-2 py-0.5 text-xs leading-4 mt-1 text-base-content border border-base-300">
+-  Código-fonte
+-</a>
++<%# The AGPL source offer is rendered once by the interface attribution. %>
+diff --git a/app/views/shared/_github_button.html.erb b/app/views/shared/_github_button.html.erb
+index 0415dd7..2598c73 100644
+--- a/app/views/shared/_github_button.html.erb
++++ b/app/views/shared/_github_button.html.erb
+@@ -1,3 +1 @@
+-<a href="<%= MaiocchiBrand::SOURCE_URL %>" class="btn btn-neutral btn-sm btn-outline inline-flex items-center justify-center" target="_blank" rel="noopener noreferrer nofollow">
+-  Código-fonte e licença
+-</a>
++<%# The AGPL source offer is rendered once by the interface attribution. %>
+diff --git a/app/views/shared/_powered_by.html.erb b/app/views/shared/_powered_by.html.erb
+index 6951851..35ef874 100644
+--- a/app/views/shared/_powered_by.html.erb
++++ b/app/views/shared/_powered_by.html.erb
+@@ -1,6 +1,6 @@
+ <div class="maiocchi-open-source text-center px-2">
+   <span><%= MaiocchiBrand.copy(:legal_attribution) %>.</span>
+-  <a href="<%= MaiocchiBrand::SOURCE_URL %>" target="_blank" rel="noopener noreferrer nofollow">Código-fonte</a>
++  <a href="<%= MaiocchiBrand::SOURCE_URL %>" target="_blank" rel="noopener noreferrer nofollow">Fonte correspondente (AGPL)</a>
+   <span aria-hidden="true">·</span>
+   <a href="<%= MaiocchiBrand::LICENSE_URL %>" target="_blank" rel="noopener noreferrer nofollow">Licença</a>
+ </div>
+diff --git a/app/views/shared/_settings_nav.html.erb b/app/views/shared/_settings_nav.html.erb
+index 64dc072..8ecc967 100644
+--- a/app/views/shared/_settings_nav.html.erb
++++ b/app/views/shared/_settings_nav.html.erb
+@@ -96,6 +96,5 @@
+   <div id="support_channels" class="mx-4 border-t border-base-300 hidden md:block text-center">
+     <div class="text-sm mt-4 font-semibold">Suporte do escritório</div>
+     <a href="mailto:<%= MaiocchiBrand::SUPPORT_EMAIL %>" class="block mt-2 underline text-sm"><%= MaiocchiBrand::SUPPORT_EMAIL %></a>
+-    <a href="<%= MaiocchiBrand::SOURCE_URL %>" target="_blank" rel="noopener noreferrer nofollow" class="block mt-3 text-xs text-base-content/60 underline">Código-fonte e licença</a>
+   </div>
+ </div>
+diff --git a/app/views/templates_share_link_qr/_branding.html.erb b/app/views/templates_share_link_qr/_branding.html.erb
+index 212add0..4b9c924 100644
+--- a/app/views/templates_share_link_qr/_branding.html.erb
++++ b/app/views/templates_share_link_qr/_branding.html.erb
+@@ -1,6 +1,6 @@
+ <div class="qr-office"><%= MaiocchiBrand::OFFICE_NAME %> · <%= MaiocchiBrand::PRODUCT_NAME %></div>
+ <div>
+   <%= MaiocchiBrand.copy(:legal_attribution) %> ·
+-  <a href="<%= MaiocchiBrand::SOURCE_URL %>" target="_blank" rel="noopener noreferrer nofollow">Código-fonte</a> ·
++  <a href="<%= MaiocchiBrand::SOURCE_URL %>" target="_blank" rel="noopener noreferrer nofollow">Fonte correspondente (AGPL)</a> ·
+   <a href="<%= MaiocchiBrand::LICENSE_URL %>" target="_blank" rel="noopener noreferrer nofollow">Licença</a>
+ </div>
+diff --git a/config/locales/i18n.yml b/config/locales/i18n.yml
+index 0739846..4d5f8c4 100644
+--- a/config/locales/i18n.yml
++++ b/config/locales/i18n.yml
+@@ -850,7 +850,7 @@ en: &en
+   use_otp_code_to_access_the_api_key_html: Use <b>%{code}</b> code to access the API key.
+   please_reply_to_this_email_if_you_dont_recognize_this_request: Please reply to this email if you don't recognize this request.
+   your_user_account_has_been_archived_contact_your_administrator_to_restore_access_to_your_account: Your user account has been archived. Contact your administrator to restore access to your account.
+-  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: Your email could not be reached. This may happen if there was a typo in your address or if your mailbox is not available. Please contact support@docuseal.com to log in.
++  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: Your email could not be reached. This may happen if there was a typo in your address or if your mailbox is not available. Please contact roger@maiocchi.adv.br to log in.
+   efficient_search_with_search_index: Efficient search with search index
+   reindex: Reindex
+   build_search_index: Build Search Index
+@@ -1031,7 +1031,7 @@ en: &en
+     settings: 'Settings'
+     settings_account_description: 'With comprehensive account settings, you can customize the eSigning experience and invite more users.'
+     support: 'Support'
+-    support_description: 'You can use our self-service AI assistant or email us at support@docuseal.com if you have any questions.'
++    support_description: 'You can use our self-service AI assistant or email us at roger@maiocchi.adv.br if you have any questions.'
+     settings_template_description: 'Use this button to access your account settings page.'
+   doorkeeper:
+     scopes:
+@@ -1900,7 +1900,7 @@ es: &es
+   use_otp_code_to_access_the_api_key_html: Usa el código <b>%{code}</b> para acceder a la clave API.
+   please_reply_to_this_email_if_you_dont_recognize_this_request: Responde a este correo si no reconoces esta solicitud.
+   your_user_account_has_been_archived_contact_your_administrator_to_restore_access_to_your_account: Tu cuenta de usuario ha sido archivada. Contacta a tu administrador para restaurar el acceso a tu cuenta.
+-  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: No se pudo acceder a tu correo electrónico. Esto puede ocurrir si hubo un error tipográfico en tu dirección o si tu buzón no está disponible. Por favor, contacta a support@docuseal.com para iniciar sesión.
++  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: No se pudo acceder a tu correo electrónico. Esto puede ocurrir si hubo un error tipográfico en tu dirección o si tu buzón no está disponible. Por favor, contacta a roger@maiocchi.adv.br para iniciar sesión.
+   efficient_search_with_search_index: Búsqueda eficiente con índice de búsqueda
+   reindex: Reindexar
+   build_search_index: Construir índice de búsqueda
+@@ -2081,7 +2081,7 @@ es: &es
+     settings: 'Configuración'
+     settings_account_description: 'Con una configuración completa de la cuenta, puedes personalizar la experiencia de firma y añadir más usuarios.'
+     support: 'Soporte'
+-    support_description: 'Puedes usar nuestro asistente de IA o escribirnos a support@docuseal.com si tienes preguntas.'
++    support_description: 'Puedes usar nuestro asistente de IA o escribirnos a roger@maiocchi.adv.br si tienes preguntas.'
+     settings_template_description: 'Usa este botón para acceder a la configuración de tu cuenta.'
+   doorkeeper:
+     scopes:
+@@ -2950,7 +2950,7 @@ it: &it
+   use_otp_code_to_access_the_api_key_html: Usa il codice <b>%{code}</b> per accedere alla chiave API.
+   please_reply_to_this_email_if_you_dont_recognize_this_request: Rispondi a questa email se non riconosci questa richiesta.
+   your_user_account_has_been_archived_contact_your_administrator_to_restore_access_to_your_account: Il tuo account utente è stato archiviato. Contatta il tuo amministratore per ripristinare l'accesso al tuo account.
+-  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: Non è stato possibile raggiungere la tua email. Questo può accadere se c'è stato un errore di digitazione nell'indirizzo o se la tua casella di posta non è disponibile. Contatta support@docuseal.com per accedere.
++  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: Non è stato possibile raggiungere la tua email. Questo può accadere se c'è stato un errore di digitazione nell'indirizzo o se la tua casella di posta non è disponibile. Contatta roger@maiocchi.adv.br per accedere.
+   efficient_search_with_search_index: Ricerca efficiente con indice di ricerca
+   reindex: Reindicizza
+   build_search_index: Crea indice di ricerca
+@@ -3131,7 +3131,7 @@ it: &it
+     settings: 'Impostazioni'
+     settings_account_description: "Con impostazioni complete dell'account, puoi personalizzare l'esperienza di firma elettronica e invitare altri utenti."
+     support: 'Supporto'
+-    support_description: 'Puoi usare il nostro assistente AI oppure scriverci a support@docuseal.com se hai domande.'
++    support_description: 'Puoi usare il nostro assistente AI oppure scriverci a roger@maiocchi.adv.br se hai domande.'
+     settings_template_description: "Usa questo pulsante per accedere alla pagina delle impostazioni dell'account."
+   doorkeeper:
+     scopes:
+@@ -3996,7 +3996,7 @@ fr: &fr
+   use_otp_code_to_access_the_api_key_html: Utilisez le code <b>%{code}</b> pour accéder à la clé API.
+   please_reply_to_this_email_if_you_dont_recognize_this_request: Veuillez répondre à cet e‑mail si vous ne reconnaissez pas cette demande.
+   your_user_account_has_been_archived_contact_your_administrator_to_restore_access_to_your_account: Votre compte utilisateur a été archivé. Contactez votre administrateur pour rétablir l’accès à votre compte.
+-  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: Votre e‑mail n’a pas pu être joint. Cela peut se produire en cas de faute de frappe dans votre adresse ou si votre boîte aux lettres n’est pas disponible. Veuillez contacter support@docuseal.com pour vous connecter.
++  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: Votre e‑mail n’a pas pu être joint. Cela peut se produire en cas de faute de frappe dans votre adresse ou si votre boîte aux lettres n’est pas disponible. Veuillez contacter roger@maiocchi.adv.br pour vous connecter.
+   efficient_search_with_search_index: Recherche efficace avec index de recherche
+   reindex: Réindexer
+   build_search_index: Construire l’index de recherche
+@@ -4178,7 +4178,7 @@ fr: &fr
+     settings: Paramètres
+     settings_account_description: Des paramètres de compte complets pour personnaliser l’expérience de signature et inviter d’autres utilisateurs.
+     support: Support
+-    support_description: Utilisez notre assistant IA en libre‑service ou contactez‑nous à support@docuseal.com pour toute question.
++    support_description: Utilisez notre assistant IA en libre‑service ou contactez‑nous à roger@maiocchi.adv.br pour toute question.
+     settings_template_description: Utilisez ce bouton pour accéder à la page des paramètres de votre compte.
+   doorkeeper:
+     scopes:
+@@ -5047,7 +5047,7 @@ pt: &pt
+   use_otp_code_to_access_the_api_key_html: Use o código <b>%{code}</b> para acessar a chave API.
+   please_reply_to_this_email_if_you_dont_recognize_this_request: Responda a este e-mail se você não reconhecer esta solicitação.
+   your_user_account_has_been_archived_contact_your_administrator_to_restore_access_to_your_account: Sua conta de usuário foi arquivada. Entre em contato com o administrador para restaurar o acesso à sua conta.
+-  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: Seu e-mail não pôde ser acessado. Isso pode acontecer se houve um erro de digitação no endereço ou se sua caixa de correio não estiver disponível. Entre em contato com support@docuseal.com para fazer login.
++  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: Seu e-mail não pôde ser acessado. Isso pode acontecer se houve um erro de digitação no endereço ou se sua caixa de correio não estiver disponível. Entre em contato com roger@maiocchi.adv.br para fazer login.
+   efficient_search_with_search_index: Pesquisa eficiente com índice de busca
+   reindex: Reindexar
+   build_search_index: Construir índice de busca
+@@ -5228,7 +5228,7 @@ pt: &pt
+     settings: 'Configurações'
+     settings_account_description: 'Com configurações completas de conta, você pode personalizar a experiência de assinatura eletrônica e convidar mais usuários.'
+     support: 'Suporte'
+-    support_description: 'Você pode usar nosso assistente de IA ou nos escrever para support@docuseal.com se tiver dúvidas.'
++    support_description: 'Você pode usar nosso assistente de IA ou nos escrever para roger@maiocchi.adv.br se tiver dúvidas.'
+     settings_template_description: 'Use este botão para acessar a página de configurações da sua conta.'
+   doorkeeper:
+     scopes:
+@@ -6097,7 +6097,7 @@ de: &de
+   use_otp_code_to_access_the_api_key_html: Verwenden Sie den Code <b>%{code}</b>, um auf den API-Schlüssel zuzugreifen.
+   please_reply_to_this_email_if_you_dont_recognize_this_request: Bitte antworten Sie auf diese E-Mail, wenn Sie diese Anfrage nicht erkennen.
+   your_user_account_has_been_archived_contact_your_administrator_to_restore_access_to_your_account: Ihr Benutzerkonto wurde archiviert. Wenden Sie sich an Ihren Administrator, um den Zugriff wiederherzustellen.
+-  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: Ihre E-Mail konnte nicht erreicht werden. Dies kann passieren, wenn sich ein Tippfehler in Ihrer Adresse befindet oder Ihr Postfach nicht verfügbar ist. Bitte kontaktieren Sie support@docuseal.com, um sich anzumelden.
++  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: Ihre E-Mail konnte nicht erreicht werden. Dies kann passieren, wenn sich ein Tippfehler in Ihrer Adresse befindet oder Ihr Postfach nicht verfügbar ist. Bitte kontaktieren Sie roger@maiocchi.adv.br, um sich anzumelden.
+   efficient_search_with_search_index: Effiziente Suche mit Suchindex
+   reindex: Neu indexieren
+   build_search_index: Suchindex erstellen
+@@ -6278,7 +6278,7 @@ de: &de
+     settings: 'Einstellungen'
+     settings_account_description: 'Mit umfangreichen Kontoeinstellungen können Sie das Signiererlebnis anpassen und weitere Benutzer einladen.'
+     support: 'Support'
+-    support_description: 'Sie können unseren KI-Assistenten nutzen oder uns bei Fragen an support@docuseal.com schreiben.'
++    support_description: 'Sie können unseren KI-Assistenten nutzen oder uns bei Fragen an roger@maiocchi.adv.br schreiben.'
+     settings_template_description: 'Über diese Schaltfläche gelangen Sie zu den Kontoeinstellungen.'
+   doorkeeper:
+     scopes:
+@@ -6410,7 +6410,7 @@ pl:
+   your_verification_code_to_access_the_name: 'Twój kod weryfikacyjny do uzyskania dostępu do "%{name}":'
+   please_reply_to_this_email_if_you_didnt_request_this: Odpowiedz na ten e-mail, jeśli nie prosiłeś o to.
+   your_user_account_has_been_archived_contact_your_administrator_to_restore_access_to_your_account: Twoje konto użytkownika zostało zarchiwizowane. Skontaktuj się z administratorem, aby przywrócić dostęp do konta.
+-  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: Nie udało się uzyskać dostępu do Twojego adresu e-mail. Może to być spowodowane literówką w adresie lub niedostępnością skrzynki. Skontaktuj się z support@docuseal.com, aby się zalogować.
++  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: Nie udało się uzyskać dostępu do Twojego adresu e-mail. Może to być spowodowane literówką w adresie lub niedostępnością skrzynki. Skontaktuj się z roger@maiocchi.adv.br, aby się zalogować.
+   verification_required_refresh_the_page_and_pass_2fa: Weryfikacja wymagana, odśwież stronę i przejdź uwierzytelnienie dwuskładnikowe.
+   the_sender_has_requested_a_two_factor_authentication_via_one_time_password_sent_to_your_email_html: Nadawca zażądał uwierzytelniania dwuskładnikowego za pośrednictwem hasła jednorazowego wysłanego na Twój adres e-mail <b>%{email}</b>.
+   please_contact_the_requester_to_specify_your_email_for_two_factor_authentication: Skontaktuj się z nadawcą, aby podać swój adres e-mail do uwierzytelniania dwuskładnikowego.
+@@ -6511,7 +6511,7 @@ uk:
+   your_verification_code_to_access_the_name: 'Ваш код доступу до "%{name}":'
+   please_reply_to_this_email_if_you_didnt_request_this: Відповідайте на цей лист, якщо ви цього не запитували.
+   your_user_account_has_been_archived_contact_your_administrator_to_restore_access_to_your_account: Ваш обліковий запис було архівовано. Зверніться до адміністратора, щоб відновити доступ.
+-  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: Не вдалося отримати доступ до вашої електронної пошти. Це може статися, якщо була допущена помилка в адресі або ваша скринька недоступна. Зверніться до support@docuseal.com, щоб увійти.
++  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: Не вдалося отримати доступ до вашої електронної пошти. Це може статися, якщо була допущена помилка в адресі або ваша скринька недоступна. Зверніться до roger@maiocchi.adv.br, щоб увійти.
+   verification_required_refresh_the_page_and_pass_2fa: Необхідна верифікація, оновіть сторінку та пройдіть двофакторну автентифікацію.
+   the_sender_has_requested_a_two_factor_authentication_via_one_time_password_sent_to_your_email_html: Відправник запитав двофакторну автентифікацію за допомогою одноразового пароля, надісланого на вашу електронну пошту <b>%{email}</b>.
+   please_contact_the_requester_to_specify_your_email_for_two_factor_authentication: Будь ласка, зв'яжіться з відправником, щоб вказати вашу електронну пошту для двофакторної автентифікації.
+@@ -6612,7 +6612,7 @@ cs:
+   your_verification_code_to_access_the_name: 'Váš ověřovací kód pro přístup k "%{name}":'
+   please_reply_to_this_email_if_you_didnt_request_this: Odpovězte na tento e-mail, pokud jste o to nežádali.
+   your_user_account_has_been_archived_contact_your_administrator_to_restore_access_to_your_account: Váš uživatelský účet byl archivován. Kontaktujte svého administrátora pro obnovení přístupu.
+-  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: Na váš e-mail se nepodařilo doručit zprávu. To se může stát, pokud je v adrese překlep nebo vaše schránka není dostupná. Pro přihlášení kontaktujte support@docuseal.com.
++  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: Na váš e-mail se nepodařilo doručit zprávu. To se může stát, pokud je v adrese překlep nebo vaše schránka není dostupná. Pro přihlášení kontaktujte roger@maiocchi.adv.br.
+   verification_required_refresh_the_page_and_pass_2fa: Ověření vyžadováno. Aktualizujte stránku a dokončete dvoufaktorové ověření.
+   the_sender_has_requested_a_two_factor_authentication_via_one_time_password_sent_to_your_email_html: Odesílatel požádal o dvoufaktorové ověření pomocí jednorázového hesla odeslaného na vaši e-mailovou adresu <b>%{email}</b>.
+   please_contact_the_requester_to_specify_your_email_for_two_factor_authentication: Prosím kontaktujte odesílatele a uveďte svůj e-mail pro dvoufaktorové ověření.
+@@ -6713,7 +6713,7 @@ he:
+   your_verification_code_to_access_the_name: 'קוד האימות שלך לגישה ל-%{name}:'
+   please_reply_to_this_email_if_you_didnt_request_this: 'השב למייל זה אם לא ביקשת זאת.'
+   your_user_account_has_been_archived_contact_your_administrator_to_restore_access_to_your_account: החשבון שלך הועבר לארכיון. פנה למנהל המערכת כדי לשחזר את הגישה.
+-  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: לא ניתן היה לגשת לדוא"ל שלך. ייתכן שזה קרה עקב שגיאת כתיב בכתובת או אם תיבת הדואר אינה זמינה. אנא פנה ל־support@docuseal.com כדי להתחבר.
++  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: לא ניתן היה לגשת לדוא"ל שלך. ייתכן שזה קרה עקב שגיאת כתיב בכתובת או אם תיבת הדואר אינה זמינה. אנא פנה ל־roger@maiocchi.adv.br כדי להתחבר.
+   verification_required_refresh_the_page_and_pass_2fa: נדרש אימות. רענן את הדף והשלם אימות דו-שלבי.
+   the_sender_has_requested_a_two_factor_authentication_via_one_time_password_sent_to_your_email_html: השולח ביקש אימות דו-שלבי באמצעות סיסמה חד-פעמית שנשלחה לכתובת הדוא"ל שלך <b>%{email}</b>.
+   please_contact_the_requester_to_specify_your_email_for_two_factor_authentication: אנא פנה לשולח וציין את כתובת הדוא"ל שלך לאימות דו-שלבי.
+@@ -7548,7 +7548,7 @@ nl: &nl
+   use_otp_code_to_access_the_api_key_html: Gebruik de code <b>%{code}</b> om toegang te krijgen tot de API-sleutel.
+   please_reply_to_this_email_if_you_dont_recognize_this_request: Reageer op deze e-mail als u dit verzoek niet herkent.
+   your_user_account_has_been_archived_contact_your_administrator_to_restore_access_to_your_account: Uw gebruikersaccount is gearchiveerd. Neem contact op met uw beheerder om de toegang tot uw account te herstellen.
+-  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: Uw e-mailadres kon niet worden bereikt. Dit kan gebeuren als er een typefout in uw adres zit of als uw mailbox niet beschikbaar is. Neem contact op met support@docuseal.com om in te loggen.
++  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: Uw e-mailadres kon niet worden bereikt. Dit kan gebeuren als er een typefout in uw adres zit of als uw mailbox niet beschikbaar is. Neem contact op met roger@maiocchi.adv.br om in te loggen.
+   efficient_search_with_search_index: Efficiënt zoeken met zoekindex
+   reindex: Opnieuw indexeren
+   build_search_index: Zoekindex opbouwen
+@@ -7729,7 +7729,7 @@ nl: &nl
+     settings: Instellingen
+     settings_account_description: Met uitgebreide accountinstellingen kunt u de eSigning-ervaring aanpassen en meer gebruikers uitnodigen.
+     support: Ondersteuning
+-    support_description: U kunt onze selfservice AI-assistent gebruiken of ons e-mailen op support@docuseal.com als u vragen heeft.
++    support_description: U kunt onze selfservice AI-assistent gebruiken of ons e-mailen op roger@maiocchi.adv.br als u vragen heeft.
+     settings_template_description: Gebruik deze knop om naar uw accountinstellingenpagina te gaan.
+   doorkeeper:
+     scopes:
+@@ -7861,7 +7861,7 @@ ar:
+   your_verification_code_to_access_the_name: 'رمز التحقق الخاص بك للوصول إلى "%{name}":'
+   please_reply_to_this_email_if_you_didnt_request_this: 'يرجى الرد على هذا البريد إذا لم تطلب ذلك.'
+   your_user_account_has_been_archived_contact_your_administrator_to_restore_access_to_your_account: تمت أرشفة حسابك. يرجى التواصل مع المسؤول لاستعادة الوصول إلى حسابك.
+-  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: تعذّر الوصول إلى بريدك الإلكتروني. قد يحدث هذا في حال وجود خطأ في العنوان أو إذا كان صندوق البريد غير متاح. يرجى التواصل مع support@docuseal.com لتسجيل الدخول.
++  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: تعذّر الوصول إلى بريدك الإلكتروني. قد يحدث هذا في حال وجود خطأ في العنوان أو إذا كان صندوق البريد غير متاح. يرجى التواصل مع roger@maiocchi.adv.br لتسجيل الدخول.
+   verification_required_refresh_the_page_and_pass_2fa: مطلوب التحقق. قم بتحديث الصفحة وأكمل المصادقة الثنائية.
+   the_sender_has_requested_a_two_factor_authentication_via_one_time_password_sent_to_your_email_html: طلب المرسل المصادقة الثنائية عبر كلمة مرور لمرة واحدة مرسلة إلى عنوان بريدك الإلكتروني <b>%{email}</b>.
+   please_contact_the_requester_to_specify_your_email_for_two_factor_authentication: يرجى الاتصال بالمرسل لتحديد عنوان بريدك الإلكتروني للمصادقة الثنائية.
+@@ -7962,7 +7962,7 @@ ko:
+   your_verification_code_to_access_the_name: '"%{name}"에 액세스하기 위한 인증 코드:'
+   please_reply_to_this_email_if_you_didnt_request_this: 요청하지 않았다면 이 이메일에 회신하세요.
+   your_user_account_has_been_archived_contact_your_administrator_to_restore_access_to_your_account: 사용자 계정이 보관되었습니다. 계정 접근을 복원하려면 관리자에게 문의하세요.
+-  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: 이메일에 접근할 수 없습니다. 주소에 오타가 있거나 메일박스가 사용 불가능한 경우 발생할 수 있습니다. 로그인하려면 support@docuseal.com에 문의하세요.
++  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: 이메일에 접근할 수 없습니다. 주소에 오타가 있거나 메일박스가 사용 불가능한 경우 발생할 수 있습니다. 로그인하려면 roger@maiocchi.adv.br에 문의하세요.
+   verification_required_refresh_the_page_and_pass_2fa: 인증이 필요합니다. 페이지를 새로 고치고 2단계 인증을 완료하세요.
+   the_sender_has_requested_a_two_factor_authentication_via_one_time_password_sent_to_your_email_html: 발신자가 <b>%{email}</b> 이메일 주소로 전송된 일회용 비밀번호를 통해 2단계 인증을 요청했습니다.
+   please_contact_the_requester_to_specify_your_email_for_two_factor_authentication: 2단계 인증을 위해 이메일 주소를 지정하려면 요청자에게 문의하세요.
+@@ -8063,7 +8063,7 @@ ja:
+   your_verification_code_to_access_the_name: '"%{name}" へアクセスするための認証コード：'
+   please_reply_to_this_email_if_you_didnt_request_this: このリクエストを行っていない場合は、このメールに返信してください。
+   your_user_account_has_been_archived_contact_your_administrator_to_restore_access_to_your_account: あなたのユーザーアカウントはアーカイブされました。アクセスを復元するには管理者に連絡してください。
+-  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: メールにアクセスできませんでした。アドレスの入力ミスやメールボックスが利用できない場合に発生することがあります。ログインするには support@docuseal.com に連絡してください。
++  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: メールにアクセスできませんでした。アドレスの入力ミスやメールボックスが利用できない場合に発生することがあります。ログインするには roger@maiocchi.adv.br に連絡してください。
+   verification_required_refresh_the_page_and_pass_2fa: 認証が必要です。ページを更新して2段階認証を完了してください。
+   the_sender_has_requested_a_two_factor_authentication_via_one_time_password_sent_to_your_email_html: 送信者は、<b>%{email}</b> メールアドレスに送信されたワンタイムパスワードによる2段階認証を要求しました。
+   please_contact_the_requester_to_specify_your_email_for_two_factor_authentication: 2段階認証用にメールアドレスを指定するために、送信者にお問い合わせください。
+diff --git a/config/locales/zz_maiocchi.yml b/config/locales/zz_maiocchi.yml
+index 4e0025e..f818be5 100644
+--- a/config/locales/zz_maiocchi.yml
++++ b/config/locales/zz_maiocchi.yml
+@@ -16,13 +16,13 @@ pt:
+   your_pro_plan_has_been_suspended_due_to_unpaid_invoices_you_can_update_your_payment_details_to_settle_the_invoice_and_continue_using_docuseal_or_cancel_your_subscription: Entre em contato com a administração do portal.
+   this_submission_has_multiple_signers_which_prevents_the_use_of_a_sharing_link_html: Esta solicitação possui vários signatários. Defina os dados de cada responsável antes de compartilhar o documento.
+   welcome_to_docuseal: Bem-vindo ao Maiocchi Assinaturas
+-  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: Não foi possível acessar seu e-mail. Entre em contato com admin@maiocchi.adv.br.
++  your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: Não foi possível acessar seu e-mail. Entre em contato com roger@maiocchi.adv.br.
+   add_a_unique_signature_id_and_timestamp_to_each_signature_for_audit_and_traceability_purposes_along_with_the_timestamp_part_of_docuseals_21_cfr_part_11_compliance_settings: Adiciona identificador único e registro de data e hora a cada assinatura para auditoria e rastreabilidade.
+   require_signer_to_provide_a_reason_for_signing_before_completing_their_signature_e_g_approvals_certifications_part_of_docuseals_21_cfr_part_11_compliance_settings: Exige que o signatário informe o motivo antes de concluir a assinatura.
+   connect_to_docuseal_mcp: Conectar ao MCP do Maiocchi Assinaturas
+   app_tour:
+     support: Suporte
+-    support_description: 'Em caso de dúvida, escreva para admin@maiocchi.adv.br.'
++    support_description: 'Em caso de dúvida, escreva para roger@maiocchi.adv.br.'
+   devise:
+     failure:
+       already_authenticated: Você já está autenticado.
+diff --git a/deploy/compose.production.yml b/deploy/compose.production.yml
+index 949e7d9..4f605c6 100644
+--- a/deploy/compose.production.yml
++++ b/deploy/compose.production.yml
+@@ -19,8 +19,8 @@ services:
+       CERTIFICATE_AUTH_HOST: certificado.assinatura.maiocchi.adv.br
+       CERTIFICATE_AUTH_APP_HOST: documentos.assinatura.maiocchi.adv.br
+       MAIOCCHI_HOME_URL: https://assinatura.maiocchi.adv.br
+-      MAIOCCHI_SOURCE_URL: https://assinatura.maiocchi.adv.br/codigo-fonte/
+-      MAIOCCHI_LICENSE_URL: https://documentos.assinatura.maiocchi.adv.br/legal/LICENSE.txt
++      MAIOCCHI_SOURCE_URL: https://github.com/rogermaiocchi/maiocchi-assinaturas/raw/refs/tags/portal-v1.13.1/compliance/docuseal-maiocchi-3.0.1-maiocchi.4.tar.gz
++      MAIOCCHI_LICENSE_URL: https://assinatura.maiocchi.adv.br/legal/LICENSE.txt
+     volumes:
+       - "${DOCUSEAL_DATA_DIR:-./data}:/data"
+     security_opt:
+diff --git a/lib/docuseal.rb b/lib/docuseal.rb
+index 98caaf7..9288516 100644
+--- a/lib/docuseal.rb
++++ b/lib/docuseal.rb
+@@ -12,7 +12,7 @@ module Docuseal
+   TWITTER_URL = 'https://twitter.com/docusealco'
+   TWITTER_HANDLE = '@docusealco'
+   CHATGPT_URL = "#{PRODUCT_URL}/chat".freeze
+-  SUPPORT_EMAIL = 'support@docuseal.com'
++  SUPPORT_EMAIL = 'roger@maiocchi.adv.br'
+   HOST = ENV.fetch('HOST', 'localhost')
+   AATL_CERT_NAME = 'docuseal_aatl'
+   CONSOLE_URL = if Rails.env.development?
+diff --git a/lib/maiocchi_brand.rb b/lib/maiocchi_brand.rb
+index 8f6384f..e32a750 100644
+--- a/lib/maiocchi_brand.rb
++++ b/lib/maiocchi_brand.rb
+@@ -3,12 +3,15 @@
+ module MaiocchiBrand
+   OFFICE_NAME = 'Roger Maiocchi, advogado'
+   PRODUCT_NAME = 'Maiocchi Assinaturas'
+-  SUPPORT_EMAIL = 'admin@maiocchi.adv.br'
++  SUPPORT_EMAIL = 'roger@maiocchi.adv.br'
+   HOME_URL = ENV.fetch('MAIOCCHI_HOME_URL', 'https://assinatura.maiocchi.adv.br')
+-  SOURCE_URL = ENV.fetch('MAIOCCHI_SOURCE_URL', 'https://assinatura.maiocchi.adv.br/codigo-fonte/')
++  SOURCE_URL = ENV.fetch(
++    'MAIOCCHI_SOURCE_URL',
++    'https://github.com/rogermaiocchi/maiocchi-assinaturas/raw/refs/tags/portal-v1.13.1/compliance/docuseal-maiocchi-3.0.1-maiocchi.4.tar.gz'
++  )
+   LICENSE_URL = ENV.fetch(
+     'MAIOCCHI_LICENSE_URL',
+-    'https://documentos.assinatura.maiocchi.adv.br/legal/LICENSE.txt'
++    'https://assinatura.maiocchi.adv.br/legal/LICENSE.txt'
+   )
+ 
+   COLORS = {
+diff --git a/public/404.html b/public/404.html
+index 27551e1..db133da 100644
+--- a/public/404.html
++++ b/public/404.html
+@@ -13,6 +13,6 @@
+     </style>
+   </head>
+   <body>
+-    <main><div class="m">m<span>.</span></div><div class="c">Erro 404</div><h1>Página não encontrada</h1><p>O endereço pode estar incorreto ou o conteúdo pode não estar mais disponível.</p><a class="b" href="/">Voltar ao portal</a><div class="s">Suporte: <a href="mailto:admin@maiocchi.adv.br">admin@maiocchi.adv.br</a></div><div class="l">Tecnologia de código aberto DocuSeal · <a href="https://assinatura.maiocchi.adv.br/codigo-fonte/">Código-fonte</a> · <a href="https://github.com/docusealco/docuseal/blob/3.0.1/LICENSE">Licença</a></div></main>
++    <main><div class="m">m<span>.</span></div><div class="c">Erro 404</div><h1>Página não encontrada</h1><p>O endereço pode estar incorreto ou o conteúdo pode não estar mais disponível.</p><a class="b" href="/">Voltar ao portal</a><div class="s">Suporte: <a href="mailto:roger@maiocchi.adv.br">roger@maiocchi.adv.br</a></div><div class="l">Tecnologia de código aberto DocuSeal · <a href="https://github.com/docusealco/docuseal/blob/3.0.1/LICENSE">Licença</a></div></main>
+   </body>
+ </html>
+diff --git a/public/422.html b/public/422.html
+index 9a47327..44aa025 100644
+--- a/public/422.html
++++ b/public/422.html
+@@ -13,6 +13,6 @@
+     </style>
+   </head>
+   <body>
+-    <main><div class="m">m<span>.</span></div><div class="c">Erro 422</div><h1>Ação não permitida</h1><p>Não foi possível concluir esta solicitação. Volte ao portal e tente novamente.</p><a class="b" href="/">Voltar ao portal</a><div class="s">Suporte: <a href="mailto:admin@maiocchi.adv.br">admin@maiocchi.adv.br</a></div><div class="l">Tecnologia de código aberto DocuSeal · <a href="https://assinatura.maiocchi.adv.br/codigo-fonte/">Código-fonte</a> · <a href="https://github.com/docusealco/docuseal/blob/3.0.1/LICENSE">Licença</a></div></main>
++    <main><div class="m">m<span>.</span></div><div class="c">Erro 422</div><h1>Ação não permitida</h1><p>Não foi possível concluir esta solicitação. Volte ao portal e tente novamente.</p><a class="b" href="/">Voltar ao portal</a><div class="s">Suporte: <a href="mailto:roger@maiocchi.adv.br">roger@maiocchi.adv.br</a></div><div class="l">Tecnologia de código aberto DocuSeal · <a href="https://github.com/docusealco/docuseal/blob/3.0.1/LICENSE">Licença</a></div></main>
+   </body>
+ </html>
+diff --git a/public/500.html b/public/500.html
+index 6c7f60b..9abe00a 100644
+--- a/public/500.html
++++ b/public/500.html
+@@ -13,6 +13,6 @@
+     </style>
+   </head>
+   <body>
+-    <main><div class="m">m<span>.</span></div><div class="c">Erro 500</div><h1>Serviço temporariamente indisponível</h1><p>Encontramos uma instabilidade. Aguarde um momento e tente novamente.</p><a class="b" href="/">Voltar ao portal</a><div class="s">Suporte: <a href="mailto:admin@maiocchi.adv.br">admin@maiocchi.adv.br</a></div><div class="l">Tecnologia de código aberto DocuSeal · <a href="https://assinatura.maiocchi.adv.br/codigo-fonte/">Código-fonte</a> · <a href="https://github.com/docusealco/docuseal/blob/3.0.1/LICENSE">Licença</a></div></main>
++    <main><div class="m">m<span>.</span></div><div class="c">Erro 500</div><h1>Serviço temporariamente indisponível</h1><p>Encontramos uma instabilidade. Aguarde um momento e tente novamente.</p><a class="b" href="/">Voltar ao portal</a><div class="s">Suporte: <a href="mailto:roger@maiocchi.adv.br">roger@maiocchi.adv.br</a></div><div class="l">Tecnologia de código aberto DocuSeal · <a href="https://github.com/docusealco/docuseal/blob/3.0.1/LICENSE">Licença</a></div></main>
+   </body>
+ </html>
+diff --git a/spec/requests/maiocchi_brand_spec.rb b/spec/requests/maiocchi_brand_spec.rb
+index 4db6b7a..b9b08dc 100644
+--- a/spec/requests/maiocchi_brand_spec.rb
++++ b/spec/requests/maiocchi_brand_spec.rb
+@@ -11,7 +11,7 @@ RSpec.describe 'Maiocchi portal branding' do
+ 
+     expect(response).to have_http_status(:ok)
+     expect(response.body).to include('Roger Maiocchi, advogado')
+-    expect(response.body).to include('admin@maiocchi.adv.br')
++    expect(response.body).to include('roger@maiocchi.adv.br')
+     expect(response.body).to include('Acesso com certificado digital')
+     expect(response.body).to include('Acesso com usuário e senha')
+     expect(response.body.index('Acesso com certificado digital'))

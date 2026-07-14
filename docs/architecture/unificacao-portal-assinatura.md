@@ -6,7 +6,7 @@ Data: 11 de julho de 2026.
 
 Unificar as superficies hoje publicadas em `assinatura.maiocchi.adv.br` e `documentos.assinatura.maiocchi.adv.br` em um unico portal no dominio `assinatura.maiocchi.adv.br`, sem duplicacao de conteudo, pagina, fluxo, acesso ou funcao. O resultado deve manter o DocuSeal como motor documental, preservar links ja enviados, manter o codigo correspondente AGPL acessivel e apresentar uma experiencia minimalista, una, funcional e intuitiva.
 
-O nome publico do escritorio permanece **Maiocchi Advogado**. O canal padrao permanece `roger@maiocchi.adv.br`.
+O nome publico do escritorio permanece **Maiocchi Advogado**. O único canal institucional e transacional é `roger@maiocchi.adv.br`.
 
 ## Estado validado
 
@@ -19,7 +19,7 @@ O nome publico do escritorio permanece **Maiocchi Advogado**. O canal padrao per
 - No dominio principal, `/s/...`, `/d/...`, `/e/...` e `/p/...` ainda retornam 308 para o subdominio `documentos`.
 - O DocuSeal esta configurado com origem publica no subdominio `documentos`; mesmo recebendo `Host: assinatura.maiocchi.adv.br`, ainda gera `canonical` e `og:url` com `https://documentos.assinatura.maiocchi.adv.br`.
 - A tela de login do DocuSeal ainda exibe `Roger Maiocchi, advogado` e placeholder de e-mail `admin@maiocchi.adv.br`.
-- O portal publico ja usa `Maiocchi Advogado`, `roger@maiocchi.adv.br`, fluxos visuais, paginas legais e links de codigo-fonte no GitHub.
+- O portal publico usa `Maiocchi Advogado`, `roger@maiocchi.adv.br`, fluxos visuais e paginas legais; não publica página, menu ou pacote de código-fonte.
 - O `pki-bridge` existe como camada fail-closed e nao precisa ser ativado para a unificacao de dominio.
 
 ## Decisao arquitetural
@@ -31,7 +31,7 @@ Arquitetura alvo:
 ```text
 assinatura.maiocchi.adv.br
   /, /assinaturas-eletronicas, /assinatura-gov-br, /certificacao-digital,
-  /validar, /seguranca, /ajuda, /privacidade, /termos, /codigo-fonte
+  /validar, /seguranca, /ajuda, /privacidade, /termos
     -> assinatura-portal
 
   /sign_in, /sign_out, /password, /invitation, /dashboard, /setup,
@@ -72,7 +72,7 @@ O router do DocuSeal deve ter prioridade maior que o router catch-all do portal.
 2. Atualizar `nginx.conf` do portal:
    - remover o redirect 308 de `/s`, `/d`, `/e`, `/p` para `documentos`;
    - manter 404 padronizado para rotas que nao pertencam ao portal nem ao DocuSeal.
-3. Garantir que `/legal/LICENSE.txt` ou o link equivalente de licenca/codigo-fonte continue acessivel no dominio principal.
+3. Manter `/legal/LICENSE.txt` acessivel no domínio principal. A oferta de fonte correspondente fica restrita às interfaces interativas do motor AGPL.
 
 ### Fase 2 - origem e identidade DocuSeal
 
@@ -82,7 +82,7 @@ O router do DocuSeal deve ter prioridade maior que o router catch-all do portal.
    - `EMAIL_HOST=assinatura.maiocchi.adv.br`;
    - `CERTIFICATE_AUTH_APP_HOST=assinatura.maiocchi.adv.br`;
    - `MAIOCCHI_HOME_URL=https://assinatura.maiocchi.adv.br`;
-   - `MAIOCCHI_SOURCE_URL=https://assinatura.maiocchi.adv.br/codigo-fonte/`;
+   - `MAIOCCHI_SOURCE_URL` aponta para o pacote imutável correspondente à imagem DocuSeal implantada;
    - `MAIOCCHI_LICENSE_URL=https://assinatura.maiocchi.adv.br/legal/LICENSE.txt` ou rota equivalente validada.
 2. Atualizar identidade renderizada pelo DocuSeal para `Maiocchi Advogado`.
 3. Trocar placeholder, textos de suporte e comunicacoes para `roger@maiocchi.adv.br`.
@@ -140,8 +140,8 @@ O router do DocuSeal deve ter prioridade maior que o router catch-all do portal.
 - O HTML do DocuSeal nao contem `Roger Maiocchi, advogado`.
 - O HTML do DocuSeal nao contem `admin@maiocchi.adv.br`.
 - O portal estatico compilado nao contem `documentos.assinatura.maiocchi.adv.br`.
-- O link de codigo-fonte permanece disponivel em `https://assinatura.maiocchi.adv.br/codigo-fonte/`.
-- O rodape ou tela equivalente do DocuSeal continua oferecendo atribuição/codigo-fonte/licenca de forma compativel com AGPL.
+- `/codigo-fonte/` e qualquer pacote sob esse caminho não são publicados pelo portal.
+- Cada interface interativa do DocuSeal oferece uma única atribuição com a fonte correspondente, no limite exigido pela AGPL; e-mails e menus editoriais não repetem o vínculo.
 - Nenhum segredo aparece em arquivos versionados, labels Traefik, logs de deploy ou HTML publico.
 
 ## Riscos e controles

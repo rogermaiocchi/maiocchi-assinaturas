@@ -1,6 +1,6 @@
 {
   "name": "maiocchi-assinaturas-portal",
-  "version": "1.13.0",
+  "version": "1.13.1",
   "private": true,
   "engines": {
     "node": ">=22.13.0"
@@ -12,7 +12,7 @@
     "start": "npx serve out",
     "test": "npm run build && node --test tests/*.test.mjs services/pki-bridge/test/*.test.mjs",
     "test:pki": "node --test services/pki-bridge/test/*.test.mjs",
-    "lint": "eslint . --ignore-pattern out --ignore-pattern .next --ignore-pattern tools/pades-visual-editor/dist --ignore-pattern tools/pades-visual-editor/output"
+    "lint": "eslint . --ignore-pattern out --ignore-pattern .next --ignore-pattern work --ignore-pattern tools/pades-visual-editor/dist --ignore-pattern tools/pades-visual-editor/output"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

@@ -22,6 +22,7 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 - O domínio mantém os registros Apple validados: MX `mx01.mail.icloud.com` e `mx02.mail.icloud.com`, SPF com `include:icloud.com`, DKIM `sig1._domainkey` delegado ao iCloud e DMARC em `p=quarantine`. Não alterar DNS durante rotação de credencial SMTP.
 - `SMTP_USERNAME` e `SMTP_PASSWORD` vivem exclusivamente em `/opt/docuseal/.env`, com proprietário `root`, grupo operacional do deploy e modo `0640` ou mais restritivo. A senha é específica de app, gerada no Apple Account; nunca é a senha principal da conta.
 - O compose versiona apenas referências às variáveis. Toda implantação falha antes de iniciar se uma delas estiver ausente.
+- O endereço `roger@maiocchi.adv.br` é a única identidade institucional de suporte e envio no portal, no DocuSeal, nas traduções, páginas de erro e mensagens transacionais. Endereços legados ou do fornecedor não podem aparecer em superfícies renderizadas.
 - Na rotação, gerar uma nova senha específica de app, atualizar o `.env` sem eco, recriar somente o container `docuseal`, confirmar saúde e envio real, e só então revogar a credencial anterior.
 - O aceite exige: handshake STARTTLS verificado a partir da VPS, autenticação aceita, resposta SMTP `250`, evento de entrega no DocuSeal e recebimento de uma mensagem de teste no endereço de destino. SPF, DKIM e DMARC devem ser conferidos no cabeçalho de uma mensagem recebida fora do domínio quando houver caixa de auditoria externa disponível.
 
@@ -40,6 +41,7 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 ## Separação de responsabilidades
 
 - O portal Next.js publica identidade, conteúdo, ajuda e referências oficiais.
+- O portal e os e-mails não publicam página, menu, chamada editorial nem arquivo estático para download do código. Enquanto o fork DocuSeal permanecer sob AGPLv3, somente a oferta de fonte correspondente exigida pela seção 13 permanece nas atribuições das interfaces interativas do próprio motor, apontando para o artefato imutável da versão; sua remoção integral exige licença comercial compatível ou substituição do componente.
 - O DocuSeal administra modelos, participantes, evidências de fluxo e arquivos nas rotas operacionais do mesmo domínio `assinatura.maiocchi.adv.br`.
 - O subdomínio `documentos.assinatura.maiocchi.adv.br` é somente compatibilidade e redireciona de forma permanente, preservando caminho e consulta.
 - O `pki-bridge` é um serviço separado e fail-closed para PAdES/ICP-Brasil. O provider privado DSS + agente CryptoTokenKit está ativo; o registro de autenticidade só opera depois de receber validação estruturada.
@@ -52,7 +54,7 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 
 ## Padrão visual e de interação
 
-- O portal publico `1.13.0` adota uma unica camada visual translucida: midia
+- O portal publico `1.13.1` adota uma unica camada visual translucida: midia
   institucional full-bleed, superficies com transparencia controlada, bordas
   discretas, acento dourado e continuidade entre hero, operacoes, acesso,
   validacao e fluxo. As imagens otimizadas permanecem em WebP e devem manter

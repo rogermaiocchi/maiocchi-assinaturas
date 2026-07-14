@@ -7,7 +7,6 @@ import {
   BadgeCheck,
   BookOpenText,
   CircleHelp,
-  Code2,
   FileKey,
   FileSignature,
   FolderLock,
@@ -52,7 +51,6 @@ const footerGroups: Array<{
       { href: "/#como-funciona", label: "Como funciona", icon: FileSignature },
       { href: "/seguranca/", label: "Segurança", icon: ShieldCheck },
       { href: "/ajuda/", label: "Central de ajuda", icon: HelpCircle },
-      { href: "/codigo-fonte/", label: "Código-fonte", icon: Code2 },
     ],
   },
   {
