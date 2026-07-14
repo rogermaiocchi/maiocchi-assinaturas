@@ -1,0 +1,50 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "urn:uuid:3a6680b6-1a64-46db-9d45-e8a55b5a3881",
+  "author": "Maiocchi Advogado",
+  "role": "Fornecedor do produto",
+  "version": 1,
+  "statements": [
+    {
+      "vulnerability": {
+        "name": "CVE-2023-52356"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/docuseal@3.0.1-maiocchi.6?repository_url=maiocchi%2Fdocuseal",
+          "subcomponents": [
+            {
+              "@id": "pkg:apk/alpine/tiff@4.7.1-r0?arch=aarch64&distro=alpine-3.24.1"
+            }
+          ]
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Validado no fork DocuSeal pelos commits 82c5131 e ec7b950; o seletor de upload publica a mesma allowlist aplicada no servidor.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "O portal detecta o MIME pelos bytes e rejeita image/tiff antes do decoder libvips; extensão e Content-Type declarados não alteram a decisão. A prova automatizada integra a regressão completa de 259 exemplos e zero falhas.",
+      "timestamp": "2026-07-14T22:20:49Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-4775"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/docuseal@3.0.1-maiocchi.6?repository_url=maiocchi%2Fdocuseal",
+          "subcomponents": [
+            {
+              "@id": "pkg:apk/alpine/tiff@4.7.1-r0?arch=aarch64&distro=alpine-3.24.1"
+            }
+          ]
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Validado no fork DocuSeal pelos commits 82c5131 e ec7b950; o seletor de upload publica a mesma allowlist aplicada no servidor.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "O portal detecta o MIME pelos bytes e rejeita image/tiff antes do decoder libvips; extensão e Content-Type declarados não alteram a decisão. A prova automatizada integra a regressão completa de 259 exemplos e zero falhas.",
+      "timestamp": "2026-07-14T22:20:49Z"
+    }
+  ],
+  "timestamp": "2026-07-14T22:20:49Z"
+}
