@@ -93,6 +93,16 @@ function fitValue(font, value, preferredSize, width, minimumSize = 6.8) {
   return { text: fitText(font, text, size, width), size };
 }
 
+function fitUnbrokenValue(font, value, preferredSize, width, minimumSize = 4.2) {
+  const text = clean(value, "", 512);
+  let size = preferredSize;
+  while (size > minimumSize && font.widthOfTextAtSize(text, size) > width) size = Number((size - 0.2).toFixed(1));
+  if (font.widthOfTextAtSize(text, size) > width) {
+    throw new RangeError("A inscrição lateral integral excede o espaço disponível.");
+  }
+  return { text, size };
+}
+
 function wrap(font, value, size, maxWidth, maxLines = 3) {
   const words = clean(value).split(/\s+/);
   const lines = [];
@@ -309,7 +319,7 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
   const drawContentRail = (page) => {
     const width = page.getWidth();
     const height = page.getHeight();
-    const registry = `DOCUMENTO ${manifest.documentNumber} - HASH ${manifest.source.sha256} - CÓDIGO ${attestation.code}`;
+    const registry = `DOCUMENTO ${manifest.documentNumber} - HASH ${manifest.source.sha256} - CÓDIGO ${attestation.code} - VERIFICAÇÃO ${manifest.publicId}`;
     const railLeft = width - PAGE_CHROME.sideRailWidth;
     const markY = height - PAGE_CHROME.sideMarkTop - PAGE_CHROME.sideMarkSize;
     const registryStartY = markY - PAGE_CHROME.sideRegistryGap;
@@ -329,7 +339,7 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
       height: PAGE_CHROME.sideMarkSize,
       opacity: 0.9,
     });
-    const fitted = fitValue(
+    const fitted = fitUnbrokenValue(
       fonts.bold,
       registry,
       PAGE_CHROME.sideRegistryFontSize,
