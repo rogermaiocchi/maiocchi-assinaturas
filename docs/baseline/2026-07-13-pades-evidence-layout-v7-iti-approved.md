@@ -66,7 +66,7 @@ classificados como `Valid`.
 | PDF recebido, 12 paginas | `0b5fd83d7eaeb0b983bb4a32b0e16a4dd4c139a0053036643283c0cb19e01282` |
 | PDF PAdES final, 13 paginas | `8870db2d0846a3fe8f8ab3b18ea1b93cfd3d862f03d5189971effbae6c5f3336` |
 | Relatorio PDF do VALIDAR ITI | `3411cb96ace908e6937522838d7641252e872415ec46a370e65e0e5ed6ff0455` |
-| Captura do resultado resumido | `0ccfb81c41b3d856c251c48622b20749cf6dfad98358024703aeb7f4ac675469` |
+| Captura do resultado resumido | `95544e39950eb1858d517cef7e76f2c52c5c2afcc8b5034e9dff9cd3a43bedf7` |
 | Captura do relatorio completo | `92135e1d8dbc686ba81ee146e094aa07b587e340dbd0f811ea2ea3d71b1f6777` |
 | Registro publico capturado | `307914637b4d72f769b65bd246cffc7f499c372d5b1994e9bf13818d90f126f9` |
 | Render da primeira pagina | `6c58beef286e86411ce831276642d7375c0f560efbd035bcb80ad643cb648d25` |
