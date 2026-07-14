@@ -69,7 +69,7 @@ const PAGE_MARGINS = {
   bottom: Math.round(PDF_PAGE_MARGINS.bottom * EDITOR_SCALE),
   left: Math.round(PDF_PAGE_MARGINS.left * EDITOR_SCALE),
 };
-const LAYOUT_STORAGE_KEY = "maiocchi-pades-layout-v8";
+const LAYOUT_STORAGE_KEY = "maiocchi-pades-layout-v9";
 const initialLayout = Object.fromEntries(
   Object.entries(EVIDENCE_BLOCKS).map(([id, block]) => [id, editorBox(block)]),
 ) as Layout;
@@ -96,6 +96,10 @@ function clamp(value: number, min: number, max: number) {
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <div className="field"><span>{label}</span><strong contentEditable suppressContentEditableWarning>{children}</strong></div>;
+}
+
+function SectionHeading({ index, children, meta }: { index: string; children: React.ReactNode; meta?: React.ReactNode }) {
+  return <div className="passport-section-heading"><b>{index}</b><span>{children}</span>{meta && <code>{meta}</code>}</div>;
 }
 
 function Block({
@@ -137,36 +141,23 @@ function Block({
 }
 
 function SecuritySeal({ icpBrasil }: { icpBrasil: boolean }) {
-  if (!icpBrasil) {
-    return (
-      <div className="security-seal is-neutral">
-        <img src="/assets/pades-security-seal-4k.png?v=10" alt="" />
-        <div className="seal-pades-mark" aria-label="PAdES">
-          <strong>PAdES</strong>
-          <i />
-          <small>PDF SIGNATURE</small>
-        </div>
-        <div className="seal-copy">
-          <span className="seal-kicker">Assinatura eletrônica · PAdES</span>
-          <strong contentEditable suppressContentEditableWarning>REGISTRO ELETRÔNICO</strong>
-          <div contentEditable suppressContentEditableWarning>Identidade e instante: consulte o endereço de validação.</div>
-          <small contentEditable suppressContentEditableWarning>Modalidade simples ou avançada · sem alegação ICP-Brasil</small>
-          <code contentEditable suppressContentEditableWarning>MAI-2026-ESY0-6MPD-QQBP-RMG4</code>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="security-seal">
-      <img src="/assets/pades-security-seal-4k.png?v=10" alt="" />
-      <img className="seal-icp-mark" src="/assets/icp-brasil-oficial.png" alt="ICP-Brasil" />
-      <div className="seal-copy">
-        <span className="seal-kicker">Assinatura digital ICP-Brasil · PAdES AD-RB</span>
-        <strong contentEditable suppressContentEditableWarning>ROGER MAIOCCHI</strong>
-        <div contentEditable suppressContentEditableWarning>CPF 006.***.***-40 · 13/07/2026 15:57:40 UTC</div>
-        <small contentEditable suppressContentEditableWarning>Certificado A3 · atributos incorporados · confira pelo QR ou código</small>
-        <code contentEditable suppressContentEditableWarning>CERT SHA-256 020996E7 AA6CF44F 59AEFD21 DF96CA39 12A075C6 6D230987 9C8EB1C1 197C562D</code>
+    <div className={icpBrasil ? "security-credential is-icp" : "security-credential is-neutral"}>
+      <div className="credential-topline">
+        <span>05 · DADOS DO SIGNATÁRIO E ATRIBUTOS DA ASSINATURA</span>
+        <small>{icpBrasil ? "CREDENCIAL ICP-BRASIL" : "CREDENCIAL PADES"}</small>
+      </div>
+      <div className="credential-signer">
+        <span>{icpBrasil ? "ASSINATURA DIGITAL ICP-BRASIL · PADES AD-RB" : "ASSINATURA ELETRÔNICA · PADES"}</span>
+        <strong contentEditable suppressContentEditableWarning>{icpBrasil ? "ROGER MAIOCCHI" : "REGISTRO ELETRÔNICO"}</strong>
+        <div contentEditable suppressContentEditableWarning>{icpBrasil ? "CPF 006.***.***-40 · 13/07/2026 15:57:40 UTC" : "Identidade e instante confirmados no registro eletrônico"}</div>
+        <small contentEditable suppressContentEditableWarning>{icpBrasil ? "Certificado A3 · atributos incorporados · cadeia validada" : "Modalidade registrada · confira pelo QR ou código"}</small>
+        <code contentEditable suppressContentEditableWarning>{icpBrasil ? "CERT SHA-256 020996E7 AA6CF44F 59AEFD21 DF96CA39" : "MAI-2026-ESY0-6MPD-QQBP-RMG4"}</code>
+      </div>
+      <div className="credential-mark">
+        {icpBrasil
+          ? <img src="/assets/icp-brasil-oficial.png" alt="ICP-Brasil" />
+          : <div className="seal-pades-mark" aria-label="PAdES"><strong>PAdES</strong><i /><small>PDF SIGNATURE</small></div>}
       </div>
     </div>
   );
@@ -199,6 +190,7 @@ function DocumentCanvas({
 
   return (
     <article className="a4-canvas" aria-label="Folha de evidências da assinatura digital editável">
+      <img className="passport-background" src="/assets/pades-evidence-page-300dpi.png?v=1" alt="" />
       <Block {...props("header", "header-block")}>
         <div className="header-brand-row">
           <span className="header-record">Evidências da assinatura digital</span>
@@ -213,7 +205,8 @@ function DocumentCanvas({
         <p contentEditable suppressContentEditableWarning>O arquivo eletrônico assinado é o original. Esta página organiza evidências de conferência; sinais gráficos não substituem a validação criptográfica.</p>
       </Block>
 
-      <Block {...props("document", "panel meta-grid")}>
+      <Block {...props("document", "panel meta-grid document-passport")}>
+        <SectionHeading index="01">IDENTIDADE DO DOCUMENTO</SectionHeading>
         <Field label="Código de verificação">MAI-2026-ESY0-6MPD-QQBP-RMG4</Field>
         <Field label="Número do documento">20260713155250664425469195217</Field>
         <Field label="Arquivo">Relatorio-Inteligencia-Juridica.pdf</Field>
@@ -224,7 +217,6 @@ function DocumentCanvas({
         <Field label="Hash SHA-256 do PDF preparado para assinatura">
           <code>020996e7aa6cf44f59aefd21df96ca39 81f2075c6d33097c9ecb1c192e5630de</code>
         </Field>
-        <small>O hash integral do PDF final assinado é publicado no endereço de validação.</small>
       </Block>
 
       <Block {...props("qr", "qr-block")}>
@@ -232,28 +224,27 @@ function DocumentCanvas({
       </Block>
 
       <Block {...props("context", "context-block")}>
-        <h2>Identificação e eventos</h2>
+        <SectionHeading index="02">IDENTIFICAÇÃO, CONTEXTO E EVENTOS</SectionHeading>
         <div className="context-grid">
-          <Field label="Emitente / gerado por">Roger Maiocchi · CPF 006.***.***-40 · OAB/DF 31.249</Field>
+          <Field label="Responsável pela geração">Roger Maiocchi · CPF 006.***.***-40 · OAB/DF 31.249</Field>
           <Field label="Destinado a">Destinatário informado no documento</Field>
           <Field label="Finalidade">Conferência e preservação do documento eletrônico</Field>
           <Field label="Evento 1 · documento preparado">13/07/2026, 15:52:50 · America/Sao_Paulo</Field>
-          <Field label="Evento 2 · assinatura">Instante registrado no resumo visual abaixo</Field>
+          <Field label="Evento 2 · assinatura">Instante e signatário no campo visual abaixo</Field>
           <Field label="Token / modalidade">{icpBrasil ? "Certificado ICP-Brasil A3 · token criptográfico" : mode === "gov-br" ? "Conta GOV.BR · infraestrutura reconhecida" : "Modalidade simples registrada pelo fluxo"}</Field>
           <Field label="Tipo de assinatura">{icpBrasil ? "PAdES AD-RB · ICP-Brasil" : mode === "gov-br" ? "Assinatura avançada · GOV.BR" : "Assinatura eletrônica simples"}</Field>
-          <Field label="Ambiente">MacBook · macOS · MaiocchiPadesTokenAgent</Field>
-          <Field label="IP / localização">189.6.10.176 · não fornecida pelo usuário</Field>
+          <Field label="Ambiente / IP / localização">MacBook Pro · macOS · MaiocchiPadesTokenAgent · pt-BR · America/Sao_Paulo · IP 189.6.10.176 · não fornecida pelo usuário</Field>
         </div>
       </Block>
 
       <Block {...props("attributes", "panel attributes-block")}>
         {icpBrasil ? <>
-          <div className="section-heading"><h2>Atributos confirmados no PAdES</h2><code>DOC-ICP-15.03 v9.1 · OID 2.16.76.1.7.1.11.1.3</code></div>
+          <SectionHeading index="03" meta="DOC-ICP-15.03 v9.1 · OID 2.16.76.1.7.1.11.1.3">ATRIBUTOS CONFIRMADOS NO PADES</SectionHeading>
           <div className="attribute-row ok"><i></i><b>INCORPORADOS</b><span contentEditable suppressContentEditableWarning>signerAttr · /Name · /M · /Location · /Reason · /ContactInfo · /Prop_Build</span></div>
           <div className="attribute-row conditional"><i></i><b>ACT / CONDICIONAL</b><span contentEditable suppressContentEditableWarning>contentTimeStamp · signatureTimeStampToken · Document Time-stamp</span></div>
           <div className="attribute-row context"><i></i><b>CONTEXTO</b><span contentEditable suppressContentEditableWarning>/Reference · /Changes · /V=0 · /Prop_AuthTime · DSS · VRI</span></div>
         </> : <>
-          <div className="section-heading"><h2>Atributos da assinatura</h2><code>{modeConfig.infrastructure}</code></div>
+          <SectionHeading index="03" meta={modeConfig.infrastructure}>ATRIBUTOS DA ASSINATURA</SectionHeading>
           <div className="attribute-row generic"><i></i><b>FORMATO</b><span contentEditable suppressContentEditableWarning>{mode === "gov-br" ? "Assinatura eletrônica avançada" : "Assinatura eletrônica simples"}</span></div>
           <div className="attribute-row context"><i></i><b>MODALIDADE</b><span contentEditable suppressContentEditableWarning>{mode === "gov-br" ? "Infraestrutura oficial GOV.BR" : "Registrada pelo fluxo de assinatura"}</span></div>
           <div className="attribute-row context"><i></i><b>CONFERÊNCIA</b><span contentEditable suppressContentEditableWarning>Consultar QR e código de verificação</span></div>
@@ -261,7 +252,8 @@ function DocumentCanvas({
       </Block>
 
       <Block {...props("pqc", "panel pqc-block")}>
-        <Field label="Atestado pós-quântico do manifesto"><code>PQC-MLDSA65-465P-VSS7-TP75-ZZC4</code></Field>
+        <SectionHeading index="04">ATESTADO PÓS-QUÂNTICO</SectionHeading>
+        <code contentEditable suppressContentEditableWarning>PQC-MLDSA65-465P-VSS7-TP75-ZZC4</code>
         <small contentEditable suppressContentEditableWarning>{icpBrasil
           ? "ML-DSA-65 · evidência complementar; não substitui o PAdES ICP-Brasil."
           : "ML-DSA-65 · evidência complementar; não altera a modalidade eletrônica registrada."}</small>
@@ -356,7 +348,7 @@ function App() {
   const download = () => {
     const modeConfig = SIGNATURE_MODES[mode];
     const blob = new Blob([JSON.stringify({
-      version: 8,
+      version: 9,
       canvas: A4,
       margins: PAGE_MARGINS,
       mode,

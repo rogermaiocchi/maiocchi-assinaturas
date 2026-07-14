@@ -21,16 +21,16 @@ export const BODY = Object.freeze({
 
 export const EVIDENCE_BLOCKS = Object.freeze({
   header: Object.freeze({ left: BODY.left, top: PAGE_MARGINS.top, width: BODY.width, height: 22 }),
-  title: Object.freeze({ left: BODY.left, top: 114, width: BODY.width, height: 50 }),
-  document: Object.freeze({ left: BODY.left, top: 174, width: BODY.width, height: 60 }),
-  hash: Object.freeze({ left: BODY.left, top: 247, width: 357.55, height: 64 }),
-  qr: Object.freeze({ left: BODY.right - 80, top: 238, width: 80, height: 80 }),
-  context: Object.freeze({ left: BODY.left, top: 323, width: BODY.width, height: 151 }),
-  attributes: Object.freeze({ left: BODY.left, top: 482, width: BODY.width, height: 68 }),
-  pqc: Object.freeze({ left: BODY.left, top: 558, width: 286, height: 52 }),
-  validation: Object.freeze({ left: 385, top: 558, width: BODY.right - 385, height: 52 }),
-  barcode: Object.freeze({ left: BODY.left, top: 618, width: BODY.width, height: 32 }),
-  seal: Object.freeze({ left: BODY.left, top: 658, width: BODY.width, height: 92 }),
+  title: Object.freeze({ left: BODY.left, top: 114, width: BODY.width, height: 56 }),
+  document: Object.freeze({ left: BODY.left, top: 174, width: BODY.width, height: 116 }),
+  hash: Object.freeze({ left: BODY.left + 16, top: 248, width: BODY.width - 126, height: 34 }),
+  qr: Object.freeze({ left: BODY.right - 88, top: 188, width: 88, height: 88 }),
+  context: Object.freeze({ left: BODY.left, top: 302, width: BODY.width, height: 158 }),
+  attributes: Object.freeze({ left: BODY.left, top: 472, width: BODY.width, height: 76 }),
+  pqc: Object.freeze({ left: BODY.left, top: 560, width: 286, height: 52 }),
+  validation: Object.freeze({ left: 385, top: 560, width: BODY.right - 385, height: 52 }),
+  barcode: Object.freeze({ left: BODY.left, top: 622, width: BODY.width, height: 24 }),
+  seal: Object.freeze({ left: BODY.left, top: 650, width: BODY.width, height: 100 }),
   legal: Object.freeze({ left: BODY.left, top: 758, width: BODY.width, height: 27 }),
 });
 

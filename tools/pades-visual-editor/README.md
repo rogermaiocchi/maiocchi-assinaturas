@@ -21,9 +21,15 @@ isso a composição visual corresponde ao PDF preparado para assinatura.
 - cabeçalho: “Evidências da assinatura digital” alinhado à esquerda, sem ícone,
   e “Modalidade · ICP-Brasil” no lado oposto quando a infraestrutura validada
   for ICP-Brasil.
-- credencial ICP-Brasil: fundo de segurança sem marca institucional, com dados
-  da assinatura alinhados à esquerda e marca oficial ICP-Brasil à direita; só
-  aparece no modo ICP-Brasil.
+- fundo integral: SVG determinístico e PNG A4 `2480x3508` (`300 dpi`) com
+  guilloché, rosetas, microtexto e contornos das marcas `m.` e `MAIOCCHI.`. O
+  mesmo bitmap é consumido pelo laboratório e pelo renderer do PDF. A folha
+  não usa moldura perimetral; os campos não têm quadros e repousam sobre véus
+  brancos translúcidos, com hierarquia dada por espaçamento, numeração e
+  acentos cromáticos estreitos. O QR mantém a área silenciosa sem contorno.
+- credencial ICP-Brasil: campo gráfico inferior integrado ao fundo, com área
+  esquerda reservada à aparência visível produzida pelo provider e marca
+  oficial ICP-Brasil à direita; só aparece no modo ICP-Brasil.
 - modalidade não ICP-Brasil: quadro neutro com a marca tipográfica PAdES no
   lugar da marca ICP-Brasil, sem OID ou texto que sugira certificação
   ICP-Brasil. GOV.BR reconhecido mantém o link oficial do ITI; assinatura
@@ -31,7 +37,10 @@ isso a composição visual corresponde ao PDF preparado para assinatura.
 - `PAdES AD-RB`: identificação textual vinculada aos dados assinados, sem
   medalhão autodeclaratório; a marca oficial exibida decorre da infraestrutura
   confirmada pelo certificado.
-- selo: SVG-fonte e PNG `4096x835`, proporção do campo PAdES `453,55x92` pontos.
+- folha estruturada em cinco zonas numeradas: identidade do documento;
+  identificação, contexto e eventos; atributos; atestado ML-DSA-65; e
+  credencial do signatário. O campo PAdES mede `453,55x100` pontos e mantém a
+  caixa visível do provider em sua geometria homologada.
 - o campo da assinatura não recebe título externo; os rótulos redundantes de
   “Resumo visual da assinatura” foram removidos do editor e do renderer.
 - QR e Code 128: amostras do contrato canônico `/validar?codigo=:publicId` e
@@ -51,12 +60,12 @@ isso a composição visual corresponde ao PDF preparado para assinatura.
 - base legal ICP-Brasil: `MP 2.200-2/2001, art. 10, § 1º · L 14.063/2020,
   art. 4º, III.`, sem prefixo autodeclaratório.
 
-Para reconstruir o fundo 4K e a amostra composta:
+Para reconstruir o fundo A4 em alta resolução e os códigos de amostra:
 
 ```bash
-node tools/pades-visual-editor/scripts/build-security-seal.mjs
+node tools/pades-visual-editor/scripts/build-evidence-background.mjs
 node tools/pades-visual-editor/scripts/build-verification-codes.mjs
 ```
 
-O selo é uma representação visual. O PDF assinado, o `ByteRange`, o CMS e a
+O fundo e a credencial são representações visuais. O PDF assinado, o `ByteRange`, o CMS e a
 cadeia ICP-Brasil permanecem as fontes de validade da assinatura.

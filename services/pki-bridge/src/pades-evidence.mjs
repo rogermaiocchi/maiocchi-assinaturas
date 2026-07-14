@@ -22,11 +22,10 @@ const MUTED = rgb(0.33, 0.35, 0.35);
 const GREEN = rgb(0, 107 / 255, 54 / 255);
 const GOLD = rgb(0.95, 0.66, 0);
 const BLUE = rgb(23 / 255, 74 / 255, 126 / 255);
-const PALE = rgb(0.965, 0.972, 0.97);
-const LINE = rgb(0.76, 0.79, 0.78);
+const PAPER = rgb(0.992, 0.996, 0.994);
 const ICP_LOGO_PATH = fileURLToPath(new URL("../assets/icp-brasil-oficial.png", import.meta.url));
 const MAIOCCHI_MARK_PATH = fileURLToPath(new URL("../assets/maiocchi-mark.png", import.meta.url));
-const SECURITY_SEAL_PATH = fileURLToPath(new URL("../assets/pades-security-seal.png", import.meta.url));
+const EVIDENCE_BACKGROUND_PATH = fileURLToPath(new URL("../assets/pades-evidence-page.png", import.meta.url));
 const REGULAR_FONT_PATH = fileURLToPath(new URL("../assets/inter-latin-400-normal.woff", import.meta.url));
 const BOLD_FONT_PATH = fileURLToPath(new URL("../assets/inter-latin-700-normal.woff", import.meta.url));
 const ITI_POLICY_OID = "2.16.76.1.7.1.11.1.3";
@@ -125,6 +124,62 @@ function wrap(font, value, size, maxWidth, maxLines = 3) {
 
 function rect(block) {
   return { x: block.left, y: pdfY(block.top, block.height), width: block.width, height: block.height };
+}
+
+function drawPanel(page, block, { accent = null, opacity = 0.72 } = {}) {
+  page.drawRectangle({
+    ...rect(block),
+    color: PAPER,
+    opacity,
+  });
+  if (accent) {
+    page.drawRectangle({
+      x: block.left,
+      y: pdfY(block.top, block.height),
+      width: 2.2,
+      height: block.height,
+      color: accent,
+      opacity: 0.82,
+    });
+  }
+}
+
+function drawSectionHeading(page, fonts, index, label, block, rightText = null) {
+  const badgeSize = 13;
+  const badgeX = block.left + 12;
+  const badgeY = baseline(block.top + 18);
+  page.drawRectangle({
+    x: badgeX,
+    y: badgeY - 3,
+    width: badgeSize,
+    height: badgeSize,
+    color: INK,
+    opacity: 0.9,
+  });
+  page.drawText(index, {
+    x: badgeX + 3.1,
+    y: badgeY,
+    font: fonts.bold,
+    size: 6.2,
+    color: rgb(1, 1, 1),
+  });
+  page.drawText(label, {
+    x: badgeX + badgeSize + 8,
+    y: badgeY,
+    font: fonts.bold,
+    size: 7.2,
+    color: MUTED,
+  });
+  if (rightText) {
+    const fitted = fitValue(fonts.regular, rightText, 6.6, block.width / 2 - 20, 5.8);
+    page.drawText(fitted.text, {
+      x: block.left + block.width - 12 - fonts.regular.widthOfTextAtSize(fitted.text, fitted.size),
+      y: badgeY,
+      font: fonts.regular,
+      size: fitted.size,
+      color: MUTED,
+    });
+  }
 }
 
 function baseline(top) {
@@ -292,7 +347,7 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
   const document = await PDFDocument.load(sourcePdf, { updateMetadata: false });
   const fonts = await embeddedFonts(document);
   const maiocchiMark = await document.embedPng(await readFile(MAIOCCHI_MARK_PATH));
-  const securitySeal = await document.embedPng(await readFile(SECURITY_SEAL_PATH));
+  const evidenceBackground = await document.embedPng(await readFile(EVIDENCE_BACKGROUND_PATH));
   const icpLogo = icpBrasil
     ? await document.embedPng(await readFile(ICP_LOGO_PATH))
     : null;
@@ -362,7 +417,7 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
   });
 
   const page = document.addPage([A4.width, A4.height]);
-  page.drawRectangle({ x: 0, y: 0, width: A4.width, height: A4.height, color: rgb(1, 1, 1) });
+  page.drawImage(evidenceBackground, { x: 0, y: 0, width: A4.width, height: A4.height });
   drawTopRule(page);
   const evidenceHeader = "EVIDÊNCIAS DA ASSINATURA DIGITAL";
   const modalityHeader = icpBrasil
@@ -385,8 +440,17 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
     color: icpBrasil ? GREEN : MUTED,
   });
 
-  page.drawText("Documento eletrônico assinado", {
+  page.drawRectangle({ ...rect(EVIDENCE_BLOCKS.title), color: PAPER, opacity: 0.64 });
+  page.drawRectangle({
     x: EVIDENCE_BLOCKS.title.left,
+    y: pdfY(EVIDENCE_BLOCKS.title.top, EVIDENCE_BLOCKS.title.height),
+    width: 3,
+    height: EVIDENCE_BLOCKS.title.height,
+    color: GOLD,
+    opacity: 0.88,
+  });
+  page.drawText("Documento eletrônico assinado", {
+    x: EVIDENCE_BLOCKS.title.left + 14,
     y: baseline(EVIDENCE_BLOCKS.title.top + 21),
     font: fonts.bold,
     size: TYPOGRAPHY.title,
@@ -394,126 +458,100 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
   });
   wrap(fonts.regular,
     "O arquivo eletrônico assinado é o original. Esta página organiza evidências de conferência; sinais gráficos não substituem a validação criptográfica.",
-    TYPOGRAPHY.subtitle, BODY.width, 2).forEach((line, index) => page.drawText(line, {
-      x: EVIDENCE_BLOCKS.title.left,
+    TYPOGRAPHY.subtitle, BODY.width - 18, 2).forEach((line, index) => page.drawText(line, {
+      x: EVIDENCE_BLOCKS.title.left + 14,
       y: baseline(EVIDENCE_BLOCKS.title.top + 39 + index * 12),
       font: fonts.regular,
       size: TYPOGRAPHY.subtitle,
       color: MUTED,
     }));
 
-  page.drawRectangle({ ...rect(EVIDENCE_BLOCKS.document), color: PALE, borderColor: LINE, borderWidth: 0.5 });
-  const leftColumnX = BODY.left + 12;
+  drawPanel(page, EVIDENCE_BLOCKS.document, { accent: GOLD, opacity: 0.72 });
+  drawSectionHeading(page, fonts, "01", "IDENTIDADE DO DOCUMENTO", EVIDENCE_BLOCKS.document);
+  const leftColumnX = BODY.left + 16;
   const rightColumnX = BODY.left + BODY.width / 2 + 7;
   const leftColumnWidth = BODY.width / 2 - 23;
   const rightColumnWidth = BODY.right - rightColumnX - 12;
-  drawLabelValue(page, fonts, "CÓDIGO DE VERIFICAÇÃO", manifest.publicId, leftColumnX, EVIDENCE_BLOCKS.document.top + 2, leftColumnWidth);
-  drawLabelValue(page, fonts, "NÚMERO DO DOCUMENTO", manifest.documentNumber, rightColumnX, EVIDENCE_BLOCKS.document.top + 2, rightColumnWidth);
-  drawLabelValue(page, fonts, "ARQUIVO", manifest.source.name, leftColumnX, EVIDENCE_BLOCKS.document.top + 31, leftColumnWidth);
-  drawLabelValue(page, fonts, "PÁGINAS", `${totalPages} (${manifest.source.pageCount} originais + 1 evidência)`, rightColumnX, EVIDENCE_BLOCKS.document.top + 31, rightColumnWidth);
+  const documentRightColumnWidth = EVIDENCE_BLOCKS.qr.left - rightColumnX - 10;
+  drawLabelValue(page, fonts, "CÓDIGO DE VERIFICAÇÃO", manifest.publicId, leftColumnX, EVIDENCE_BLOCKS.document.top + 24, leftColumnWidth);
+  drawLabelValue(page, fonts, "NÚMERO DO DOCUMENTO", manifest.documentNumber, rightColumnX, EVIDENCE_BLOCKS.document.top + 24, documentRightColumnWidth);
+  drawLabelValue(page, fonts, "ARQUIVO", manifest.source.name, leftColumnX, EVIDENCE_BLOCKS.document.top + 50, leftColumnWidth);
+  drawLabelValue(page, fonts, "PÁGINAS", `${totalPages} (${manifest.source.pageCount} originais + 1 evidência)`, rightColumnX, EVIDENCE_BLOCKS.document.top + 50, documentRightColumnWidth);
 
   page.drawText("HASH SHA-256 DO PDF PREPARADO PARA ASSINATURA", {
     x: EVIDENCE_BLOCKS.hash.left,
-    y: baseline(EVIDENCE_BLOCKS.hash.top + 10),
+    y: baseline(EVIDENCE_BLOCKS.hash.top + 8),
     font: fonts.bold,
-    size: TYPOGRAPHY.label,
+    size: 6.8,
     color: MUTED,
   });
   splitHash(manifest.source.sha256).forEach((line, index) => page.drawText(line, {
     x: EVIDENCE_BLOCKS.hash.left,
-    y: baseline(EVIDENCE_BLOCKS.hash.top + 29 + index * 13),
+    y: baseline(EVIDENCE_BLOCKS.hash.top + 21 + index * 11),
     font: fonts.regular,
-    size: 8.2,
+    size: 7.5,
     color: INK,
   }));
-  page.drawText("O hash integral do PDF final assinado é publicado no endereço de validação.", {
-    x: EVIDENCE_BLOCKS.hash.left,
-    y: baseline(EVIDENCE_BLOCKS.hash.top + 62),
-    font: fonts.regular,
-    size: 7.2,
-    color: MUTED,
+  const qrRect = rect(EVIDENCE_BLOCKS.qr);
+  page.drawRectangle({ ...qrRect, color: rgb(1, 1, 1), opacity: 0.84 });
+  page.drawImage(qr, {
+    x: qrRect.x + 4,
+    y: qrRect.y + 4,
+    width: qrRect.width - 8,
+    height: qrRect.height - 8,
   });
-  page.drawImage(qr, rect(EVIDENCE_BLOCKS.qr));
-  addLink(document, page, { ...rect(EVIDENCE_BLOCKS.qr), url: verificationUrl });
+  addLink(document, page, { ...qrRect, url: verificationUrl });
 
-  page.drawLine({
-    start: { x: BODY.left, y: baseline(EVIDENCE_BLOCKS.context.top) },
-    end: { x: BODY.right, y: baseline(EVIDENCE_BLOCKS.context.top) },
-    thickness: 0.6,
-    color: LINE,
-  });
-  page.drawText("IDENTIFICAÇÃO E EVENTOS", {
-    x: BODY.left,
-    y: baseline(EVIDENCE_BLOCKS.context.top + 13),
-    font: fonts.bold,
-    size: 7.4,
-    color: MUTED,
-  });
-  drawLabelValue(page, fonts, "EMITENTE / GERADO POR", `${manifest.generatedBy.name} · CPF ${manifest.generatedBy.nationalIdMasked} · ${manifest.generatedBy.professionalRegistration}`, leftColumnX, EVIDENCE_BLOCKS.context.top + 18, BODY.width - 24);
-  drawLabelValue(page, fonts, "DESTINADO A", manifest.intendedFor, leftColumnX, EVIDENCE_BLOCKS.context.top + 45, leftColumnWidth);
-  drawLabelValue(page, fonts, "FINALIDADE", manifest.purpose, rightColumnX, EVIDENCE_BLOCKS.context.top + 45, rightColumnWidth);
-  drawLabelValue(page, fonts, "EVENTO 1 · DOCUMENTO PREPARADO", `${formatDate(manifest.createdAt)} · America/Sao_Paulo`, leftColumnX, EVIDENCE_BLOCKS.context.top + 72, leftColumnWidth);
-  drawLabelValue(page, fonts, "EVENTO 2 · ASSINATURA", "Instante registrado no resumo visual abaixo", rightColumnX, EVIDENCE_BLOCKS.context.top + 72, rightColumnWidth);
-  drawLabelValue(page, fonts, "TOKEN / MODALIDADE", manifest.signature.tokenType, leftColumnX, EVIDENCE_BLOCKS.context.top + 99, leftColumnWidth);
-  drawLabelValue(page, fonts, "TIPO", signatureTypeLabel(manifest.signature), rightColumnX, EVIDENCE_BLOCKS.context.top + 99, rightColumnWidth);
-  drawLabelValue(page, fonts, "AMBIENTE", `${manifest.signingEnvironment.platform} · ${manifest.signingEnvironment.locale} · ${manifest.signingEnvironment.timezone}`, leftColumnX, EVIDENCE_BLOCKS.context.top + 124, leftColumnWidth);
+  drawPanel(page, EVIDENCE_BLOCKS.context, { accent: GREEN, opacity: 0.7 });
+  drawSectionHeading(page, fonts, "02", "IDENTIFICAÇÃO, CONTEXTO E EVENTOS", EVIDENCE_BLOCKS.context);
+  drawLabelValue(page, fonts, "RESPONSÁVEL PELA GERAÇÃO", `${manifest.generatedBy.name} · CPF ${manifest.generatedBy.nationalIdMasked} · ${manifest.generatedBy.professionalRegistration}`, leftColumnX, EVIDENCE_BLOCKS.context.top + 24, BODY.width - 32);
+  drawLabelValue(page, fonts, "DESTINADO A", manifest.intendedFor, leftColumnX, EVIDENCE_BLOCKS.context.top + 51, leftColumnWidth);
+  drawLabelValue(page, fonts, "FINALIDADE", manifest.purpose, rightColumnX, EVIDENCE_BLOCKS.context.top + 51, rightColumnWidth);
+  drawLabelValue(page, fonts, "EVENTO 1 · DOCUMENTO PREPARADO", `${formatDate(manifest.createdAt)} · America/Sao_Paulo`, leftColumnX, EVIDENCE_BLOCKS.context.top + 78, leftColumnWidth);
+  drawLabelValue(page, fonts, "EVENTO 2 · ASSINATURA", "Instante e signatário no campo visual abaixo", rightColumnX, EVIDENCE_BLOCKS.context.top + 78, rightColumnWidth);
+  drawLabelValue(page, fonts, "TOKEN / MODALIDADE", manifest.signature.tokenType, leftColumnX, EVIDENCE_BLOCKS.context.top + 105, leftColumnWidth);
+  drawLabelValue(page, fonts, "TIPO", signatureTypeLabel(manifest.signature), rightColumnX, EVIDENCE_BLOCKS.context.top + 105, rightColumnWidth);
   const location = manifest.signingEnvironment.geolocation
     ? `${manifest.signingEnvironment.geolocation.latitude}, ${manifest.signingEnvironment.geolocation.longitude} (±${manifest.signingEnvironment.geolocation.accuracyMeters} m)`
     : "Não fornecida pelo usuário";
-  drawLabelValue(page, fonts, "IP / LOCALIZAÇÃO", `${manifest.signingEnvironment.observedIp} · ${location}`, rightColumnX, EVIDENCE_BLOCKS.context.top + 124, rightColumnWidth);
+  drawLabelValue(
+    page,
+    fonts,
+    "AMBIENTE / IP / LOCALIZAÇÃO",
+    `${manifest.signingEnvironment.platform} · ${manifest.signingEnvironment.locale} · ${manifest.signingEnvironment.timezone} · IP ${manifest.signingEnvironment.observedIp} · ${location}`,
+    leftColumnX,
+    EVIDENCE_BLOCKS.context.top + 130,
+    BODY.width - 32,
+    7.2,
+  );
 
-  page.drawRectangle({ ...rect(EVIDENCE_BLOCKS.attributes), color: PALE, borderColor: LINE, borderWidth: 0.5 });
+  drawPanel(page, EVIDENCE_BLOCKS.attributes, { accent: BLUE, opacity: 0.72 });
   if (icpBrasil && manifest.signature.optionalAttributes) {
     const optionalAttributes = manifest.signature.optionalAttributes;
-    page.drawText("ATRIBUTOS CONFIRMADOS NO PAdES", {
-      x: leftColumnX,
-      y: baseline(EVIDENCE_BLOCKS.attributes.top + 13),
-      font: fonts.bold,
-      size: 7.4,
-      color: MUTED,
-    });
     const optionalPolicy = `${optionalAttributes.normativeDocument} · AD-RB v1.3 · OID ${manifest.signature.policyOid}`;
-    page.drawText(fitText(fonts.regular, optionalPolicy, 6.8, 205), {
-      x: BODY.right - 12 - fonts.regular.widthOfTextAtSize(fitText(fonts.regular, optionalPolicy, 6.8, 205), 6.8),
-      y: baseline(EVIDENCE_BLOCKS.attributes.top + 13),
-      font: fonts.regular,
-      size: 6.8,
-      color: MUTED,
-    });
+    drawSectionHeading(page, fonts, "03", "ATRIBUTOS CONFIRMADOS NO PADES", EVIDENCE_BLOCKS.attributes, optionalPolicy);
     drawAttributeSignal(page, fonts, {
       label: optionalAttributes.assurance === "private-provider-enforced" ? "INCORPORADOS" : "PSC / CONFERIR",
-      value: optionalAttributes.incorporated.join(" · "), top: EVIDENCE_BLOCKS.attributes.top + 31, color: GREEN,
+      value: optionalAttributes.incorporated.join(" · "), top: EVIDENCE_BLOCKS.attributes.top + 38, color: GREEN,
     });
     drawAttributeSignal(page, fonts, {
-      label: "ACT / CONDICIONAL", value: optionalAttributes.actConditional.join(" · "), top: EVIDENCE_BLOCKS.attributes.top + 46, color: GOLD,
+      label: "ACT / CONDICIONAL", value: optionalAttributes.actConditional.join(" · "), top: EVIDENCE_BLOCKS.attributes.top + 54, color: GOLD,
     });
     drawAttributeSignal(page, fonts, {
-      label: "CONTEXTO / PADRÃO", value: optionalAttributes.contextualOrDefault.join(" · "), top: EVIDENCE_BLOCKS.attributes.top + 61, color: MUTED,
+      label: "CONTEXTO / PADRÃO", value: optionalAttributes.contextualOrDefault.join(" · "), top: EVIDENCE_BLOCKS.attributes.top + 70, color: MUTED,
     });
   } else {
-    page.drawText("ATRIBUTOS DA ASSINATURA", {
-      x: leftColumnX,
-      y: baseline(EVIDENCE_BLOCKS.attributes.top + 13),
-      font: fonts.bold,
-      size: 7.4,
-      color: MUTED,
-    });
-    drawAttributeSignal(page, fonts, { label: "FORMATO", value: manifest.signature.format, top: EVIDENCE_BLOCKS.attributes.top + 31, color: BLUE });
-    drawAttributeSignal(page, fonts, { label: "MODALIDADE", value: manifest.signature.infrastructure, top: EVIDENCE_BLOCKS.attributes.top + 46, color: MUTED });
-    drawAttributeSignal(page, fonts, { label: "CONFERÊNCIA", value: "Consultar QR e código de verificação", top: EVIDENCE_BLOCKS.attributes.top + 61, color: MUTED });
+    drawSectionHeading(page, fonts, "03", "ATRIBUTOS DA ASSINATURA", EVIDENCE_BLOCKS.attributes, manifest.signature.infrastructure);
+    drawAttributeSignal(page, fonts, { label: "FORMATO", value: manifest.signature.format, top: EVIDENCE_BLOCKS.attributes.top + 38, color: BLUE });
+    drawAttributeSignal(page, fonts, { label: "MODALIDADE", value: manifest.signature.infrastructure, top: EVIDENCE_BLOCKS.attributes.top + 54, color: MUTED });
+    drawAttributeSignal(page, fonts, { label: "CONFERÊNCIA", value: "Consultar QR e código de verificação", top: EVIDENCE_BLOCKS.attributes.top + 70, color: MUTED });
   }
 
-  page.drawRectangle({ ...rect(EVIDENCE_BLOCKS.pqc), color: PALE, borderColor: LINE, borderWidth: 0.5 });
-  page.drawText("ATESTADO PÓS-QUÂNTICO DO MANIFESTO", {
-    x: EVIDENCE_BLOCKS.pqc.left + 12,
-    y: baseline(EVIDENCE_BLOCKS.pqc.top + 12),
-    font: fonts.bold,
-    size: 7.2,
-    color: MUTED,
-  });
+  drawPanel(page, EVIDENCE_BLOCKS.pqc, { accent: BLUE, opacity: 0.74 });
+  drawSectionHeading(page, fonts, "04", "ATESTADO PÓS-QUÂNTICO", EVIDENCE_BLOCKS.pqc);
   page.drawText(attestation.code, {
     x: EVIDENCE_BLOCKS.pqc.left + 12,
-    y: baseline(EVIDENCE_BLOCKS.pqc.top + 29),
+    y: baseline(EVIDENCE_BLOCKS.pqc.top + 31),
     font: fonts.bold,
     size: 8.2,
     color: INK,
@@ -526,7 +564,7 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
     color: MUTED,
   });
 
-  page.drawRectangle({ ...rect(EVIDENCE_BLOCKS.validation), borderColor: GOLD, borderWidth: 1 });
+  drawPanel(page, EVIDENCE_BLOCKS.validation, { accent: GOLD, opacity: 0.78 });
   page.drawText("VALIDAR O ORIGINAL", {
     x: EVIDENCE_BLOCKS.validation.left + 10,
     y: baseline(EVIDENCE_BLOCKS.validation.top + 12),
@@ -568,11 +606,12 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
     });
   }
 
+  page.drawRectangle({ ...rect(EVIDENCE_BLOCKS.barcode), color: rgb(1, 1, 1), opacity: 0.7 });
   page.drawImage(barcode, {
-    x: EVIDENCE_BLOCKS.barcode.left,
-    y: pdfY(EVIDENCE_BLOCKS.barcode.top + 5, 24),
-    width: EVIDENCE_BLOCKS.barcode.width,
-    height: 24,
+    x: EVIDENCE_BLOCKS.barcode.left + 8,
+    y: pdfY(EVIDENCE_BLOCKS.barcode.top + 3, 18),
+    width: EVIDENCE_BLOCKS.barcode.width - 16,
+    height: 18,
   });
 
   const signatureFrameRect = {
@@ -581,11 +620,46 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
     width: SIGNATURE_FRAME.width,
     height: SIGNATURE_FRAME.height,
   };
-  page.drawImage(securitySeal, signatureFrameRect);
+  page.drawRectangle({
+    ...signatureFrameRect,
+    color: PAPER,
+    opacity: 0.72,
+  });
+  page.drawRectangle({
+    x: SIGNATURE_FRAME.left + SIGNATURE_FRAME.width - 112,
+    y: SIGNATURE_FRAME.bottom,
+    width: 112,
+    height: SIGNATURE_FRAME.height,
+    color: icpBrasil ? GREEN : BLUE,
+    opacity: 0.045,
+  });
+  page.drawRectangle({
+    x: SIGNATURE_FRAME.left + 8,
+    y: SIGNATURE_FRAME.bottom + 9,
+    width: 2.4,
+    height: SIGNATURE_FRAME.height - 18,
+    color: GOLD,
+    opacity: 0.82,
+  });
+  page.drawText("05 · DADOS DO SIGNATÁRIO E ATRIBUTOS DA ASSINATURA", {
+    x: SIGNATURE_FRAME.left + 16,
+    y: SIGNATURE_FRAME.bottom + SIGNATURE_FRAME.height - 13,
+    font: fonts.bold,
+    size: 6.6,
+    color: MUTED,
+  });
+  const credentialLabel = icpBrasil ? "CREDENCIAL ICP-BRASIL" : "CREDENCIAL PADES";
+  page.drawText(credentialLabel, {
+    x: SIGNATURE_FRAME.left + SIGNATURE_FRAME.width - 103,
+    y: SIGNATURE_FRAME.bottom + SIGNATURE_FRAME.height - 13,
+    font: fonts.bold,
+    size: 6.1,
+    color: icpBrasil ? GREEN : BLUE,
+  });
   if (icpBrasil) {
     page.drawImage(icpLogo, {
       x: SIGNATURE_FRAME.left + SIGNATURE_FRAME.width - 103,
-      y: SIGNATURE_FRAME.bottom + 33,
+      y: SIGNATURE_FRAME.bottom + 31,
       width: 86,
       height: 29,
     });
