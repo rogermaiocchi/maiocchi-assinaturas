@@ -142,7 +142,7 @@ class PadesEngineTest {
             assertNotNull(field, "O PAdES deve conter campo de assinatura visível.");
             PDAnnotationWidget widget = field.getWidgets().getFirst();
             assertEquals(105.04f, widget.getRectangle().getLowerLeftX(), 0.1f);
-            assertEquals(82.89f, widget.getRectangle().getLowerLeftY(), 0.1f);
+            assertEquals(106.89f, widget.getRectangle().getLowerLeftY(), 0.1f);
             assertEquals(320f, widget.getRectangle().getWidth(), 0.1f);
             assertEquals(66f, widget.getRectangle().getHeight(), 0.1f);
             int finalPageIndex = parsed.getNumberOfPages() - 1;
@@ -156,7 +156,7 @@ class PadesEngineTest {
             assertNotNull(widget.getAppearance().getNormalAppearance());
             if (visualInput == null) {
                 BufferedImage rendered = new PDFRenderer(parsed).renderImageWithDPI(finalPageIndex, 72);
-                Color preservedBackground = new Color(rendered.getRGB(107, rendered.getHeight() - 85));
+                Color preservedBackground = new Color(rendered.getRGB(107, rendered.getHeight() - 109));
                 assertTrue(preservedBackground.getRed() < 220 && preservedBackground.getBlue() > 200,
                         "A aparência dinâmica deve preservar o fundo existente sob o campo de assinatura.");
             }
@@ -257,7 +257,7 @@ class PadesEngineTest {
             for (int page = 0; page < pages; page++) document.addPage(new PDPage());
             try (PDPageContentStream content = new PDPageContentStream(document, document.getPage(pages - 1))) {
                 content.setNonStrokingColor(new Color(180, 210, 230));
-                content.addRect(105.04f, 82.89f, 320f, 66f);
+                content.addRect(105.04f, 106.89f, 320f, 66f);
                 content.fill();
             }
             document.save(output);

@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import fontkit from "@pdf-lib/fontkit";
-import { PDFDocument, PDFName, PDFString, rgb } from "pdf-lib";
+import { PDFDocument, PDFName, PDFString, degrees, rgb } from "pdf-lib";
 import bwipjs from "bwip-js";
 import QRCode from "qrcode";
 import { assertPublicId, portalVerificationUrl } from "./authenticity-contract.mjs";
@@ -317,49 +317,60 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
       color: INK,
     });
   };
-  const drawContentHeader = (page) => {
+  const drawContentRail = (page) => {
     const width = page.getWidth();
     const height = page.getHeight();
-    const availableWidth = width - PAGE_MARGINS.left - PAGE_MARGINS.right;
     const registryLines = [
       `CÓDIGO ${manifest.publicId} · NÚMERO ${manifest.documentNumber}`,
       `SHA-256 ${manifest.source.sha256} · ATESTADO PÓS-QUÂNTICO ML-DSA-65 ${attestation.code}`,
     ];
+    const railLeft = width - PAGE_CHROME.sideRailWidth;
+    const markY = height - PAGE_CHROME.sideMarkTop - PAGE_CHROME.sideMarkSize;
+    const registryStartY = markY - PAGE_CHROME.sideRegistryGap;
+    const availableLength = Math.max(80, registryStartY - PAGE_MARGINS.bottom);
     page.drawRectangle({
-      x: 0,
-      y: height - PAGE_CHROME.contentHeaderHeight,
-      width,
-      height: PAGE_CHROME.contentHeaderHeight - PAGE_CHROME.topRuleHeight,
+      x: railLeft,
+      y: PAGE_MARGINS.bottom,
+      width: PAGE_CHROME.sideRailWidth,
+      height: height - PAGE_MARGINS.bottom - PAGE_CHROME.topRuleHeight,
       color: rgb(1, 1, 1),
-      opacity: 0.94,
+      opacity: 0.92,
+    });
+    page.drawLine({
+      start: { x: railLeft, y: PAGE_MARGINS.bottom },
+      end: { x: railLeft, y: height - PAGE_CHROME.topRuleHeight },
+      thickness: 0.35,
+      color: LINE,
+      opacity: 0.7,
     });
     page.drawImage(maiocchiMark, {
-      x: (width - PAGE_CHROME.contentMarkSize) / 2,
-      y: height - PAGE_CHROME.contentMarkTop - PAGE_CHROME.contentMarkSize,
-      width: PAGE_CHROME.contentMarkSize,
-      height: PAGE_CHROME.contentMarkSize,
+      x: railLeft + (PAGE_CHROME.sideRailWidth - PAGE_CHROME.sideMarkSize) / 2,
+      y: markY,
+      width: PAGE_CHROME.sideMarkSize,
+      height: PAGE_CHROME.sideMarkSize,
       opacity: 0.9,
     });
     registryLines.forEach((line, index) => {
       const fitted = fitValue(
         fonts.bold,
         line,
-        PAGE_CHROME.contentRegistryFontSize,
-        availableWidth,
-        PAGE_CHROME.contentRegistryMinimumFontSize,
+        PAGE_CHROME.sideRegistryFontSize,
+        availableLength,
+        PAGE_CHROME.sideRegistryMinimumFontSize,
       );
       page.drawText(fitted.text, {
-        x: PAGE_MARGINS.left + (availableWidth - fonts.bold.widthOfTextAtSize(fitted.text, fitted.size)) / 2,
-        y: height - (index === 0 ? PAGE_CHROME.contentLineOneTop : PAGE_CHROME.contentLineTwoTop),
+        x: width - (index === 0 ? PAGE_CHROME.sideLineOneRight : PAGE_CHROME.sideLineTwoRight),
+        y: registryStartY,
         font: fonts.bold,
         size: fitted.size,
         color: MUTED,
         opacity: 0.88,
+        rotate: degrees(-90),
       });
     });
   };
   originalPages.forEach((originalPage, index) => {
-    drawContentHeader(originalPage);
+    drawContentRail(originalPage);
     drawTopRule(originalPage);
     drawPageFooter(originalPage, index);
   });
@@ -452,18 +463,18 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
     size: 7.4,
     color: MUTED,
   });
-  drawLabelValue(page, fonts, "EMITENTE / GERADO POR", `${manifest.generatedBy.name} · CPF ${manifest.generatedBy.nationalIdMasked} · ${manifest.generatedBy.professionalRegistration}`, leftColumnX, EVIDENCE_BLOCKS.context.top + 20, BODY.width - 24);
-  drawLabelValue(page, fonts, "DESTINADO A", manifest.intendedFor, leftColumnX, EVIDENCE_BLOCKS.context.top + 49, leftColumnWidth);
-  drawLabelValue(page, fonts, "FINALIDADE", manifest.purpose, rightColumnX, EVIDENCE_BLOCKS.context.top + 49, rightColumnWidth);
-  drawLabelValue(page, fonts, "EVENTO 1 · DOCUMENTO PREPARADO", `${formatDate(manifest.createdAt)} · America/Sao_Paulo`, leftColumnX, EVIDENCE_BLOCKS.context.top + 78, leftColumnWidth);
-  drawLabelValue(page, fonts, "EVENTO 2 · ASSINATURA", "Instante registrado no resumo visual abaixo", rightColumnX, EVIDENCE_BLOCKS.context.top + 78, rightColumnWidth);
-  drawLabelValue(page, fonts, "TOKEN / MODALIDADE", manifest.signature.tokenType, leftColumnX, EVIDENCE_BLOCKS.context.top + 107, leftColumnWidth);
-  drawLabelValue(page, fonts, "TIPO", signatureTypeLabel(manifest.signature), rightColumnX, EVIDENCE_BLOCKS.context.top + 107, rightColumnWidth);
-  drawLabelValue(page, fonts, "AMBIENTE", `${manifest.signingEnvironment.platform} · ${manifest.signingEnvironment.locale} · ${manifest.signingEnvironment.timezone}`, leftColumnX, EVIDENCE_BLOCKS.context.top + 136, leftColumnWidth);
+  drawLabelValue(page, fonts, "EMITENTE / GERADO POR", `${manifest.generatedBy.name} · CPF ${manifest.generatedBy.nationalIdMasked} · ${manifest.generatedBy.professionalRegistration}`, leftColumnX, EVIDENCE_BLOCKS.context.top + 18, BODY.width - 24);
+  drawLabelValue(page, fonts, "DESTINADO A", manifest.intendedFor, leftColumnX, EVIDENCE_BLOCKS.context.top + 45, leftColumnWidth);
+  drawLabelValue(page, fonts, "FINALIDADE", manifest.purpose, rightColumnX, EVIDENCE_BLOCKS.context.top + 45, rightColumnWidth);
+  drawLabelValue(page, fonts, "EVENTO 1 · DOCUMENTO PREPARADO", `${formatDate(manifest.createdAt)} · America/Sao_Paulo`, leftColumnX, EVIDENCE_BLOCKS.context.top + 72, leftColumnWidth);
+  drawLabelValue(page, fonts, "EVENTO 2 · ASSINATURA", "Instante registrado no resumo visual abaixo", rightColumnX, EVIDENCE_BLOCKS.context.top + 72, rightColumnWidth);
+  drawLabelValue(page, fonts, "TOKEN / MODALIDADE", manifest.signature.tokenType, leftColumnX, EVIDENCE_BLOCKS.context.top + 99, leftColumnWidth);
+  drawLabelValue(page, fonts, "TIPO", signatureTypeLabel(manifest.signature), rightColumnX, EVIDENCE_BLOCKS.context.top + 99, rightColumnWidth);
+  drawLabelValue(page, fonts, "AMBIENTE", `${manifest.signingEnvironment.platform} · ${manifest.signingEnvironment.locale} · ${manifest.signingEnvironment.timezone}`, leftColumnX, EVIDENCE_BLOCKS.context.top + 124, leftColumnWidth);
   const location = manifest.signingEnvironment.geolocation
     ? `${manifest.signingEnvironment.geolocation.latitude}, ${manifest.signingEnvironment.geolocation.longitude} (±${manifest.signingEnvironment.geolocation.accuracyMeters} m)`
     : "Não fornecida pelo usuário";
-  drawLabelValue(page, fonts, "IP / LOCALIZAÇÃO", `${manifest.signingEnvironment.observedIp} · ${location}`, rightColumnX, EVIDENCE_BLOCKS.context.top + 136, rightColumnWidth);
+  drawLabelValue(page, fonts, "IP / LOCALIZAÇÃO", `${manifest.signingEnvironment.observedIp} · ${location}`, rightColumnX, EVIDENCE_BLOCKS.context.top + 124, rightColumnWidth);
 
   page.drawRectangle({ ...rect(EVIDENCE_BLOCKS.attributes), color: PALE, borderColor: LINE, borderWidth: 0.5 });
   if (icpBrasil && manifest.signature.optionalAttributes) {

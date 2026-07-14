@@ -69,7 +69,7 @@ const PAGE_MARGINS = {
   bottom: Math.round(PDF_PAGE_MARGINS.bottom * EDITOR_SCALE),
   left: Math.round(PDF_PAGE_MARGINS.left * EDITOR_SCALE),
 };
-const LAYOUT_STORAGE_KEY = "maiocchi-pades-layout-v7";
+const LAYOUT_STORAGE_KEY = "maiocchi-pades-layout-v8";
 const initialLayout = Object.fromEntries(
   Object.entries(EVIDENCE_BLOCKS).map(([id, block]) => [id, editorBox(block)]),
 ) as Layout;
@@ -356,7 +356,7 @@ function App() {
   const download = () => {
     const modeConfig = SIGNATURE_MODES[mode];
     const blob = new Blob([JSON.stringify({
-      version: 6,
+      version: 8,
       canvas: A4,
       margins: PAGE_MARGINS,
       mode,

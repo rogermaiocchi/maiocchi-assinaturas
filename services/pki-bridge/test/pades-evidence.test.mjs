@@ -84,6 +84,8 @@ test("acrescenta evidências, registra apenas páginas de conteúdo e vincula o 
   assert.deepEqual(PAGE_MARGINS, { top: 85.04, right: 56.69, bottom: 56.69, left: 85.04 });
   assert.equal(SIGNATURE_FRAME.left, PAGE_MARGINS.left);
   assert.ok(Math.abs(SIGNATURE_FRAME.width - (595.28 - PAGE_MARGINS.left - PAGE_MARGINS.right)) < 1e-9);
+  assert.equal(SIGNATURE_FRAME.bottom, 91.89);
+  assert.equal(SIGNATURE_BOX.bottom, SIGNATURE_FRAME.bottom + 15);
   for (const contentPage of composed.getPages().slice(0, -1)) {
     const xObjects = contentPage.node.Resources().lookup(PDFName.of("XObject"), PDFDict);
     assert.equal(xObjects.keys().length, 1, "cada página original deve conter somente o micro logo marginal");

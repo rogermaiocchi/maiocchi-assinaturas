@@ -37,14 +37,15 @@ isso a composição visual corresponde ao PDF preparado para assinatura.
 - QR e Code 128: amostras do contrato canônico `/validar?codigo=:publicId` e
   `MAI|<publicId>|R1`. O payload do Code 128 permanece codificado nas barras,
   sem repetição textual acima delas.
-- páginas originais: linha dourada superior e cabeçalho com a marca `m.` ao
-  centro; abaixo, duas linhas apresentam código, número do documento, SHA-256
-  e atestado ML-DSA-65. A folha final não recebe esse cabeçalho.
+- páginas originais: linha dourada superior e faixa lateral direita com a marca
+  `m.` no topo; abaixo, duas linhas verticais apresentam código, número do
+  documento, SHA-256 e atestado ML-DSA-65. A folha final não recebe essa faixa.
 - validação: o quadro `VALIDAR O ORIGINAL` exibe o endereço do portal e,
   somente nos modos ICP-Brasil e GOV.BR reconhecido, o link clicável
   `validar.iti.gov.br` na linha seguinte.
 - folha final: não exibe o rótulo isolado `VALIDAR`, payload textual do Code
-  128, repetição do código no quadro de validação nem numeração de página.
+  128, repetição do código no quadro de validação nem numeração de página. Todo
+  o grid fica dentro das margens de 3 cm no topo/esquerda e 2 cm na base/direita.
 - base legal ICP-Brasil: `MP 2.200-2/2001, art. 10, § 1º · L 14.063/2020,
   art. 4º, III.`, sem prefixo autodeclaratório.
 

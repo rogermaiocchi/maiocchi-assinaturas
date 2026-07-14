@@ -278,11 +278,11 @@ O link do portal existe em todas as modalidades. O link `https://validar.iti.gov
 
 # 6. Folha impressa
 
-A folha é A4, uma página, com margens fixas, QR com correção de erro M, ID textual, hash completo em quatro linhas, URL, referência ao VALIDAR ITI, data/hora, versão e paginação. O texto canônico é:
+A folha final é A4, uma página, e mantém todo o grid dentro de 3 cm no topo e à esquerda e 2 cm à direita e na base. Ela contém ID textual, número documental, total de páginas, hash SHA-256 da entrada, QR com correção de erro H, Code 128, endereços de validação, metadados, atributos, atestado ML-DSA-65 e evidência visual do signatário. As páginas de conteúdo recebem linha dourada superior e uma faixa lateral direita com `m.`, ID, número, hash e atestado; a folha final não repete essa faixa nem recebe paginação adicional. O texto canônico é:
 
 > Esta folha não substitui o PDF eletrônico assinado. O valor criptográfico e a validação pertencem ao arquivo PAdES original; confira a correspondência pelo código, pelo hash SHA-256 e pelo endereço abaixo.
 
-Ela não contém o PDF original nem dados dos signatários. Para documento restrito, a página confirma o registro, mas mantém o download do original bloqueado.
+Ela integra o PDF original como última página antes da assinatura e apresenta somente os dados de signatário admitidos pelo registro validado. Para documento restrito, a página confirma o registro, mas mantém o download público do original bloqueado.
 
 # 7. Segurança, privacidade e operação
 

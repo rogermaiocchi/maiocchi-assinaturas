@@ -95,7 +95,7 @@ final class PadesEngine {
     private static final String PDF_LOCATION = "Brasil";
     private static final String PDF_CONTACT_INFO = "roger@maiocchi.adv.br";
     private static final float VISIBLE_SIGNATURE_X = 105.04f;
-    private static final float VISIBLE_SIGNATURE_BOTTOM = 82.89f;
+    private static final float VISIBLE_SIGNATURE_BOTTOM = 106.89f;
     private static final float VISIBLE_SIGNATURE_WIDTH = 320f;
     private static final float VISIBLE_SIGNATURE_HEIGHT = 66f;
     private static final int VISIBLE_SIGNATURE_SCALE = 4;

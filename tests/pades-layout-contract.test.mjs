@@ -5,6 +5,7 @@ import {
   A4,
   EDITOR_SCALE,
   EVIDENCE_BLOCKS,
+  PAGE_CHROME,
   PAGE_MARGINS,
   SIGNATURE_BOX,
   SIGNATURE_FRAME,
@@ -31,13 +32,22 @@ test("mantém uma única geometria entre renderer, editor e provider PAdES", asy
 
   assert.deepEqual(A4, { width: 595.28, height: 841.89 });
   assert.deepEqual(PAGE_MARGINS, { top: 85.04, right: 56.69, bottom: 56.69, left: 85.04 });
-  assert.deepEqual(SIGNATURE_FRAME, { left: 85.04, bottom: 67.89, width: 453.55, height: 92 });
-  assert.deepEqual(editorBox(EVIDENCE_BLOCKS.seal), { x: 113, y: 909, w: 605, h: 123 });
+  assert.deepEqual(SIGNATURE_FRAME, { left: 85.04, bottom: 91.89, width: 453.55, height: 92 });
+  assert.deepEqual(editorBox(EVIDENCE_BLOCKS.seal), { x: 113, y: 877, w: 605, h: 123 });
   assert.equal(Math.round(A4.width * EDITOR_SCALE), 794);
   assert.equal(Math.round(A4.height * EDITOR_SCALE), 1123);
+  assert.ok(PAGE_CHROME.sideRailWidth < PAGE_MARGINS.right, "a faixa lateral cabe na margem direita");
+  const usableBottom = A4.height - PAGE_MARGINS.bottom;
+  for (const [name, block] of Object.entries(EVIDENCE_BLOCKS)) {
+    assert.ok(block.left >= PAGE_MARGINS.left, `${name} respeita a margem esquerda`);
+    assert.ok(block.left + block.width <= A4.width - PAGE_MARGINS.right + 1e-9, `${name} respeita a margem direita`);
+    assert.ok(block.top >= PAGE_MARGINS.top, `${name} respeita a margem superior`);
+    assert.ok(block.top + block.height <= usableBottom + 1e-9, `${name} respeita a margem inferior`);
+  }
 
   assert.match(editor, /pades-evidence-layout\.mjs/);
-  assert.match(editor, /maiocchi-pades-layout-v7/);
+  assert.match(editor, /maiocchi-pades-layout-v8/);
+  assert.match(editor, /version: 8/);
   assert.match(editor, /type SignatureMode = "icp-brasil" \| "gov-br" \| "simples"/);
   assert.match(editor, /icpBrasilCredentialIncluded: modeConfig[.]icpBrasil/);
   assert.match(editor, /itiValidationEligible: modeConfig[.]itiValidationEligible/);
@@ -49,8 +59,9 @@ test("mantém uma única geometria entre renderer, editor e provider PAdES", asy
   assert.match(editor, /https:\/\/validar[.]iti[.]gov[.]br\//);
   assert.doesNotMatch(editor, /Resumo visual da assinatura/);
   assert.doesNotMatch(renderer, /drawFingerprintPattern/);
-  assert.match(renderer, /drawContentHeader\(originalPage\)/);
-  assert.doesNotMatch(renderer, /drawContentHeader\(page\)/);
+  assert.match(renderer, /drawContentRail\(originalPage\)/);
+  assert.doesNotMatch(renderer, /drawContentRail\(page\)/);
+  assert.doesNotMatch(renderer, /drawContentHeader/);
   assert.match(renderer, /drawTopRule\(originalPage\)/);
   assert.match(renderer, /drawTopRule\(page\)/);
   assert.match(renderer, /page[.]drawRectangle\(\{ x: 0, y: 0, width: A4[.]width, height: A4[.]height, color: rgb\(1, 1, 1\) \}\)/);
@@ -58,7 +69,7 @@ test("mantém uma única geometria entre renderer, editor e provider PAdES", asy
   assert.doesNotMatch(renderer, /Assinatura eletrônica qualificada/);
   assert.doesNotMatch(renderer, /page[.]drawText\(barcodeValue/);
   assert.doesNotMatch(renderer, /drawPageFooter\(page/);
-  assert.doesNotMatch(renderer, /degrees\(-90\)/);
+  assert.match(renderer, /degrees\(-90\)/);
   assert.match(renderer, /CÓDIGO \$\{manifest[.]publicId\} · NÚMERO \$\{manifest[.]documentNumber\}/);
   assert.match(renderer, /SHA-256 \$\{manifest[.]source[.]sha256\} · ATESTADO PÓS-QUÂNTICO ML-DSA-65/);
   assert.doesNotMatch(editor, /Página 13 de 13/);

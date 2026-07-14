@@ -9,7 +9,31 @@ import {
 } from "../../../services/pki-bridge/src/pades-evidence.mjs";
 
 const inputPath = process.argv[2];
-if (!inputPath) throw new TypeError("uso: node render-evidence-preview.mjs <entrada.pdf> [saida.pdf]");
+if (!inputPath) throw new TypeError("uso: node render-evidence-preview.mjs <entrada.pdf> [saida.pdf] [icp-brasil|gov-br|simples]");
+
+const signatureModes = Object.freeze({
+  "icp-brasil": Object.freeze({
+    tokenType: "Certificado ICP-Brasil A3 · token criptográfico",
+    format: "PAdES",
+    profile: "AD-RB",
+    infrastructure: "ICP-Brasil",
+  }),
+  "gov-br": Object.freeze({
+    tokenType: "Conta GOV.BR · infraestrutura reconhecida",
+    format: "PAdES",
+    profile: "Assinatura eletrônica avançada",
+    infrastructure: "GOV.BR",
+  }),
+  simples: Object.freeze({
+    tokenType: "Modalidade simples registrada pelo fluxo",
+    format: "PAdES",
+    profile: "Assinatura eletrônica simples",
+    infrastructure: "Assinatura eletrônica simples",
+  }),
+});
+const signatureMode = process.argv[4] || "icp-brasil";
+if (!(signatureMode in signatureModes)) throw new TypeError(`modalidade inválida: ${signatureMode}`);
+const signatureMetadata = signatureModes[signatureMode];
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const outputPath = process.argv[3]
@@ -37,10 +61,7 @@ const manifest = buildEvidenceManifest({
     timezone: "America/Sao_Paulo",
     locale: "pt-BR",
     capturedAt: createdAt,
-    tokenType: "Certificado ICP-Brasil A3 · token criptográfico",
-    format: "PAdES",
-    profile: "AD-RB",
-    infrastructure: "ICP-Brasil",
+    ...signatureMetadata,
   },
 });
 const attestation = {
@@ -57,6 +78,8 @@ console.log(JSON.stringify({
   outputPath,
   pageCount: result.totalPages,
   publicId: manifest.publicId,
+  signatureMode,
   sourceSha256,
   itiValidatorUrl: result.itiValidatorUrl,
+  visualSealMark: result.visualSealMark,
 }, null, 2));
