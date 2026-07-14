@@ -282,7 +282,7 @@ A folha final é A4, uma página, e mantém todo o grid dentro de 3 cm no topo e
 
 > Esta folha não substitui o PDF eletrônico assinado. O valor criptográfico e a validação pertencem ao arquivo PAdES original; confira a correspondência pelo código, pelo hash SHA-256 e pelo endereço abaixo.
 
-Ela integra o PDF original como última página antes da assinatura e apresenta somente os dados de signatário admitidos pelo registro validado. Para documento restrito, a página confirma o registro, mas mantém o download público do original bloqueado.
+Ela integra o PDF original como última página antes da assinatura e apresenta somente os dados de signatário admitidos pelo registro validado. No campo `VALIDAR O ORIGINAL`, cada endereço usa uma linha de link com tipografia idêntica e o ícone vetorial Lucide `Globe`; o endereço ITI continua condicionado ao estado de confiança descrito acima. Para documento restrito, a página confirma o registro, mas mantém o download público do original bloqueado.
 
 # 7. Segurança, privacidade e operação
 

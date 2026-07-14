@@ -10,6 +10,7 @@ import {
   ArrowRight,
   ArrowUp,
   Download,
+  Globe,
   Grid3X3,
   Maximize2,
   MousePointer2,
@@ -260,9 +261,17 @@ function DocumentCanvas({
       </Block>
 
       <Block {...props("validation", "validation-block")}>
-        <span>VALIDAR O ORIGINAL</span>
-        <strong contentEditable suppressContentEditableWarning>assinatura.maiocchi.adv.br/validar</strong>
-        {itiValidationEligible && <small><a href="https://validar.iti.gov.br/" target="_blank" rel="noreferrer">validar.iti.gov.br</a></small>}
+        <span className="validation-title">VALIDAR O ORIGINAL</span>
+        <div className="validation-links">
+          <a className="validation-link" href="https://assinatura.maiocchi.adv.br/validar" target="_blank" rel="noreferrer">
+            <Globe aria-hidden="true" />
+            <span contentEditable suppressContentEditableWarning>assinatura.maiocchi.adv.br/validar</span>
+          </a>
+          {itiValidationEligible && <a className="validation-link" href="https://validar.iti.gov.br/" target="_blank" rel="noreferrer">
+            <Globe aria-hidden="true" />
+            <span contentEditable suppressContentEditableWarning>validar.iti.gov.br</span>
+          </a>}
+        </div>
       </Block>
 
       <Block {...props("barcode", "barcode-block")}>

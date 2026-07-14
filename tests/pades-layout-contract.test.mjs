@@ -59,6 +59,8 @@ test("mantém uma única geometria entre renderer, editor e provider PAdES", asy
   assert.doesNotMatch(editor, /margin-verification/);
   assert.match(editor, /credential-mark/);
   assert.match(editor, /seal-pades-mark/);
+  assert.match(editor, /Globe/);
+  assert.equal((editor.match(/className="validation-link"/g) || []).length, 2);
   assert.match(editor, /pades-evidence-page-300dpi[.]png/);
   assert.match(editor, /https:\/\/validar[.]iti[.]gov[.]br\//);
   assert.doesNotMatch(editor, /Resumo visual da assinatura/);
@@ -86,6 +88,8 @@ test("mantém uma única geometria entre renderer, editor e provider PAdES", asy
   assert.match(renderer, /portalVerificationUrl\(manifest[.]publicId, baseUrl\)/);
   assert.match(renderer, /isItiValidationEligible\(manifest[.]signature\)/);
   assert.match(renderer, /function drawPadesMark/);
+  assert.match(renderer, /function drawLucideGlobe/);
+  assert.match(renderer, /M22 12a10 10 0 1 1-20 0 10 10 0 1 1 20 0/);
   assert.match(renderer, /visualSealMark: icpBrasil \? "ICP-Brasil" : "PAdES"/);
   assert.doesNotMatch(renderer, /FUNDAMENTO JURÍDICO/);
   assert.doesNotMatch(editor, /Fundamento jurídico/);
@@ -97,7 +101,7 @@ test("mantém uma única geometria entre renderer, editor e provider PAdES", asy
   assert.doesNotMatch(securityBackground, /<rect x="(?:54|69|82|99|124|140)"/);
   assert.doesNotMatch(renderer, /pades-security-seal[.]png/);
   assert.doesNotMatch(editor, /pades-security-seal-4k[.]png/);
-  const panelRenderer = renderer.slice(renderer.indexOf("function drawPanel"), renderer.indexOf("function drawSectionHeading"));
+  const panelRenderer = renderer.slice(renderer.indexOf("function drawPanel"), renderer.indexOf("function drawLucideGlobe"));
   assert.doesNotMatch(panelRenderer, /borderColor|borderOpacity|borderWidth/);
   const credentialRenderer = renderer.slice(renderer.indexOf("const signatureFrameRect"), renderer.indexOf("const legalText"));
   assert.doesNotMatch(credentialRenderer, /borderColor|borderOpacity|borderWidth|drawLine/);
@@ -106,6 +110,7 @@ test("mantém uma única geometria entre renderer, editor e provider PAdES", asy
   assert.match(editorStyles, /[.]security-credential \{[^}]*border: 0;[^}]*background: rgba\(252,254,252,[.]72\);/);
   assert.doesNotMatch(editorStyles, /[.]security-credential::after/);
   assert.match(editorStyles, /[.]credential-mark \{[^}]*border-left: 0;/);
+  assert.match(editorStyles, /[.]validation-link \{[^}]*font-weight: 600;/);
   assert.equal(rendererBackground[25], 2, "o fundo A4 deve ser RGB sem canal alfa");
   assert.deepEqual(rendererBackground, editorBackground, "renderer e laboratório devem usar o mesmo bitmap A4");
 

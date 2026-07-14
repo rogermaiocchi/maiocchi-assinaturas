@@ -30,6 +30,7 @@ const REGULAR_FONT_PATH = fileURLToPath(new URL("../assets/inter-latin-400-norma
 const BOLD_FONT_PATH = fileURLToPath(new URL("../assets/inter-latin-700-normal.woff", import.meta.url));
 const ITI_POLICY_OID = "2.16.76.1.7.1.11.1.3";
 const ITI_VALIDATOR_URL = "https://validar.iti.gov.br/";
+const LUCIDE_GLOBE_PATH = "M22 12a10 10 0 1 1-20 0 10 10 0 1 1 20 0 M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20 M2 12h20";
 const ITI_ELIGIBLE_INFRASTRUCTURES = new Set(["icpbrasil", "govbr", "assinaturagovbr"]);
 const ITI_OPTIONAL_ATTRIBUTES = Object.freeze({
   incorporated: Object.freeze([
@@ -142,6 +143,17 @@ function drawPanel(page, block, { accent = null, opacity = 0.72 } = {}) {
       opacity: 0.82,
     });
   }
+}
+
+function drawLucideGlobe(page, { x, top, size = 8.6, color = BLUE }) {
+  page.drawSvgPath(LUCIDE_GLOBE_PATH, {
+    x,
+    y: baseline(top),
+    scale: size / 24,
+    borderColor: color,
+    borderWidth: 2,
+    borderOpacity: 0.92,
+  });
 }
 
 function drawSectionHeading(page, fonts, index, label, block, rightText = null) {
@@ -572,35 +584,40 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
     size: 7.2,
     color: BLUE,
   });
+  const validationIconX = EVIDENCE_BLOCKS.validation.left + 10;
+  const validationTextX = EVIDENCE_BLOCKS.validation.left + 23;
+  const validationTextSize = 7.2;
+  drawLucideGlobe(page, { x: validationIconX, top: EVIDENCE_BLOCKS.validation.top + 20 });
   page.drawText(verificationHost, {
-    x: EVIDENCE_BLOCKS.validation.left + 10,
+    x: validationTextX,
     y: baseline(EVIDENCE_BLOCKS.validation.top + 29),
     font: fonts.regular,
-    size: 7.2,
-    color: INK,
+    size: validationTextSize,
+    color: BLUE,
   });
-  const verificationHostWidth = fonts.regular.widthOfTextAtSize(verificationHost, 7.2);
+  const verificationHostWidth = fonts.regular.widthOfTextAtSize(verificationHost, validationTextSize);
   addLink(document, page, {
-    x: EVIDENCE_BLOCKS.validation.left + 10,
+    x: validationIconX,
     y: baseline(EVIDENCE_BLOCKS.validation.top + 32),
-    width: verificationHostWidth,
+    width: validationTextX - validationIconX + verificationHostWidth,
     height: 10,
     url: verificationUrl,
   });
   if (itiValidationEligible) {
     const itiHost = "validar.iti.gov.br";
-    const itiHostWidth = fonts.bold.widthOfTextAtSize(itiHost, 7.2);
+    const itiHostWidth = fonts.regular.widthOfTextAtSize(itiHost, validationTextSize);
+    drawLucideGlobe(page, { x: validationIconX, top: EVIDENCE_BLOCKS.validation.top + 35 });
     page.drawText(itiHost, {
-      x: EVIDENCE_BLOCKS.validation.left + 10,
+      x: validationTextX,
       y: baseline(EVIDENCE_BLOCKS.validation.top + 44),
-      font: fonts.bold,
-      size: 7.2,
+      font: fonts.regular,
+      size: validationTextSize,
       color: BLUE,
     });
     addLink(document, page, {
-      x: EVIDENCE_BLOCKS.validation.left + 10,
+      x: validationIconX,
       y: baseline(EVIDENCE_BLOCKS.validation.top + 47),
-      width: itiHostWidth,
+      width: validationTextX - validationIconX + itiHostWidth,
       height: 10,
       url: ITI_VALIDATOR_URL,
     });

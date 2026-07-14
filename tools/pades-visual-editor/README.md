@@ -51,9 +51,10 @@ isso a composição visual corresponde ao PDF preparado para assinatura.
   centralizada e uma única inscrição vertical contínua, sem quebra:
   `ASSINATURA.MAIOCCHI.ADV.BR - DOCUMENTO <número> - HASH <SHA-256> - CÓDIGO <PQC-MLDSA65> - VERIFICAÇÃO <ID público> - PÁG <atual> DE <total>`.
   A folha final não recebe essa faixa.
-- validação: o quadro `VALIDAR O ORIGINAL` exibe o endereço do portal e,
-  somente nos modos ICP-Brasil e GOV.BR reconhecido, o link clicável
-  `validar.iti.gov.br` na linha seguinte.
+- validação: o quadro `VALIDAR O ORIGINAL` exibe os endereços em duas linhas
+  de tipografia idêntica, cada uma precedida pelo ícone Lucide `Globe`: o
+  portal sempre aparece e `validar.iti.gov.br` ocupa a linha seguinte somente
+  nos modos ICP-Brasil e GOV.BR reconhecido.
 - folha final: não exibe o rótulo isolado `VALIDAR`, payload textual do Code
   128, repetição do código no quadro de validação nem numeração de página. Todo
   o grid fica dentro das margens de 3 cm no topo/esquerda e 2 cm na base/direita.
