@@ -306,17 +306,6 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
       color: GOLD,
     });
   };
-  const drawPageFooter = (page, index) => {
-    const width = page.getWidth();
-    const count = `Página ${index + 1} de ${totalPages}`;
-    page.drawText(count, {
-      x: width - PAGE_MARGINS.right - fonts.bold.widthOfTextAtSize(count, TYPOGRAPHY.footer),
-      y: 24,
-      font: fonts.bold,
-      size: TYPOGRAPHY.footer,
-      color: INK,
-    });
-  };
   const drawContentRail = (page) => {
     const width = page.getWidth();
     const height = page.getHeight();
@@ -369,10 +358,9 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
       });
     });
   };
-  originalPages.forEach((originalPage, index) => {
+  originalPages.forEach((originalPage) => {
     drawContentRail(originalPage);
     drawTopRule(originalPage);
-    drawPageFooter(originalPage, index);
   });
 
   const page = document.addPage([A4.width, A4.height]);

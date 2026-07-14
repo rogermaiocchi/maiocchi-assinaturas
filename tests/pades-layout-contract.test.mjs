@@ -68,7 +68,7 @@ test("mantém uma única geometria entre renderer, editor e provider PAdES", asy
   assert.doesNotMatch(renderer, /Validação externa:/);
   assert.doesNotMatch(renderer, /Assinatura eletrônica qualificada/);
   assert.doesNotMatch(renderer, /page[.]drawText\(barcodeValue/);
-  assert.doesNotMatch(renderer, /drawPageFooter\(page/);
+  assert.doesNotMatch(renderer, /drawPageFooter|Página \$\{index \+ 1\} de \$\{totalPages\}/);
   assert.match(renderer, /degrees\(-90\)/);
   assert.match(renderer, /CÓDIGO \$\{manifest[.]publicId\} · NÚMERO \$\{manifest[.]documentNumber\}/);
   assert.match(renderer, /SHA-256 \$\{manifest[.]source[.]sha256\} · ATESTADO PÓS-QUÂNTICO ML-DSA-65/);

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { PDFDict, PDFDocument, PDFName } from "pdf-lib";
 import test from "node:test";
 import { createAuthenticitySheet } from "../src/print-representation.mjs";
@@ -23,6 +24,8 @@ test("gera folha A4 independente, de uma página e com metadados do escritório"
   const images = pdf.getPage(0).node.Resources().lookup(PDFName.of("XObject"), PDFDict);
   assert.equal(images.keys().length, 2, "a folha deve incorporar QR Code e código de barras");
   assert.ok(bytes.length > 20_000, "a folha deve conter os gráficos de conferência");
+  const renderer = await readFile(new URL("../src/print-representation.mjs", import.meta.url), "utf8");
+  assert.doesNotMatch(renderer, /Página \d+ de \d+/, "a representação independente não deve imprimir paginação");
 });
 
 test("rejeita metadados e URL fora do contrato", async () => {

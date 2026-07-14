@@ -141,7 +141,6 @@ export async function createAuthenticitySheet({ publicId, originalSha256, revisi
 
   page.drawLine({ start: { x: 72, y: 72 }, end: { x: 523, y: 72 }, thickness: 0.8, color: rgb(0.75, 0.75, 0.72) });
   page.drawText(`Finalizado em ${finalizedDate.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}`, { x: 72, y: 50, font: times, size: 8, color: MUTED });
-  page.drawText("Página 1 de 1", { x: 458, y: 50, font: times, size: 8, color: MUTED });
   page.drawText("Maiocchi Advogado · Roger Maiocchi · OAB/DF 31.249", { x: 72, y: 33, font: times, size: 8, color: MUTED });
 
   return Buffer.from(await pdf.save({ useObjectStreams: false, addDefaultPage: false }));

@@ -66,7 +66,6 @@ export const TYPOGRAPHY = Object.freeze({
   label: 7.2,
   value: 8.2,
   technical: 7.2,
-  footer: 8,
 });
 
 export function pdfY(top, height = 0) {
