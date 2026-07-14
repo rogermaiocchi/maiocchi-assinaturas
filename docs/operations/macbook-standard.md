@@ -72,10 +72,10 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 ## Perfil A3 homologado
 
 O padrão de sucesso atual do MacBook primário é portal `1.11.2`, bridge `1.3.8`,
-provider `1.2.3`, código `47392a1885a6ed116249b730a18e76d90827027d`,
+provider `1.2.3`, código `9249e777fad8f0ff55d20b7095c4350ecdd7e105`,
 agente local `1.2.1` em `127.0.0.1:35100`, token ICP-Brasil A3 via
 CryptoTokenKit e política PAdES AD-RB v1.3. O ensaio final de 13/07/2026 às
-22:08:16 BRT foi aprovado novamente pelo VALIDAR ITI, com cadeia `Valid`, estrutura conforme,
+22:53:54 BRT foi aprovado novamente pelo VALIDAR ITI, com cadeia `Valid`, estrutura conforme,
 resumo criptográfico `true`, atributos obrigatórios aprovados e
 `IdAaEtsSignerAttr` opcional `Valid`, sem mensagem de alerta.
 
@@ -92,8 +92,10 @@ externa e, diante de cancelamento físico, não concluiu nem publicou documento;
 o ticket permaneceu preparado. Esse comportamento é a referência operacional
 para repetição segura após cancelamento do PIN/token.
 
-Os valores canônicos, os endereços e os hashes da evidência estão na
-[baseline dos endereços aprovada pelo ITI](../baseline/2026-07-13-validator-address-iti-approved.md).
+Os valores canônicos, a composição visual v7 e os hashes da evidência estão na
+[baseline da folha de evidências v7 aprovada pelo ITI](../baseline/2026-07-13-pades-evidence-layout-v7-iti-approved.md).
+A [baseline dos endereços aprovada pelo ITI](../baseline/2026-07-13-validator-address-iti-approved.md)
+permanece como histórico da revisão substituída.
 A [baseline PAdES por modalidade](../baseline/2026-07-13-pades-dual-modality-iti-approved.md)
 permanece como histórico da revisão substituída.
 A [baseline do layout anterior](../baseline/2026-07-13-pades-canonical-layout-iti-approved.md)
