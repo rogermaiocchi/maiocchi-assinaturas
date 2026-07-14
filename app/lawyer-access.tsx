@@ -24,13 +24,26 @@ type AccessMethod = "certificate" | "password";
 const certificateRelayOrigin = "https://certificado.assinatura.maiocchi.adv.br";
 const certificateRelayPath = "/certificate_auth/login/present";
 
-async function requestCsrfToken(formSelector: string) {
+type PortalSession =
+  | { kind: "authenticated" }
+  | { kind: "form"; token: string };
+
+function isAuthenticatedRedirect(response: Response) {
+  const destination = new URL(response.url, window.location.origin);
+  return response.redirected
+    && response.ok
+    && destination.origin === window.location.origin
+    && (destination.pathname === "/" || destination.pathname === "/dashboard");
+}
+
+async function requestPortalSession(formSelector: string): Promise<PortalSession> {
   const response = await fetch("/portal-auth/session", {
     method: "GET",
     credentials: "same-origin",
     cache: "no-store",
     headers: { accept: "text/html" },
   });
+  if (isAuthenticatedRedirect(response)) return { kind: "authenticated" };
   if (!response.ok) throw new Error("O acesso seguro está temporariamente indisponível.");
 
   const html = await response.text();
@@ -38,7 +51,7 @@ async function requestCsrfToken(formSelector: string) {
   const token = document.querySelector<HTMLInputElement>(`${formSelector} input[name='authenticity_token']`)?.value
     || document.querySelector<HTMLMetaElement>("meta[name='csrf-token']")?.content;
   if (!token) throw new Error("Não foi possível iniciar uma sessão protegida.");
-  return token;
+  return { kind: "form", token };
 }
 
 function responseMessage(html: string) {
@@ -55,12 +68,23 @@ export function LawyerAccess() {
   const [showPassword, setShowPassword] = useState(false);
   const [state, setState] = useState<AccessState>({ kind: "idle" });
 
+  function confirmAccess() {
+    setPassword("");
+    setOtp("");
+    setState({ kind: "authenticated", message: "Identidade confirmada. O ambiente de gestão está liberado." });
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setState({ kind: "loading", message: "Confirmando o acesso..." });
 
     try {
-      const token = await requestCsrfToken("#new_user");
+      const session = await requestPortalSession("#new_user");
+      if (session.kind === "authenticated") {
+        confirmAccess();
+        return;
+      }
+      const { token } = session;
       const body = new URLSearchParams({
         authenticity_token: token,
         "user[email]": email.trim(),
@@ -80,12 +104,9 @@ export function LawyerAccess() {
         body: body.toString(),
       });
       const html = await response.text();
-      const destination = new URL(response.url, window.location.origin).pathname;
 
-      if (response.redirected && response.ok && (destination === "/" || destination === "/dashboard")) {
-        setPassword("");
-        setOtp("");
-        setState({ kind: "authenticated", message: "Identidade confirmada. O ambiente de gestão está liberado." });
+      if (isAuthenticatedRedirect(response)) {
+        confirmAccess();
         return;
       }
       if (html.includes("user_otp_attempt")) {
@@ -104,7 +125,12 @@ export function LawyerAccess() {
   async function startCertificateAccess() {
     setState({ kind: "loading", message: "Preparando o certificado conectado..." });
     try {
-      const token = await requestCsrfToken("form[action='/certificate_auth/login/start']");
+      const session = await requestPortalSession("form[action='/certificate_auth/login/start']");
+      if (session.kind === "authenticated") {
+        confirmAccess();
+        return;
+      }
+      const { token } = session;
       const response = await fetch("/portal-auth/certificate", {
         method: "POST",
         credentials: "same-origin",

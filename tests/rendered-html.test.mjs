@@ -54,7 +54,11 @@ test("incorpora autenticação e reconduz páginas intermediárias à home", asy
   assert.match(accessSource, /certificateRelayOrigin = "https:\/\/certificado\.assinatura\.maiocchi\.adv\.br"/i);
   assert.match(accessSource, /relayAction\.origin !== certificateRelayOrigin/i);
   assert.match(accessSource, /relayAction\.pathname !== certificateRelayPath/i);
-  assert.match(accessSource, /response\.redirected && response\.ok && \(destination === "\/" \|\| destination === "\/dashboard"\)/i);
+  assert.match(accessSource, /function isAuthenticatedRedirect\(response: Response\)/i);
+  assert.match(accessSource, /destination\.origin === window\.location\.origin/i);
+  assert.match(accessSource, /destination\.pathname === "\/" \|\| destination\.pathname === "\/dashboard"/i);
+  assert.match(accessSource, /if \(isAuthenticatedRedirect\(response\)\) return \{ kind: "authenticated" \}/i);
+  assert.match(accessSource, /if \(session\.kind === "authenticated"\)[\s\S]*confirmAccess\(\)/i);
   assert.doesNotMatch(accessSource, /response\.ok && destination === "\/" \|\| destination === "\/dashboard"/i);
   assert.match(accessSource, /role="tablist"/i);
   assert.match(accessSource, /aria-selected=\{accessMethod === "certificate"\}/i);
