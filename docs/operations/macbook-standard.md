@@ -54,7 +54,7 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 
 ## Padrão visual e de interação
 
-- O portal publico `1.14.0` adota uma unica camada visual translucida: midia
+- O portal publico `1.14.1` adota uma unica camada visual translucida: midia
   institucional full-bleed, superficies com transparencia controlada, bordas
   discretas, acento dourado e continuidade entre hero, operacoes, acesso,
   validacao e fluxo. As imagens otimizadas permanecem em WebP e devem manter

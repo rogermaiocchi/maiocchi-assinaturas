@@ -82,7 +82,7 @@ export function LawyerAccess() {
       const html = await response.text();
       const destination = new URL(response.url, window.location.origin).pathname;
 
-      if (response.ok && destination === "/dashboard") {
+      if (response.redirected && response.ok && (destination === "/" || destination === "/dashboard")) {
         setPassword("");
         setOtp("");
         setState({ kind: "authenticated", message: "Identidade confirmada. O ambiente de gestão está liberado." });

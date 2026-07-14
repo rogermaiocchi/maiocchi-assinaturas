@@ -1,6 +1,6 @@
 services:
   docuseal:
-    image: maiocchi/docuseal:3.0.1-maiocchi.5
+    image: maiocchi/docuseal:3.0.1-maiocchi.6
     container_name: docuseal
     restart: unless-stopped
     mem_limit: 1g
@@ -32,7 +32,7 @@ services:
       CERTIFICATE_AUTH_HOST: certificado.assinatura.maiocchi.adv.br
       CERTIFICATE_AUTH_APP_HOST: assinatura.maiocchi.adv.br
       MAIOCCHI_HOME_URL: https://assinatura.maiocchi.adv.br
-      MAIOCCHI_SOURCE_URL: https://github.com/rogermaiocchi/maiocchi-assinaturas/raw/refs/tags/portal-v1.14.0/compliance/docuseal-maiocchi-3.0.1-maiocchi.5.tar.gz
+      MAIOCCHI_SOURCE_URL: https://github.com/rogermaiocchi/maiocchi-assinaturas/raw/refs/tags/portal-v1.14.1/compliance/docuseal-maiocchi-3.0.1-maiocchi.6.tar.gz
       MAIOCCHI_LICENSE_URL: https://assinatura.maiocchi.adv.br/legal/LICENSE.txt
     volumes:
       - "${DOCUSEAL_DATA_DIR:-./data}:/data"
