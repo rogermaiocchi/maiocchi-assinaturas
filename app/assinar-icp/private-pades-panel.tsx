@@ -1,7 +1,23 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { BadgeCheck, Cloud, Download, FileKey, KeyRound, LoaderCircle, MapPin, RefreshCw, ShieldAlert, Usb } from "lucide-react";
+import {
+  BadgeCheck,
+  Check,
+  Clock3,
+  Cloud,
+  Download,
+  FileKey,
+  FileText,
+  Hash,
+  KeyRound,
+  LoaderCircle,
+  MapPin,
+  RefreshCw,
+  ShieldAlert,
+  ShieldCheck,
+  Usb,
+} from "lucide-react";
 
 const bridgeBase = process.env.NEXT_PUBLIC_PKI_BRIDGE_URL || "";
 const agentBase = "http://127.0.0.1:35100";
@@ -101,6 +117,13 @@ async function responseJson<T>(response: Response): Promise<T> {
   return data as T;
 }
 
+function formatDate(value?: string) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(date);
+}
+
 export function PrivatePadesPanel() {
   const [token, setToken] = useState("");
   const [ticket, setTicket] = useState<Ticket | null>(null);
@@ -129,6 +152,7 @@ export function PrivatePadesPanel() {
       setToken(current);
       if (!current) {
         setError("O link de assinatura é inválido ou já perdeu o ticket de autorização.");
+        setMessage("Não foi possível abrir este documento.");
         return;
       }
       try {
@@ -208,47 +232,68 @@ export function PrivatePadesPanel() {
     }
   }
 
+  const hasTicket = Boolean(ticket);
+  const completed = ticket?.status === "completed";
+  const invalid = !busy && !hasTicket && Boolean(error);
+  const modality = ticket?.remoteSigningAvailable
+    ? (ticket.localSigningAvailable ? "Nuvem ou token" : "Certificado em nuvem")
+    : ticket?.localSigningAvailable ? "Token local" : "Indisponível";
+
   return (
-    <section className="icp-console" aria-labelledby="private-pades-title">
-      <div className="icp-console__header">
-        <p className="eyebrow"><span className="status-dot" /> Provider privado</p>
-        <h2 id="private-pades-title">Documento pronto para assinatura.</h2>
-        <p>{message}</p>
-      </div>
+    <section className="pades-workspace" aria-labelledby="private-pades-title">
+      <header className="pades-workspace__header">
+        <div>
+          <p className="eyebrow"><span className="status-dot" /> Ambiente protegido</p>
+          <h2 id="private-pades-title">Documento pronto para assinatura.</h2>
+          <p aria-live="polite">{message}</p>
+        </div>
+        <span className={`pades-state${completed ? " pades-state--complete" : invalid ? " pades-state--error" : ""}`}>
+          {completed ? <BadgeCheck aria-hidden="true" size={18} /> : busy ? <LoaderCircle className="spin" aria-hidden="true" size={18} /> : invalid ? <ShieldAlert aria-hidden="true" size={18} /> : <ShieldCheck aria-hidden="true" size={18} />}
+          {completed ? "Concluído" : busy ? "Processando" : invalid ? "Link inválido" : "Protegido"}
+        </span>
+      </header>
 
-      <div className="icp-status-grid">
-        <div><span className="mode-tag"><FileKey aria-hidden="true" size={13} /> DOCUMENTO</span><strong>{ticket?.documentName || "Não identificado"}</strong><p>{ticket?.publicId || "-"}</p><p className="hash-value">{ticket?.documentSha256 || "-"}</p></div>
-        <div><span className="mode-tag"><KeyRound aria-hidden="true" size={13} /> MODALIDADE</span><strong>{ticket?.remoteSigningAvailable ? (ticket.localSigningAvailable ? "Nuvem ou token" : "Certificado em nuvem") : "Token local"}</strong><p>{ticket?.remoteSigningAvailable ? "PSC ICP-Brasil · sem instalação" : "Agente protegido · porta 35100"}</p></div>
-        <div><span className="mode-tag mode-tag--yellow"><BadgeCheck aria-hidden="true" size={13} /> PADES</span><strong>{ticket?.status === "completed" ? "Validado" : "Aguardando assinatura"}</strong><p className="hash-value">{ticket?.signedPdfSha256 || ticket?.postQuantumCode || "-"}</p>{ticket?.finalPostQuantumCode && <p className="hash-value">{ticket.finalPostQuantumCode}</p>}</div>
-      </div>
+      <ol className="pades-progress" aria-label="Etapas da assinatura">
+        <li className={hasTicket ? "is-complete" : ""}><span>{hasTicket ? <Check aria-hidden="true" size={15} /> : "1"}</span><strong>Documento</strong><small>{hasTicket ? "Conferido" : "Aguardando link"}</small></li>
+        <li className={completed ? "is-complete" : hasTicket ? "is-current" : ""}><span>{completed ? <Check aria-hidden="true" size={15} /> : "2"}</span><strong>Certificado</strong><small>{completed ? "Aplicado" : hasTicket ? "Escolha a modalidade" : "Aguardando"}</small></li>
+        <li className={completed ? "is-complete" : ""}><span>{completed ? <Check aria-hidden="true" size={15} /> : "3"}</span><strong>Resultado</strong><small>{completed ? "Disponível" : "Aguardando"}</small></li>
+      </ol>
 
-      {error && <p className="icp-message icp-message--error" role="alert"><ShieldAlert aria-hidden="true" size={17} /><span>{error}</span></p>}
-      {ticket?.remoteSigningAvailable && ticket.status !== "completed" && (
-        <p className="icp-message"><MapPin aria-hidden="true" size={17} /><span>A localização é opcional. Se autorizada, será incorporada à página final e ficará visível a quem receber o PDF ou o código de verificação; a recusa não impede a assinatura.</span></p>
-      )}
-
-      <div className="icp-console__actions">
-        {ticket?.status === "completed" ? (
-          <button className="button button--yellow" type="button" onClick={() => void downloadResult()} disabled={busy}>
-            {busy ? <LoaderCircle className="spin" aria-hidden="true" size={17} /> : <Download aria-hidden="true" size={17} />}<span>Baixar PDF assinado</span>
-          </button>
-        ) : (
-          <>
-            {ticket?.remoteSigningAvailable && (
-              <button className="button button--yellow" type="button" onClick={() => void signRemotely()} disabled={busy || ticket.status !== "pending"}>
-                {busy ? <LoaderCircle className="spin" aria-hidden="true" size={17} /> : <Cloud aria-hidden="true" size={17} />}<span>Assinar sem instalar</span>
-              </button>
+      <div className="pades-workspace__grid">
+        <section className="pades-document-pane" aria-labelledby="pades-document-title">
+          <div className="pades-pane-heading"><FileText aria-hidden="true" size={24} /><div><p>Documento</p><h3 id="pades-document-title">{ticket?.documentName || (invalid ? "Documento não disponível" : "Carregando documento")}</h3></div></div>
+          <dl className="pades-metadata">
+            <div><dt><FileKey aria-hidden="true" size={15} /> Identificador</dt><dd>{ticket?.publicId || "-"}</dd></div>
+            <div><dt><Hash aria-hidden="true" size={15} /> SHA-256 original</dt><dd className="hash-value">{ticket?.documentSha256 || "-"}</dd></div>
+            <div><dt><Clock3 aria-hidden="true" size={15} /> Ticket válido até</dt><dd>{formatDate(ticket?.expiresAt)}</dd></div>
+            {ticket?.documentNumber && <div><dt><FileText aria-hidden="true" size={15} /> Número</dt><dd>{ticket.documentNumber}</dd></div>}
+            {(ticket?.signedPdfSha256 || ticket?.postQuantumCode || ticket?.finalPostQuantumCode) && (
+              <div><dt><ShieldCheck aria-hidden="true" size={15} /> Evidência final</dt><dd className="hash-value">{ticket?.signedPdfSha256 || ticket?.finalPostQuantumCode || ticket?.postQuantumCode}</dd></div>
             )}
-            {ticket?.localSigningAvailable && (
-              <button className={ticket?.remoteSigningAvailable ? "button button--dark" : "button button--yellow"} type="button" onClick={signDocument} disabled={busy || ticket?.status !== "pending"}>
-                {ticket?.remoteSigningAvailable ? <Usb aria-hidden="true" size={17} /> : <KeyRound aria-hidden="true" size={17} />}<span>Usar token local</span>
+          </dl>
+        </section>
+
+        <aside className="pades-action-pane" aria-labelledby="pades-action-title">
+          <div className="pades-pane-heading"><KeyRound aria-hidden="true" size={24} /><div><p>Modalidade disponível</p><h3 id="pades-action-title">{modality}</h3></div></div>
+          <p className="pades-action-pane__description">{!ticket ? "O acesso depende de um link individual e válido." : ticket.remoteSigningAvailable ? "A assinatura em nuvem ocorre no prestador de confiança e não exige instalação." : "O token conectado é acessado pelo agente local protegido."}</p>
+
+          {error && <p className="icp-message icp-message--error" role="alert"><ShieldAlert aria-hidden="true" size={17} /><span>{error}</span></p>}
+          {ticket?.remoteSigningAvailable && !completed && <p className="icp-message"><MapPin aria-hidden="true" size={17} /><span>A localização é opcional e a recusa não impede a assinatura.</span></p>}
+
+          <div className="pades-actions">
+            {completed ? (
+              <button className="button button--yellow" type="button" onClick={() => void downloadResult()} disabled={busy}>
+                {busy ? <LoaderCircle className="spin" aria-hidden="true" size={17} /> : <Download aria-hidden="true" size={17} />}<span>Baixar PDF assinado</span>
               </button>
+            ) : (
+              <>
+                {ticket?.remoteSigningAvailable && <button className="button button--yellow" type="button" onClick={() => void signRemotely()} disabled={busy || ticket.status !== "pending"}>{busy ? <LoaderCircle className="spin" aria-hidden="true" size={17} /> : <Cloud aria-hidden="true" size={17} />}<span>Assinar sem instalar</span></button>}
+                {ticket?.localSigningAvailable && <button className={ticket.remoteSigningAvailable ? "button button--outline" : "button button--yellow"} type="button" onClick={signDocument} disabled={busy || ticket.status !== "pending"}>{ticket.remoteSigningAvailable ? <Usb aria-hidden="true" size={17} /> : <KeyRound aria-hidden="true" size={17} />}<span>Usar token local</span></button>}
+              </>
             )}
-          </>
-        )}
-        <button className="button button--dark" type="button" onClick={() => token && void refresh(token)} disabled={busy || !token}>
-          <RefreshCw aria-hidden="true" size={17} /><span>Verificar novamente</span>
-        </button>
+            <button className="pades-refresh" type="button" onClick={() => token && void refresh(token)} disabled={busy || !token} title="Atualizar estado da assinatura"><RefreshCw aria-hidden="true" size={17} /><span>Atualizar estado</span></button>
+          </div>
+        </aside>
       </div>
     </section>
   );

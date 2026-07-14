@@ -157,10 +157,18 @@ test("publica sem alteração a cadeia GOV.BR indicada na fonte oficial", async 
 });
 
 test("publica o código-fonte correspondente da aplicação de assinaturas", async () => {
-  const archive = await stat(new URL("../public/codigo-fonte/docuseal-maiocchi-3.0.1.tar.gz", import.meta.url));
+  const [archive, redesignPatch] = await Promise.all([
+    stat(new URL("../public/codigo-fonte/docuseal-maiocchi-3.0.1.tar.gz", import.meta.url)),
+    readFile(new URL("../patches/docuseal/0002-institutional-signing-window.patch", import.meta.url), "utf8"),
+  ]);
 
   assert.ok(archive.isFile());
   assert.ok(archive.size > 1_000_000, "o arquivo-fonte deve conter o fork completo e suas licenças");
+  assert.match(redesignPatch, /maiocchi-signing-bar/i);
+  assert.match(redesignPatch, /maiocchi-signing-nav/i);
+  assert.match(redesignPatch, /render 'shared\/logo'/i);
+  assert.match(redesignPatch, /^-\s*radial-gradient/m);
+  assert.doesNotMatch(redesignPatch, /^\+\s*radial-gradient/m);
 });
 
 test("publica identidade de navegador Maiocchi", async () => {
@@ -196,7 +204,7 @@ test("padroniza páginas inexistentes e redirecionamentos internos", async () =>
   assert.match(traefik, /documents-to-main:/i);
   assert.match(traefik, /replacement: 'https:\/\/assinatura\.maiocchi\.adv\.br\/\$\{1\}'/i);
   assert.match(docuseal, /APP_URL: https:\/\/assinatura\.maiocchi\.adv\.br/i);
-  assert.match(docuseal, /image: maiocchi\/docuseal:3\.0\.1-maiocchi\.2/i);
+  assert.match(docuseal, /image: maiocchi\/docuseal:3\.0\.1-maiocchi\.3/i);
   assert.match(docuseal, /CERTIFICATE_AUTH_APP_HOST: assinatura\.maiocchi\.adv\.br/i);
   assert.doesNotMatch(docuseal, /documentos\.assinatura\.maiocchi\.adv\.br/i);
 });

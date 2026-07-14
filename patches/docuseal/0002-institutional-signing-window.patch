@@ -1,0 +1,268 @@
+--- a/app/views/submit_form/show.html.erb
++++ b/app/views/submit_form/show.html.erb
+@@ -17,11 +17,19 @@
+       <%# flex block w-full sticky top-0 z-50 space-x-2 items-center bg-yellow-100 p-2 border-y border-yellow-200 transition-transform duration-300 %>
+       <%= local_assigns[:banner_html] || capture do %>
+         <%= render('submit_form/banner') %>
+-        <header id="signing_form_header" class="sticky min-[1230px]:static top-0 z-50 bg-base-100 py-2 px-2 flex items-center md:-mx-[8px]" style="margin-bottom: -16px">
+-          <h1 class="text-xl md:text-2xl font-medium focus:text-clip" style="width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
++        <header id="signing_form_header" class="maiocchi-signing-bar sticky top-0 z-50 flex items-center">
++          <a href="<%= MaiocchiBrand::HOME_URL %>" class="maiocchi-signing-brand" aria-label="Voltar ao portal de assinaturas">
++            <%= render 'shared/logo', width: '48px', height: '48px' %>
++          </a>
++          <h1 class="maiocchi-signing-title text-xl md:text-2xl font-medium focus:text-clip">
+             <%= @submitter.submission.name || @submitter.submission.template.name %>
+           </h1>
+-          <div class="flex items-center gap-2 group" style="margin-left: 20px; flex-shrink: 0">
++          <nav class="maiocchi-signing-nav" aria-label="Navegação do portal">
++            <a href="<%= MaiocchiBrand::HOME_URL %>/#acessar-documento" aria-label="Assinar documento" title="Assinar documento" aria-current="page"><%= svg_icon('writing_sign', class: 'w-5 h-5') %></a>
++            <a href="<%= MaiocchiBrand::HOME_URL %>/#validar" aria-label="Validar documento" title="Validar documento"><%= svg_icon('shield_check', class: 'w-5 h-5') %></a>
++            <a href="<%= MaiocchiBrand::HOME_URL %>/#advogados" aria-label="Área dos advogados" title="Área dos advogados"><%= svg_icon('folder', class: 'w-5 h-5') %></a>
++          </nav>
++          <div class="maiocchi-signing-actions flex items-center gap-2 group">
+             <% if @form_configs[:with_decline] %>
+               <modal-button data-target="<%= decline_modal_id = SecureRandom.uuid %>" class="hidden group-has-[.complete-button]:flex">
+                 <button type="button" class="btn btn-sm md:!px-5 px-2" aria-label="<%= t(:decline) %>">
+--- a/app/views/submit_form/_docuseal_logo.html.erb
++++ b/app/views/submit_form/_docuseal_logo.html.erb
+@@ -1,7 +1,3 @@
+-<a href="<%= MaiocchiBrand::HOME_URL %>" class="maiocchi-signer-lockup mx-auto" rel="noopener">
+-  <%= render 'shared/logo', width: '44px', height: '44px' %>
+-  <span>
+-    <strong><%= MaiocchiBrand::PRODUCT_NAME %></strong>
+-    <small><%= MaiocchiBrand.copy(:signer_kicker) %></small>
+-  </span>
++<a href="<%= MaiocchiBrand::HOME_URL %>" class="maiocchi-signer-lockup mx-auto" rel="noopener" aria-label="Voltar ao portal de assinaturas">
++  <%= render 'shared/logo', width: '48px', height: '48px' %>
+ </a>
+--- a/app/javascript/styles/_maiocchi_brand.scss
++++ b/app/javascript/styles/_maiocchi_brand.scss
+@@ -1,9 +1,9 @@
+ :root {
+-  --maiocchi-ink: #0a0a0a;
+-  --maiocchi-paper: #f6f5f1;
+-  --maiocchi-accent: #ffc400;
+-  --maiocchi-line: #dedbd2;
+-  --maiocchi-muted: #68645d;
++  --maiocchi-ink: #1d1d1f;
++  --maiocchi-paper: #f5f5f7;
++  --maiocchi-accent: #ffb800;
++  --maiocchi-line: #d2d2d7;
++  --maiocchi-muted: #636366;
+   --maiocchi-card: #ffffff;
+ }
+
+@@ -13,9 +13,7 @@
+ }
+
+ body {
+-  background:
+-    radial-gradient(circle at 84% 8%, rgb(255 196 0 / 12%), transparent 22rem),
+-    var(--maiocchi-paper);
++  background: var(--maiocchi-paper);
+   color: var(--maiocchi-ink);
+   font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+   min-height: 100vh;
+@@ -178,7 +176,7 @@
+ h3,
+ .font-bold,
+ .font-semibold {
+-  letter-spacing: -0.035em;
++  letter-spacing: 0;
+ }
+
+ .maiocchi-mark {
+@@ -366,7 +364,7 @@
+ .textarea {
+   background: white;
+   border-color: #c8c4ba;
+-  border-radius: 0.75rem;
++  border-radius: 0.5rem;
+ }
+
+ .base-input:focus,
+@@ -381,7 +379,7 @@
+ .btn,
+ .base-button,
+ .white-button {
+-  border-radius: 0.75rem;
++  border-radius: 0.5rem;
+   font-weight: 750;
+   min-height: 2.85rem;
+   text-transform: none;
+@@ -414,9 +412,7 @@
+
+ .maiocchi-form-shell,
+ .maiocchi-plain-shell {
+-  background:
+-    radial-gradient(circle at 84% 8%, rgb(255 196 0 / 12%), transparent 22rem),
+-    var(--maiocchi-paper);
++  background: var(--maiocchi-paper);
+ }
+
+ .maiocchi-form-shell main.max-w-md,
+@@ -472,16 +468,17 @@
+
+ #signing_form_header,
+ #title_container {
+-  background: rgb(246 245 241 / 96%) !important;
+-  border: 1px solid var(--maiocchi-line);
+-  border-radius: 0.9rem;
+-  box-shadow: 0 14px 30px rgb(10 10 10 / 8%);
++  background: rgb(245 245 247 / 92%) !important;
++  border: 0;
++  border-bottom: 1px solid var(--maiocchi-line);
++  border-radius: 0;
++  box-shadow: 0 8px 26px rgb(29 29 31 / 8%);
+   backdrop-filter: blur(14px);
+ }
+
+ page-container {
+   border: 1px solid var(--maiocchi-line);
+-  box-shadow: 0 18px 48px rgb(10 10 10 / 12%) !important;
++  box-shadow: 0 16px 38px rgb(29 29 31 / 10%) !important;
+ }
+
+ .completed-form {
+@@ -516,8 +513,141 @@
+ .maiocchi-interface-attribution .maiocchi-open-source {
+   font-size: 0.62rem;
+   margin: 0;
++}
++
++.maiocchi-signing-bar {
++  gap: 0.75rem;
++  margin-bottom: 0.5rem;
++  margin-left: calc(50% - 50vw);
++  min-height: 68px;
++  padding-left: max(1rem, calc((100vw - 1180px) / 2));
++  padding-right: max(1rem, calc((100vw - 1180px) / 2));
++  width: 100vw;
++}
++
++.maiocchi-signing-brand {
++  align-items: center;
++  display: inline-flex;
++  flex: 0 0 auto;
++  justify-content: center;
++  min-height: 48px;
++  min-width: 48px;
++}
++
++.maiocchi-signing-title {
++  flex: 1 1 auto;
++  min-width: 0;
++  overflow: hidden;
++  text-overflow: ellipsis;
++  white-space: nowrap;
++}
++
++.maiocchi-signing-nav {
++  align-items: center;
++  display: flex;
++  flex: 0 0 auto;
++  gap: 0.4rem;
++}
++
++.maiocchi-signing-nav a {
++  align-items: center;
++  background: rgb(255 255 255 / 58%);
++  border: 1px solid rgb(29 29 31 / 18%);
++  border-radius: 999px;
++  color: var(--maiocchi-ink);
++  display: inline-flex;
++  height: 42px;
++  justify-content: center;
++  transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
++  width: 42px;
++}
++
++.maiocchi-signing-nav a:hover,
++.maiocchi-signing-nav a:focus-visible,
++.maiocchi-signing-nav a[aria-current='page'] {
++  background: var(--maiocchi-accent);
++  border-color: var(--maiocchi-accent);
++  box-shadow: 0 0 0 4px rgb(255 184 0 / 18%);
+ }
+
++.maiocchi-signing-actions {
++  flex: 0 0 auto;
++  margin-left: 0.35rem;
++}
++
++.maiocchi-form-shell #scrollbox {
++  background: #ececee;
++}
++
++.maiocchi-form-shell page-container {
++  background: white;
++  border-radius: 3px;
++  overflow: hidden;
++}
++
++.maiocchi-form-shell .form-container {
++  border-color: var(--maiocchi-line);
++  border-radius: 0.5rem 0.5rem 0 0;
++  border-top: 4px solid var(--maiocchi-accent);
++  box-shadow: 0 -16px 42px rgb(29 29 31 / 12%);
++}
++
++.maiocchi-form-shell .draw-canvas,
++.maiocchi-form-shell .completed-form {
++  border-radius: 0.5rem;
++}
++
++.maiocchi-form-shell .field-name-label {
++  letter-spacing: 0;
++}
++
++@media (max-width: 760px) {
++  .maiocchi-signing-bar {
++    gap: 0.45rem;
++    min-height: 64px;
++    padding-left: 0.75rem;
++    padding-right: 0.75rem;
++  }
++
++  .maiocchi-signing-brand .maiocchi-mark {
++    font-size: 42px;
++    height: 44px !important;
++    width: 44px !important;
++  }
++
++  .maiocchi-signing-title {
++    font-size: 0.9rem;
++  }
++
++  .maiocchi-signing-nav {
++    gap: 0.25rem;
++  }
++
++  .maiocchi-signing-nav a {
++    height: 44px;
++    width: 44px;
++  }
++
++  .maiocchi-signing-actions {
++    margin-left: 0;
++  }
++}
++
++@media (max-width: 540px) {
++  .maiocchi-signing-title {
++    display: none;
++  }
++
++  .maiocchi-signing-nav {
++    margin-left: auto;
++  }
++
++  .maiocchi-signing-actions .btn {
++    min-height: 44px;
++    min-width: 44px;
++  }
++}
++
+ @media (max-width: 640px) {
+   .maiocchi-navbar .maiocchi-product-name {
+     display: none;

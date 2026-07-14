@@ -169,8 +169,8 @@ export function SiteFooter() {
   return (
     <footer>
       <div className="shell footer-main">
-        <Brand compact />
         <div className="footer-summary">
+          <strong>Assinatura com percurso claro.</strong>
           <p>Documentos, assinaturas e validação em um único endereço.</p>
         </div>
         <nav className="footer-primary" aria-label="Acessos principais">

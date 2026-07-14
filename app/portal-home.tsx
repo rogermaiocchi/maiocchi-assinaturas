@@ -3,6 +3,7 @@
 import { FormEvent, PointerEvent, useState } from "react";
 import Link from "next/link";
 import {
+  ArrowDown,
   ArrowRight,
   BadgeCheck,
   CircleHelp,
@@ -38,15 +39,11 @@ function accessDocument(raw: string) {
     const url = new URL(value);
     const segments = url.pathname.split("/").filter(Boolean);
     slug = segments.at(-1) || "";
-    if (["s", "d", "e", "p"].includes(segments.at(-2) || "")) {
-      route = segments.at(-2) || route;
-    }
+    if (["s", "d", "e", "p"].includes(segments.at(-2) || "")) route = segments.at(-2) || route;
   } catch {
     const segments = value.split("/").filter(Boolean);
     slug = segments.at(-1) || "";
-    if (["s", "d", "e", "p"].includes(segments.at(-2) || "")) {
-      route = segments.at(-2) || route;
-    }
+    if (["s", "d", "e", "p"].includes(segments.at(-2) || "")) route = segments.at(-2) || route;
   }
 
   if (!/^[a-zA-Z0-9_-]{6,160}$/.test(slug)) return false;
@@ -61,9 +58,7 @@ export function PortalHome() {
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
-    if (!accessDocument(code)) {
-      setError("Confira o link ou código recebido e tente novamente.");
-    }
+    if (!accessDocument(code)) setError("Confira o link ou código recebido e tente novamente.");
   }
 
   function moveHero(event: PointerEvent<HTMLElement>) {
@@ -81,10 +76,10 @@ export function PortalHome() {
   }
 
   return (
-    <div className="portal-page">
+    <div className="portal-page portal-page--editorial">
       <SiteHeader />
       <main id="conteudo-principal">
-        <section className="hero" onPointerMove={moveHero} onPointerLeave={resetHero}>
+        <section className="hero hero--institutional" onPointerMove={moveHero} onPointerLeave={resetHero}>
           <div className="hero__media" aria-hidden="true" />
           <div className="hero__shade" aria-hidden="true" />
           <div className="shell hero__content">
@@ -95,26 +90,24 @@ export function PortalHome() {
 
               <form className="hero-access" id="acessar-documento" onSubmit={onSubmit} noValidate aria-labelledby="access-title">
                 <div className="hero-access__heading">
-                  <div>
-                    <span className="secure-label"><LockKeyhole aria-hidden="true" size={14} /> Acesso protegido</span>
-                    <h2 id="access-title">Recebeu um documento?</h2>
-                  </div>
+                  <span className="secure-label"><LockKeyhole aria-hidden="true" size={14} /> Acesso protegido</span>
+                  <h2 id="access-title">Recebeu um documento?</h2>
                 </div>
-                <label htmlFor="document-code">Cole o link ou informe o código enviado pelo escritório</label>
+                <label className="sr-only" htmlFor="document-code">Cole o link ou informe o código enviado pelo escritório</label>
                 <div className={`code-field${error ? " code-field--error" : ""}`}>
                   <input
                     id="document-code"
                     name="document-code"
                     value={code}
                     onChange={(event) => setCode(event.target.value)}
-                    placeholder="Ex.: A7K9-M2P4"
+                    placeholder="Cole o link ou informe o código"
                     autoComplete="off"
                     spellCheck={false}
                     aria-invalid={Boolean(error)}
                     aria-describedby={error ? "access-error" : "access-help"}
                   />
-                  <button type="submit">
-                    <span>Abrir documento</span>
+                  <button type="submit" aria-label="Abrir documento">
+                    <span>Abrir</span>
                     <Send aria-hidden="true" size={17} />
                   </button>
                 </div>
@@ -122,17 +115,10 @@ export function PortalHome() {
                 {error && <p className="form-error" id="access-error" role="alert">{error}</p>}
               </form>
 
-              <div className="hero-actions">
-                <Link className="button button--yellow" href="/#advogados">
-                  <FolderKanban aria-hidden="true" size={18} />
-                  <span>Entrar como advogado</span>
-                  <ArrowRight aria-hidden="true" size={16} />
-                </Link>
-                <Link className="button button--glass" href="/#validar">
-                  <ScanSearch aria-hidden="true" size={18} />
-                  <span>Validar documento</span>
-                </Link>
-              </div>
+              <nav className="hero-actions" aria-label="Acessos rápidos">
+                <Link className="hero-text-link" href="/#advogados"><FolderKanban aria-hidden="true" size={18} /><span>Área dos advogados</span><ArrowRight aria-hidden="true" size={15} /></Link>
+                <Link className="hero-text-link" href="/#validar"><ScanSearch aria-hidden="true" size={18} /><span>Validar documento</span><ArrowRight aria-hidden="true" size={15} /></Link>
+              </nav>
 
               <div className="trust-row" aria-label="Proteções do portal">
                 <span><ShieldCheck aria-hidden="true" size={15} /> Conexão TLS</span>
@@ -141,73 +127,42 @@ export function PortalHome() {
               </div>
             </div>
           </div>
+          <a className="hero-scroll" href="#operacoes" aria-label="Ir para os serviços do portal"><ArrowDown aria-hidden="true" size={19} /></a>
         </section>
 
-        <section className="service-strip" aria-label="Navegação visual por objetivo">
-          <div className="shell service-strip__grid">
-            <Link href="/#acessar-documento">
-              <span className="service-strip__index">01</span>
-              <span className="service-strip__icon"><PenLine aria-hidden="true" size={21} /></span>
-              <span><small>Recebi um link</small><strong>Assinar documento</strong></span>
-              <ArrowRight aria-hidden="true" size={18} />
-            </Link>
-            <Link href="/#validar">
-              <span className="service-strip__index">02</span>
-              <span className="service-strip__icon service-strip__icon--yellow"><FileCheck2 aria-hidden="true" size={21} /></span>
-              <span><small>Tenho o PDF ou a chave</small><strong>Validar autenticidade</strong></span>
-              <ArrowRight aria-hidden="true" size={18} />
-            </Link>
-            <Link href="/#advogados">
-              <span className="service-strip__index">03</span>
-              <span className="service-strip__icon"><FolderKanban aria-hidden="true" size={21} /></span>
-              <span><small>Sou advogado</small><strong>Gerenciar documentos</strong></span>
-              <ArrowRight aria-hidden="true" size={18} />
-            </Link>
+        <nav className="operation-rail" id="operacoes" aria-label="Escolha o que deseja fazer">
+          <div className="shell operation-rail__inner">
+            <Link href="/#acessar-documento"><span className="operation-rail__number">01</span><PenLine aria-hidden="true" size={22} /><span><small>Recebi um link</small><strong>Assinar</strong></span><ArrowRight aria-hidden="true" size={17} /></Link>
+            <Link href="/#validar"><span className="operation-rail__number">02</span><FileCheck2 aria-hidden="true" size={22} /><span><small>Tenho o PDF ou a chave</small><strong>Validar</strong></span><ArrowRight aria-hidden="true" size={17} /></Link>
+            <Link href="/#advogados"><span className="operation-rail__number">03</span><FolderKanban aria-hidden="true" size={22} /><span><small>Sou advogado</small><strong>Gerenciar</strong></span><ArrowRight aria-hidden="true" size={17} /></Link>
           </div>
+        </nav>
+
+        <section className="portal-band portal-band--workspace" id="advogados">
+          <div className="shell"><LawyerAccess /></div>
         </section>
 
-        <section className="workspace-section" id="advogados">
+        <section className="portal-band portal-band--verification" id="validar">
           <div className="shell">
-            <LawyerAccess />
-          </div>
-        </section>
-
-        <section className="verification-section" id="validar">
-          <div className="shell verification-section__inner">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow"><BadgeCheck aria-hidden="true" size={14} /> Validação integrada</p>
-                <h2>Confira a autenticidade sem abandonar o portal.</h2>
-              </div>
-              <p>Consulte a chave Maiocchi, compare localmente o SHA-256 do PDF e, em seguida, utilize o serviço oficial do ITI incorporado abaixo.</p>
+            <div className="editorial-heading">
+              <div><p className="eyebrow"><BadgeCheck aria-hidden="true" size={14} /> Validação integrada</p><h2>Autenticidade conferida no mesmo percurso.</h2></div>
+              <p>Consulte a chave Maiocchi, compare o SHA-256 do PDF e, quando aplicável, prossiga para o serviço oficial do ITI.</p>
             </div>
             <AuthenticityVerifier officialValidatorMode="embedded" />
-            <section className="iti-validator" id="validar-iti" aria-labelledby="iti-validator-title">
-              <div className="iti-validator__heading">
-                <div>
-                  <p className="eyebrow"><Landmark aria-hidden="true" size={14} /> Serviço oficial</p>
-                  <h3 id="iti-validator-title">VALIDAR ITI</h3>
-                  <p>O conteúdo abaixo é fornecido diretamente por <strong>validar.iti.gov.br</strong>. Arquivos submetidos seguem os termos e o processamento do serviço oficial.</p>
+            <details className="official-validator" id="validar-iti">
+              <summary><span><Landmark aria-hidden="true" size={20} /><span><small>Serviço oficial externo</small><strong>VALIDAR ITI</strong></span></span><span className="official-validator__action">Abrir verificador <ArrowDown aria-hidden="true" size={17} /></span></summary>
+              <div className="official-validator__body">
+                <div className="official-validator__notice">
+                  <p>O conteúdo abaixo é fornecido por <strong>validar.iti.gov.br</strong>. Caso o serviço impeça a incorporação, abra-o em uma nova aba.</p>
+                  <a href="https://validar.iti.gov.br/" target="_blank" rel="noreferrer"><ExternalLink aria-hidden="true" size={17} /><span>Abrir validar.iti.gov.br</span></a>
                 </div>
-                <a href="https://validar.iti.gov.br/" target="_blank" rel="noreferrer" title="Abrir VALIDAR ITI em nova aba">
-                  <ExternalLink aria-hidden="true" size={18} />
-                  <span>Abrir em nova aba</span>
-                </a>
+                <div className="official-validator__frame"><iframe src="https://validar.iti.gov.br/" title="Validador oficial de assinaturas do Instituto Nacional de Tecnologia da Informação" loading="lazy" referrerPolicy="strict-origin-when-cross-origin" allow="clipboard-read; clipboard-write" /></div>
               </div>
-              <div className="iti-validator__frame">
-                <iframe
-                  src="https://validar.iti.gov.br/"
-                  title="Validador oficial de assinaturas do Instituto Nacional de Tecnologia da Informação"
-                  loading="lazy"
-                  referrerPolicy="strict-origin-when-cross-origin"
-                  allow="clipboard-read; clipboard-write"
-                />
-              </div>
-            </section>
+            </details>
           </div>
         </section>
 
-        <section className="steps-section" id="como-funciona">
+        <section className="portal-band portal-band--process" id="como-funciona">
           <div className="shell">
             <FlowMap
               eyebrow="Fluxo único"
@@ -224,42 +179,20 @@ export function PortalHome() {
           </div>
         </section>
 
-        <section className="security-section" id="modalidades">
-          <div className="shell security-grid">
-            <div>
-              <p className="eyebrow eyebrow--light">Modalidade adequada</p>
-              <h2>Uma escolha jurídica, não apenas técnica.</h2>
-              <p className="security-intro">O portal indica o caminho aplicável e mantém as alternativas no mesmo contexto, sem obrigar o usuário a percorrer sucessivas páginas.</p>
-            </div>
-            <div className="security-options">
-              <details open>
-                <summary><span><FileSignature aria-hidden="true" size={18} /> Eletrônica</span><strong>Fluxo com trilha de eventos</strong></summary>
-                <div><p>O aceite por link registra as evidências do fluxo. A classificação jurídica depende do documento e do método de identificação.</p><Link className="inline-light-link" href="/assinaturas-eletronicas/">Entender as modalidades <ArrowRight aria-hidden="true" size={15} /></Link></div>
-              </details>
-              <details>
-                <summary><span><FileKey aria-hidden="true" size={18} /> ICP-Brasil</span><strong>Assinatura digital qualificada</strong></summary>
-                <div><p>O certificado A1, A3 ou em nuvem assina o PDF com a chave privada sob controle do titular.</p><Link className="inline-light-link" href="/certificado-icp-brasil/">Usar certificado ICP-Brasil <ArrowRight aria-hidden="true" size={15} /></Link></div>
-              </details>
-              <details>
-                <summary><span><Landmark aria-hidden="true" size={18} /> GOV.BR</span><strong>Assinatura avançada oficial</strong></summary>
-                <div><p>Quando aplicável, o documento segue ao serviço oficial e retorna para conferência e preservação.</p><Link className="inline-light-link" href="/assinatura-gov-br/">Ver percurso GOV.BR <ArrowRight aria-hidden="true" size={15} /></Link></div>
-              </details>
+        <section className="portal-band portal-band--modalities" id="modalidades">
+          <div className="shell modalities-layout">
+            <div className="modalities-layout__intro"><p className="eyebrow">Modalidade adequada</p><h2>Uma escolha jurídica, não apenas técnica.</h2><p>O portal mantém as alternativas no mesmo contexto e indica o percurso aplicável ao documento.</p></div>
+            <div className="modality-list">
+              <details open><summary><span><FileSignature aria-hidden="true" size={19} /> Eletrônica</span><strong>Fluxo com trilha de eventos</strong></summary><div><p>O aceite por link registra as evidências do fluxo. A classificação jurídica depende do documento e do método de identificação.</p><Link href="/assinaturas-eletronicas/">Entender modalidades <ArrowRight aria-hidden="true" size={15} /></Link></div></details>
+              <details><summary><span><FileKey aria-hidden="true" size={19} /> ICP-Brasil</span><strong>Assinatura digital qualificada</strong></summary><div><p>O certificado A1, A3 ou em nuvem assina o PDF com a chave privada sob controle do titular.</p><Link href="/certificado-icp-brasil/">Usar certificado <ArrowRight aria-hidden="true" size={15} /></Link></div></details>
+              <details><summary><span><Landmark aria-hidden="true" size={19} /> GOV.BR</span><strong>Assinatura avançada oficial</strong></summary><div><p>Quando aplicável, o documento segue ao serviço oficial e retorna para conferência e preservação.</p><Link href="/assinatura-gov-br/">Ver percurso GOV.BR <ArrowRight aria-hidden="true" size={15} /></Link></div></details>
             </div>
           </div>
         </section>
 
         <section className="help-cta" aria-labelledby="help-cta-title">
           <div className="shell help-cta__inner">
-            <div className="help-cta__copy">
-              <p className="eyebrow">Atendimento direto</p>
-              <h2 id="help-cta-title">Orientação para acessar, assinar e validar.</h2>
-              <p>Encontre instruções objetivas sobre documentos recebidos, certificado digital, autenticidade e dificuldades de acesso.</p>
-              <Link className="button button--yellow" href="/ajuda/">
-                <CircleHelp aria-hidden="true" size={18} />
-                <span>Acessar central de ajuda</span>
-                <ArrowRight aria-hidden="true" size={16} />
-              </Link>
-            </div>
+            <div className="help-cta__copy"><p className="eyebrow">Atendimento direto</p><h2 id="help-cta-title">Orientação para acessar, assinar e validar.</h2><p>Instruções objetivas sobre documentos recebidos, certificado digital, autenticidade e dificuldades de acesso.</p><Link className="hero-text-link" href="/ajuda/"><CircleHelp aria-hidden="true" size={19} /><span>Acessar central de ajuda</span><ArrowRight aria-hidden="true" size={16} /></Link></div>
           </div>
         </section>
       </main>
