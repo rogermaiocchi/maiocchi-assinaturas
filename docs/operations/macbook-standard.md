@@ -55,9 +55,11 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 - A fotografia institucional no hero usa sombra direcional e degradê inferior para fusão com o fundo da página; a imagem tecnológica de assinatura é reaproveitada em bloco funcional contextual, nunca como decoração desconectada.
 - Profundidade e movimento usam apenas transformações CSS leves, com desativação integral em `prefers-reduced-motion`.
 - Ícones Lucide acompanham rótulos textuais em ações e navegação. Ícones decorativos permanecem ocultos da árvore de acessibilidade.
-- A folha final apresenta “Evidências da assinatura digital” sem ícone. Todas as páginas recebem linha dourada superior; somente páginas de conteúdo recebem o registro lateral centralizado com micro marca `m.`, ID, SHA-256 da entrada e atestado ML-DSA-65. A última página não repete esse registro.
+- A folha final apresenta “Evidências da assinatura digital” sem ícone. Todas as páginas recebem linha dourada superior; somente páginas de conteúdo recebem o cabeçalho superior com a marca `m.` centralizada e, abaixo, duas linhas com código, número do documento, SHA-256 da entrada e atestado ML-DSA-65. A última página não recebe esse cabeçalho.
 - Na folha de evidências, `EVIDÊNCIAS DA ASSINATURA DIGITAL` fica à esquerda e `MODALIDADE · ...` à direita na mesma linha.
-- Quando a assinatura validada é ICP-Brasil, a marca oficial ocupa a área direita do selo e o bloco inferior exibe a base legal à esquerda e `Validação externa: validar.iti.gov.br` à direita, com link clicável para `https://validar.iti.gov.br/`. Em outras modalidades, a marca ICP-Brasil e o link ITI são omitidos e a marca PAdES ocupa a área direita do selo.
+- O quadro `VALIDAR O ORIGINAL` exibe `assinatura.maiocchi.adv.br/validar` sem repetir o ID já apresentado acima. Quando a assinatura for elegível no ITI, `validar.iti.gov.br` aparece logo abaixo como link clicável; o rodapé jurídico não repete esse destino.
+- Quando a assinatura validada é ICP-Brasil, a marca oficial ocupa a área direita do selo e a base legal física é exatamente `MP 2.200-2/2001, art. 10, § 1º · L 14.063/2020, art. 4º, III.`, sem prefixo autodeclaratório. Em outras modalidades, a marca ICP-Brasil e a alegação qualificada são omitidas, e a marca PAdES ocupa a área direita do selo.
+- O QR não recebe rótulo isolado. O Code 128 continua codificando `MAI|<publicId>|R1`, mas o payload não é impresso acima das barras. A folha final não exibe `Página X de Y`; a quantidade total permanece nos metadados documentais.
 - O provider `1.2.3` gera os dados do signatário como PNG ARGB dinâmico em 288 dpi, sem preenchimento opaco: nome, CPF mascarado, instante, A3, `signerAttr`, `/Location`, `/Reason`, estado de ACT e fingerprint SHA-256 ficam à esquerda sobre o fundo de segurança; a marca ICP-Brasil permanece fora do campo criptográfico, à direita.
 - O campo gráfico da assinatura não exibe os rótulos redundantes “Resumo visual da assinatura” ou “Resumo visual da assinatura · confira pelo QR ou código”. A identificação operacional desse bloco é somente “Assinatura”, sem alteração de geometria, conteúdo criptográfico ou estado de confiança.
 - Controles têm alvo mínimo de 44 por 44 pixels, foco visível e ordem de teclado verificável.
@@ -69,7 +71,7 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 
 ## Perfil A3 homologado
 
-O padrão de sucesso atual do MacBook primário é portal `1.11.2`, bridge `1.3.7`,
+O padrão de sucesso atual do MacBook primário é portal `1.11.2`, bridge `1.3.8`,
 provider `1.2.3`, código `47392a1885a6ed116249b730a18e76d90827027d`,
 agente local `1.2.1` em `127.0.0.1:35100`, token ICP-Brasil A3 via
 CryptoTokenKit e política PAdES AD-RB v1.3. O ensaio final de 13/07/2026 às

@@ -21,7 +21,7 @@ export const BODY = Object.freeze({
 
 export const EVIDENCE_BLOCKS = Object.freeze({
   header: Object.freeze({ left: BODY.left, top: 28, width: BODY.width, height: 38 }),
-  title: Object.freeze({ left: BODY.left, top: 85, width: BODY.width, height: 56 }),
+  title: Object.freeze({ left: BODY.left, top: 68, width: BODY.width, height: 73 }),
   document: Object.freeze({ left: BODY.left, top: 158, width: BODY.width, height: 62 }),
   hash: Object.freeze({ left: BODY.left, top: 234, width: 357.55, height: 68 }),
   qr: Object.freeze({ left: BODY.right - 80, top: 228, width: 80, height: 80 }),
@@ -32,15 +32,17 @@ export const EVIDENCE_BLOCKS = Object.freeze({
   barcode: Object.freeze({ left: BODY.left, top: 639, width: BODY.width, height: 34 }),
   seal: Object.freeze({ left: BODY.left, top: 682, width: BODY.width, height: 92 }),
   legal: Object.freeze({ left: BODY.left, top: 780, width: BODY.width, height: 36 }),
-  footer: Object.freeze({ left: BODY.left, top: 817, width: BODY.width, height: 15 }),
 });
 
 export const PAGE_CHROME = Object.freeze({
   topRuleHeight: 2,
-  sideMarkSize: 16,
-  sideRegistryFontSize: 5.2,
-  sideRegistryMinimumFontSize: 4.4,
-  sideRegistryGap: 8,
+  contentHeaderHeight: 40,
+  contentMarkSize: 15,
+  contentMarkTop: 5,
+  contentLineOneTop: 27,
+  contentLineTwoTop: 36,
+  contentRegistryFontSize: 5.2,
+  contentRegistryMinimumFontSize: 4.2,
 });
 
 export const SIGNATURE_FRAME = Object.freeze({
@@ -58,11 +60,11 @@ export const SIGNATURE_BOX = Object.freeze({
 });
 
 export const TYPOGRAPHY = Object.freeze({
-  title: 20,
-  subtitle: 9,
-  label: 8,
-  value: 9,
-  technical: 8,
+  title: 18,
+  subtitle: 8.2,
+  label: 7.2,
+  value: 8.2,
+  technical: 7.2,
   footer: 8,
 });
 

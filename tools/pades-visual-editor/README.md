@@ -35,11 +35,18 @@ isso a composição visual corresponde ao PDF preparado para assinatura.
 - o campo da assinatura não recebe título externo; os rótulos redundantes de
   “Resumo visual da assinatura” foram removidos do editor e do renderer.
 - QR e Code 128: amostras do contrato canônico `/validar?codigo=:publicId` e
-  `MAI|<publicId>|R1`.
-- páginas originais: linha dourada superior e registro marginal com micro marca,
-  código, SHA-256 e atestado ML-DSA-65; a folha final não repete esse registro.
-- validação externa: link visível e clicável para `https://validar.iti.gov.br/`
-  apenas nos modos ICP-Brasil e GOV.BR reconhecido.
+  `MAI|<publicId>|R1`. O payload do Code 128 permanece codificado nas barras,
+  sem repetição textual acima delas.
+- páginas originais: linha dourada superior e cabeçalho com a marca `m.` ao
+  centro; abaixo, duas linhas apresentam código, número do documento, SHA-256
+  e atestado ML-DSA-65. A folha final não recebe esse cabeçalho.
+- validação: o quadro `VALIDAR O ORIGINAL` exibe o endereço do portal e,
+  somente nos modos ICP-Brasil e GOV.BR reconhecido, o link clicável
+  `validar.iti.gov.br` na linha seguinte.
+- folha final: não exibe o rótulo isolado `VALIDAR`, payload textual do Code
+  128, repetição do código no quadro de validação nem numeração de página.
+- base legal ICP-Brasil: `MP 2.200-2/2001, art. 10, § 1º · L 14.063/2020,
+  art. 4º, III.`, sem prefixo autodeclaratório.
 
 Para reconstruir o fundo 4K e a amostra composta:
 

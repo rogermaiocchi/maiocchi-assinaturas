@@ -69,7 +69,7 @@ const PAGE_MARGINS = {
   bottom: Math.round(PDF_PAGE_MARGINS.bottom * EDITOR_SCALE),
   left: Math.round(PDF_PAGE_MARGINS.left * EDITOR_SCALE),
 };
-const LAYOUT_STORAGE_KEY = "maiocchi-pades-layout-v6";
+const LAYOUT_STORAGE_KEY = "maiocchi-pades-layout-v7";
 const initialLayout = Object.fromEntries(
   Object.entries(EVIDENCE_BLOCKS).map(([id, block]) => [id, editorBox(block)]),
 ) as Layout;
@@ -229,7 +229,6 @@ function DocumentCanvas({
 
       <Block {...props("qr", "qr-block")}>
         <img src="/assets/verification-qr.png" alt="QR Code de verificação" />
-        <span>VALIDAR</span>
       </Block>
 
       <Block {...props("context", "context-block")}>
@@ -271,12 +270,11 @@ function DocumentCanvas({
       <Block {...props("validation", "validation-block")}>
         <span>VALIDAR O ORIGINAL</span>
         <strong contentEditable suppressContentEditableWarning>assinatura.maiocchi.adv.br/validar</strong>
-        <small contentEditable suppressContentEditableWarning>MAI-2026-ESY0-6MPD-QQBP-RMG4</small>
+        {itiValidationEligible && <small><a href="https://validar.iti.gov.br/" target="_blank" rel="noreferrer">validar.iti.gov.br</a></small>}
       </Block>
 
       <Block {...props("barcode", "barcode-block")}>
         <img src="/assets/verification-barcode.png" alt="Código de barras de verificação" />
-        <code>MAI|MAI-2026-ESY0-6MPD-QQBP-RMG4|R1</code>
       </Block>
 
       <Block {...props("seal", "seal-block")}>
@@ -285,13 +283,8 @@ function DocumentCanvas({
 
       <Block {...props("legal", "legal-block")}>
         <p contentEditable suppressContentEditableWarning>{icpBrasil
-          ? "Assinatura eletrônica qualificada · MP 2.200-2/2001, art. 10, § 1º · Lei 14.063/2020, art. 4º, III."
+          ? "MP 2.200-2/2001, art. 10, § 1º · L 14.063/2020, art. 4º, III."
           : "Assinatura eletrônica conforme a modalidade registrada · MP 2.200-2/2001, art. 10, § 2º · Lei 14.063/2020, art. 4º."}</p>
-        {itiValidationEligible && <a href="https://validar.iti.gov.br/" target="_blank" rel="noreferrer">Validação externa: validar.iti.gov.br</a>}
-      </Block>
-
-      <Block {...props("footer", "footer-block")}>
-        <strong>Página 13 de 13</strong>
       </Block>
     </article>
   );

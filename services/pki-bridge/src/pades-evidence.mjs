@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import fontkit from "@pdf-lib/fontkit";
-import { PDFDocument, PDFName, PDFString, degrees, rgb } from "pdf-lib";
+import { PDFDocument, PDFName, PDFString, rgb } from "pdf-lib";
 import bwipjs from "bwip-js";
 import QRCode from "qrcode";
 import { assertPublicId, portalVerificationUrl } from "./authenticity-contract.mjs";
@@ -317,44 +317,50 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
       color: INK,
     });
   };
-  const drawContentRegistry = (page) => {
+  const drawContentHeader = (page) => {
     const width = page.getWidth();
     const height = page.getHeight();
-    const marginCenterX = width - PAGE_MARGINS.right / 2;
-    const registry = `${manifest.publicId} · SHA-256 ${manifest.source.sha256} · ATESTADO PÓS-QUÂNTICO ML-DSA-65 ${attestation.code}`;
-    const availableLength = height - PAGE_MARGINS.top - PAGE_MARGINS.bottom
-      - PAGE_CHROME.sideMarkSize - PAGE_CHROME.sideRegistryGap;
-    const fitted = fitValue(
-      fonts.bold,
-      registry,
-      PAGE_CHROME.sideRegistryFontSize,
-      availableLength,
-      PAGE_CHROME.sideRegistryMinimumFontSize,
-    );
-    const registryLength = fonts.bold.widthOfTextAtSize(fitted.text, fitted.size);
-    const groupLength = PAGE_CHROME.sideMarkSize + PAGE_CHROME.sideRegistryGap + registryLength;
-    const groupTop = (height - groupLength) / 2;
-    const markY = height - groupTop - PAGE_CHROME.sideMarkSize;
-    page.drawImage(maiocchiMark, {
-      x: marginCenterX - PAGE_CHROME.sideMarkSize / 2,
-      y: markY,
-      width: PAGE_CHROME.sideMarkSize,
-      height: PAGE_CHROME.sideMarkSize,
-      opacity: 0.82,
+    const availableWidth = width - PAGE_MARGINS.left - PAGE_MARGINS.right;
+    const registryLines = [
+      `CÓDIGO ${manifest.publicId} · NÚMERO ${manifest.documentNumber}`,
+      `SHA-256 ${manifest.source.sha256} · ATESTADO PÓS-QUÂNTICO ML-DSA-65 ${attestation.code}`,
+    ];
+    page.drawRectangle({
+      x: 0,
+      y: height - PAGE_CHROME.contentHeaderHeight,
+      width,
+      height: PAGE_CHROME.contentHeaderHeight - PAGE_CHROME.topRuleHeight,
+      color: rgb(1, 1, 1),
+      opacity: 0.94,
     });
-    page.drawText(fitted.text, {
-      x: marginCenterX + fitted.size / 2,
-      y: markY - PAGE_CHROME.sideRegistryGap,
-      font: fonts.bold,
-      size: fitted.size,
-      color: MUTED,
-      opacity: 0.82,
-      rotate: degrees(-90),
+    page.drawImage(maiocchiMark, {
+      x: (width - PAGE_CHROME.contentMarkSize) / 2,
+      y: height - PAGE_CHROME.contentMarkTop - PAGE_CHROME.contentMarkSize,
+      width: PAGE_CHROME.contentMarkSize,
+      height: PAGE_CHROME.contentMarkSize,
+      opacity: 0.9,
+    });
+    registryLines.forEach((line, index) => {
+      const fitted = fitValue(
+        fonts.bold,
+        line,
+        PAGE_CHROME.contentRegistryFontSize,
+        availableWidth,
+        PAGE_CHROME.contentRegistryMinimumFontSize,
+      );
+      page.drawText(fitted.text, {
+        x: PAGE_MARGINS.left + (availableWidth - fonts.bold.widthOfTextAtSize(fitted.text, fitted.size)) / 2,
+        y: height - (index === 0 ? PAGE_CHROME.contentLineOneTop : PAGE_CHROME.contentLineTwoTop),
+        font: fonts.bold,
+        size: fitted.size,
+        color: MUTED,
+        opacity: 0.88,
+      });
     });
   };
   originalPages.forEach((originalPage, index) => {
+    drawContentHeader(originalPage);
     drawTopRule(originalPage);
-    drawContentRegistry(originalPage);
     drawPageFooter(originalPage, index);
   });
 
@@ -365,12 +371,12 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
   const modalityHeader = icpBrasil
     ? "MODALIDADE · ICP-BRASIL"
     : `MODALIDADE · ${manifest.signature.infrastructure.toUpperCase()}`;
-  const fittedModalityHeader = fitValue(fonts.regular, modalityHeader, 8, EVIDENCE_BLOCKS.header.width / 2, 6.8);
+  const fittedModalityHeader = fitValue(fonts.regular, modalityHeader, 7.5, EVIDENCE_BLOCKS.header.width / 2, 6.4);
   page.drawText(evidenceHeader, {
     x: EVIDENCE_BLOCKS.header.left,
     y: baseline(EVIDENCE_BLOCKS.header.top + 15),
     font: fonts.bold,
-    size: 8.2,
+    size: 7.6,
     color: MUTED,
   });
   page.drawText(fittedModalityHeader.text, {
@@ -420,24 +426,17 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
     x: EVIDENCE_BLOCKS.hash.left,
     y: baseline(EVIDENCE_BLOCKS.hash.top + 29 + index * 13),
     font: fonts.regular,
-    size: 9.2,
+    size: 8.2,
     color: INK,
   }));
   page.drawText("O hash integral do PDF final assinado é publicado no endereço de validação.", {
     x: EVIDENCE_BLOCKS.hash.left,
     y: baseline(EVIDENCE_BLOCKS.hash.top + 62),
     font: fonts.regular,
-    size: 8,
+    size: 7.2,
     color: MUTED,
   });
   page.drawImage(qr, rect(EVIDENCE_BLOCKS.qr));
-  page.drawText("VALIDAR", {
-    x: EVIDENCE_BLOCKS.qr.left - 47,
-    y: baseline(EVIDENCE_BLOCKS.qr.top + 11),
-    font: fonts.bold,
-    size: 8,
-    color: BLUE,
-  });
   addLink(document, page, { ...rect(EVIDENCE_BLOCKS.qr), url: verificationUrl });
 
   page.drawLine({
@@ -450,7 +449,7 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
     x: BODY.left,
     y: baseline(EVIDENCE_BLOCKS.context.top + 13),
     font: fonts.bold,
-    size: 8.2,
+    size: 7.4,
     color: MUTED,
   });
   drawLabelValue(page, fonts, "EMITENTE / GERADO POR", `${manifest.generatedBy.name} · CPF ${manifest.generatedBy.nationalIdMasked} · ${manifest.generatedBy.professionalRegistration}`, leftColumnX, EVIDENCE_BLOCKS.context.top + 20, BODY.width - 24);
@@ -473,15 +472,15 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
       x: leftColumnX,
       y: baseline(EVIDENCE_BLOCKS.attributes.top + 13),
       font: fonts.bold,
-      size: 8.2,
+      size: 7.4,
       color: MUTED,
     });
     const optionalPolicy = `${optionalAttributes.normativeDocument} · AD-RB v1.3 · OID ${manifest.signature.policyOid}`;
-    page.drawText(fitText(fonts.regular, optionalPolicy, 7.4, 205), {
-      x: BODY.right - 12 - fonts.regular.widthOfTextAtSize(fitText(fonts.regular, optionalPolicy, 7.4, 205), 7.4),
+    page.drawText(fitText(fonts.regular, optionalPolicy, 6.8, 205), {
+      x: BODY.right - 12 - fonts.regular.widthOfTextAtSize(fitText(fonts.regular, optionalPolicy, 6.8, 205), 6.8),
       y: baseline(EVIDENCE_BLOCKS.attributes.top + 13),
       font: fonts.regular,
-      size: 7.4,
+      size: 6.8,
       color: MUTED,
     });
     drawAttributeSignal(page, fonts, {
@@ -499,7 +498,7 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
       x: leftColumnX,
       y: baseline(EVIDENCE_BLOCKS.attributes.top + 13),
       font: fonts.bold,
-      size: 8.2,
+      size: 7.4,
       color: MUTED,
     });
     drawAttributeSignal(page, fonts, { label: "FORMATO", value: manifest.signature.format, top: EVIDENCE_BLOCKS.attributes.top + 31, color: BLUE });
@@ -512,21 +511,21 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
     x: EVIDENCE_BLOCKS.pqc.left + 12,
     y: baseline(EVIDENCE_BLOCKS.pqc.top + 12),
     font: fonts.bold,
-    size: 8,
+    size: 7.2,
     color: MUTED,
   });
   page.drawText(attestation.code, {
     x: EVIDENCE_BLOCKS.pqc.left + 12,
     y: baseline(EVIDENCE_BLOCKS.pqc.top + 29),
     font: fonts.bold,
-    size: 9,
+    size: 8.2,
     color: INK,
   });
   page.drawText(`ML-DSA-65 · chave ${attestation.keyId} · evidência complementar`, {
     x: EVIDENCE_BLOCKS.pqc.left + 12,
     y: baseline(EVIDENCE_BLOCKS.pqc.top + 44),
     font: fonts.regular,
-    size: 7.5,
+    size: 6.8,
     color: MUTED,
   });
 
@@ -535,37 +534,48 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
     x: EVIDENCE_BLOCKS.validation.left + 10,
     y: baseline(EVIDENCE_BLOCKS.validation.top + 12),
     font: fonts.bold,
-    size: 8,
+    size: 7.2,
     color: BLUE,
   });
   page.drawText(verificationHost, {
     x: EVIDENCE_BLOCKS.validation.left + 10,
     y: baseline(EVIDENCE_BLOCKS.validation.top + 29),
     font: fonts.regular,
-    size: 8,
+    size: 7.2,
     color: INK,
   });
-  page.drawText(manifest.publicId, {
+  const verificationHostWidth = fonts.regular.widthOfTextAtSize(verificationHost, 7.2);
+  addLink(document, page, {
     x: EVIDENCE_BLOCKS.validation.left + 10,
-    y: baseline(EVIDENCE_BLOCKS.validation.top + 44),
-    font: fonts.bold,
-    size: 8,
-    color: INK,
+    y: baseline(EVIDENCE_BLOCKS.validation.top + 32),
+    width: verificationHostWidth,
+    height: 10,
+    url: verificationUrl,
   });
-  addLink(document, page, { ...rect(EVIDENCE_BLOCKS.validation), url: verificationUrl });
+  if (itiValidationEligible) {
+    const itiHost = "validar.iti.gov.br";
+    const itiHostWidth = fonts.bold.widthOfTextAtSize(itiHost, 7.2);
+    page.drawText(itiHost, {
+      x: EVIDENCE_BLOCKS.validation.left + 10,
+      y: baseline(EVIDENCE_BLOCKS.validation.top + 44),
+      font: fonts.bold,
+      size: 7.2,
+      color: BLUE,
+    });
+    addLink(document, page, {
+      x: EVIDENCE_BLOCKS.validation.left + 10,
+      y: baseline(EVIDENCE_BLOCKS.validation.top + 47),
+      width: itiHostWidth,
+      height: 10,
+      url: ITI_VALIDATOR_URL,
+    });
+  }
 
   page.drawImage(barcode, {
     x: EVIDENCE_BLOCKS.barcode.left,
-    y: pdfY(EVIDENCE_BLOCKS.barcode.top + 9, 20),
+    y: pdfY(EVIDENCE_BLOCKS.barcode.top + 5, 24),
     width: EVIDENCE_BLOCKS.barcode.width,
-    height: 20,
-  });
-  page.drawText(barcodeValue, {
-    x: EVIDENCE_BLOCKS.barcode.left,
-    y: baseline(EVIDENCE_BLOCKS.barcode.top + 7),
-    font: fonts.regular,
-    size: 7.5,
-    color: MUTED,
+    height: 24,
   });
 
   const signatureFrameRect = {
@@ -587,36 +597,15 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
   }
 
   const legalText = icpBrasil
-    ? "Assinatura eletrônica qualificada · MP 2.200-2/2001, art. 10, § 1º · Lei 14.063/2020, art. 4º, III."
+    ? "MP 2.200-2/2001, art. 10, § 1º · L 14.063/2020, art. 4º, III."
     : "Assinatura eletrônica conforme a modalidade registrada · MP 2.200-2/2001, art. 10, § 2º · Lei 14.063/2020, art. 4º.";
-  const itiLabel = "Validação externa: validar.iti.gov.br";
-  const itiLabelWidth = fonts.bold.widthOfTextAtSize(itiLabel, 7.2);
-  const legalTextWidth = itiValidationEligible ? BODY.width - itiLabelWidth - 18 : BODY.width;
-  wrap(fonts.regular, legalText, 7.2, legalTextWidth, 2).forEach((line, index) => page.drawText(line, {
+  wrap(fonts.regular, legalText, 6.8, BODY.width, 2).forEach((line, index) => page.drawText(line, {
     x: EVIDENCE_BLOCKS.legal.left,
     y: baseline(EVIDENCE_BLOCKS.legal.top + 14 + index * 10),
     font: fonts.regular,
-    size: 7.2,
+    size: 6.8,
     color: MUTED,
   }));
-  if (itiValidationEligible) {
-    const itiLabelX = EVIDENCE_BLOCKS.legal.left + EVIDENCE_BLOCKS.legal.width - itiLabelWidth;
-    page.drawText(itiLabel, {
-      x: itiLabelX,
-      y: baseline(EVIDENCE_BLOCKS.legal.top + 18),
-      font: fonts.bold,
-      size: 7.2,
-      color: BLUE,
-    });
-    addLink(document, page, {
-      x: itiLabelX,
-      y: baseline(EVIDENCE_BLOCKS.legal.top + 21),
-      width: itiLabelWidth,
-      height: 11,
-      url: ITI_VALIDATOR_URL,
-    });
-  }
-  drawPageFooter(page, totalPages - 1);
 
   document.catalog.set(PDFName.of("Lang"), PDFString.of("pt-BR"));
   document.setTitle(manifest.source.name.replace(/\.pdf$/i, ""));

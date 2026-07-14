@@ -37,7 +37,7 @@ test("mantém uma única geometria entre renderer, editor e provider PAdES", asy
   assert.equal(Math.round(A4.height * EDITOR_SCALE), 1123);
 
   assert.match(editor, /pades-evidence-layout\.mjs/);
-  assert.match(editor, /maiocchi-pades-layout-v6/);
+  assert.match(editor, /maiocchi-pades-layout-v7/);
   assert.match(editor, /type SignatureMode = "icp-brasil" \| "gov-br" \| "simples"/);
   assert.match(editor, /icpBrasilCredentialIncluded: modeConfig[.]icpBrasil/);
   assert.match(editor, /itiValidationEligible: modeConfig[.]itiValidationEligible/);
@@ -49,12 +49,21 @@ test("mantém uma única geometria entre renderer, editor e provider PAdES", asy
   assert.match(editor, /https:\/\/validar[.]iti[.]gov[.]br\//);
   assert.doesNotMatch(editor, /Resumo visual da assinatura/);
   assert.doesNotMatch(renderer, /drawFingerprintPattern/);
-  assert.match(renderer, /drawContentRegistry\(originalPage\)/);
-  assert.doesNotMatch(renderer, /drawContentRegistry\(page\)/);
+  assert.match(renderer, /drawContentHeader\(originalPage\)/);
+  assert.doesNotMatch(renderer, /drawContentHeader\(page\)/);
   assert.match(renderer, /drawTopRule\(originalPage\)/);
   assert.match(renderer, /drawTopRule\(page\)/);
   assert.match(renderer, /page[.]drawRectangle\(\{ x: 0, y: 0, width: A4[.]width, height: A4[.]height, color: rgb\(1, 1, 1\) \}\)/);
-  assert.match(renderer, /Validação externa: validar[.]iti[.]gov[.]br/);
+  assert.doesNotMatch(renderer, /Validação externa:/);
+  assert.doesNotMatch(renderer, /Assinatura eletrônica qualificada/);
+  assert.doesNotMatch(renderer, /page[.]drawText\(barcodeValue/);
+  assert.doesNotMatch(renderer, /drawPageFooter\(page/);
+  assert.doesNotMatch(renderer, /degrees\(-90\)/);
+  assert.match(renderer, /CÓDIGO \$\{manifest[.]publicId\} · NÚMERO \$\{manifest[.]documentNumber\}/);
+  assert.match(renderer, /SHA-256 \$\{manifest[.]source[.]sha256\} · ATESTADO PÓS-QUÂNTICO ML-DSA-65/);
+  assert.doesNotMatch(editor, /Página 13 de 13/);
+  assert.doesNotMatch(editor, /MAI\|MAI-/);
+  assert.doesNotMatch(editor, />VALIDAR<\/span>/);
   assert.match(renderer, /portalVerificationUrl\(manifest[.]publicId, baseUrl\)/);
   assert.match(renderer, /isItiValidationEligible\(manifest[.]signature\)/);
   assert.match(renderer, /function drawPadesMark/);
