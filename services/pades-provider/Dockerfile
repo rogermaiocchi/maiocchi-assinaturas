@@ -13,6 +13,7 @@ LABEL org.opencontainers.image.title="Maiocchi. Assinatura PAdES Provider" \
       org.opencontainers.image.source="https://github.com/rogermaiocchi/maiocchi-assinaturas/tree/portal-v1.14.0" \
       org.opencontainers.image.revision="${SOURCE_REVISION}"
 RUN apk upgrade --no-cache && \
+    apk del --no-cache gnupg && \
     addgroup -S pades && adduser -S -G pades -u 10001 pades
 COPY --from=build /src/target/pades-provider-*.jar /app/provider.jar
 USER 10001:10001

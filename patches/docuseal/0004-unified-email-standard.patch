@@ -1,5 +1,5 @@
 diff --git a/Dockerfile b/Dockerfile
-index 9b37965..41bad96 100644
+index 9b37965..2d72029 100644
 --- a/Dockerfile
 +++ b/Dockerfile
 @@ -48,9 +48,10 @@ ENV RAILS_ENV=production
@@ -16,6 +16,21 @@ index 9b37965..41bad96 100644
        org.opencontainers.image.revision="${SOURCE_REVISION}" \
        org.opencontainers.image.licenses="AGPL-3.0-only"
  
+@@ -74,7 +75,13 @@ activate = 1' >> /etc/openssl_legacy.cnf
+ 
+ COPY --chown=docuseal:docuseal ./Gemfile ./Gemfile.lock ./
+ 
+-RUN apk add --no-cache build-base git libpq-dev yaml-dev && bundle install && apk del --no-cache build-base git libpq-dev yaml-dev && rm -rf ~/.bundle /usr/local/bundle/cache && ruby -e "puts Dir['/usr/local/bundle/**/{spec,rdoc,resources/shared,resources/collation,resources/locales,resources/unicode_data/properties}'] + Dir['/usr/local/bundle/gems/*/{test,tests,examples,sample,misc,doc,docs}'] + Dir['/usr/local/bundle/gems/*/ext/**/*.{c,h,o,S}']" | xargs rm -rf && ln -sf /usr/lib/libonnxruntime.so.1 $(ruby -e "print Dir[Gem::Specification.find_by_name('onnxruntime').gem_dir + '/vendor/*.so'].first")
++RUN apk add --no-cache build-base git libpq-dev yaml-dev && bundle install && apk del --no-cache build-base git libpq-dev yaml-dev && rm -rf ~/.bundle /usr/local/bundle/cache && \
++    rm -rf /usr/local/lib/ruby/gems/*/gems/json-2.18.0 \
++      /usr/local/lib/ruby/gems/*/specifications/default/json-2.18.0.gemspec \
++      /usr/local/lib/ruby/gems/*/gems/net-imap-0.6.2 \
++      /usr/local/lib/ruby/gems/*/specifications/net-imap-0.6.2.gemspec && \
++    ruby -e "puts Dir['/usr/local/bundle/**/{spec,rdoc,resources/shared,resources/collation,resources/locales,resources/unicode_data/properties}'] + Dir['/usr/local/bundle/gems/*/{test,tests,examples,sample,misc,doc,docs}'] + Dir['/usr/local/bundle/gems/*/ext/**/*.{c,h,o,S}']" | xargs rm -rf && \
++    ln -sf /usr/lib/libonnxruntime.so.1 $(ruby -e "print Dir[Gem::Specification.find_by_name('onnxruntime').gem_dir + '/vendor/*.so'].first")
+ 
+ COPY --chown=docuseal:docuseal ./bin ./bin
+ COPY --chown=docuseal:docuseal ./app ./app
 diff --git a/NOTICE-MAIOCCHI.md b/NOTICE-MAIOCCHI.md
 index 843859d..4cfb6d6 100644
 --- a/NOTICE-MAIOCCHI.md
