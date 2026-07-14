@@ -1,0 +1,1528 @@
+diff --git a/Dockerfile b/Dockerfile
+index 9b37965..41bad96 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -48,9 +48,10 @@ ENV RAILS_ENV=production
+ ENV BUNDLE_WITHOUT="development:test"
+ ENV OPENSSL_CONF=/etc/openssl_legacy.cnf
+ 
+-LABEL org.opencontainers.image.title="Maiocchi Assinaturas" \
+-      org.opencontainers.image.vendor="Roger Maiocchi, advogado" \
+-      org.opencontainers.image.source="https://github.com/rogermaiocchi/maiocchi-assinaturas/tree/portal-v1.13.1" \
++LABEL org.opencontainers.image.title="Maiocchi. Assinatura" \
++      org.opencontainers.image.vendor="Maiocchi Advogado" \
++      org.opencontainers.image.version="3.0.1-maiocchi.5" \
++      org.opencontainers.image.source="https://github.com/rogermaiocchi/maiocchi-assinaturas/tree/portal-v1.14.0" \
+       org.opencontainers.image.revision="${SOURCE_REVISION}" \
+       org.opencontainers.image.licenses="AGPL-3.0-only"
+ 
+diff --git a/NOTICE-MAIOCCHI.md b/NOTICE-MAIOCCHI.md
+index 843859d..4cfb6d6 100644
+--- a/NOTICE-MAIOCCHI.md
++++ b/NOTICE-MAIOCCHI.md
+@@ -1,10 +1,10 @@
+-# Maiocchi Assinaturas — aviso de personalização
++# Maiocchi. Assinatura — aviso de personalização
+ 
+-Este repositório contém uma distribuição personalizada do DocuSeal 3.0.1 para o portal de assinaturas de **Roger Maiocchi, advogado**.
++Este repositório contém uma distribuição personalizada do DocuSeal 3.0.1 para o portal de assinaturas do **Maiocchi Advogado**.
+ 
+ ## Identidade aplicada
+ 
+-- produto visível: **Maiocchi Assinaturas**;
++- produto visível: **Maiocchi. Assinatura**;
+ - contato administrativo: **roger@maiocchi.adv.br**;
+ - paleta institucional: `#0a0a0a`, `#f6f5f1` e `#ffc400`;
+ - marca visual e ícones próprios do escritório nas interfaces web, PWA e e-mails.
+@@ -13,12 +13,12 @@ Este repositório contém uma distribuição personalizada do DocuSeal 3.0.1 par
+ 
+ O motor de documentos e assinaturas permanece DocuSeal. A atribuição discreta “Tecnologia de código aberto DocuSeal” e a oferta de fonte correspondente exigida pela AGPL são preservadas uma única vez em cada interface interativa aplicável.
+ 
+-- fonte correspondente da versão disponibilizada: <https://github.com/rogermaiocchi/maiocchi-assinaturas/raw/refs/tags/portal-v1.13.1/compliance/docuseal-maiocchi-3.0.1-maiocchi.4.tar.gz>;
++- fonte correspondente da versão disponibilizada: <https://github.com/rogermaiocchi/maiocchi-assinaturas/raw/refs/tags/portal-v1.14.0/compliance/docuseal-maiocchi-3.0.1-maiocchi.5.tar.gz>;
+ - projeto de origem: <https://github.com/docusealco/docuseal/tree/3.0.1>;
+ - licença do projeto de origem: <https://github.com/docusealco/docuseal/blob/3.0.1/LICENSE>;
+ - termos adicionais do projeto de origem: <https://github.com/docusealco/docuseal/blob/3.0.1/LICENSE_ADDITIONAL_TERMS>.
+ 
+-A personalização não altera o motor criptográfico, a geração de anexos ou os metadados técnicos de PDF que identificam o software de origem. Os avisos de copyright e licença existentes no código-fonte permanecem vigentes.
++A personalização não altera o motor criptográfico nem os metadados técnicos de PDF que identificam o software de origem. Por segurança e privacidade, documentos e trilhas de auditoria são entregues por link seguro, sem anexos de e-mail. Os avisos de copyright e licença existentes no código-fonte permanecem vigentes.
+ 
+ ## Operação
+ 
+diff --git a/app/controllers/application_controller.rb b/app/controllers/application_controller.rb
+index 4b7685f..e4cc717 100644
+--- a/app/controllers/application_controller.rb
++++ b/app/controllers/application_controller.rb
+@@ -65,11 +65,14 @@ class ApplicationController < ActionController::Base
+   def with_locale(&)
+     return yield unless current_account
+ 
+-    I18n.with_locale(:pt, &)
++    I18n.with_locale(current_account.locale.presence || I18n.default_locale, &)
+   end
+ 
+   def with_browser_locale(&)
+-    I18n.with_locale(:pt, &)
++    requested_locale = params[:lang].to_s
++    locale = requested_locale.in?(I18n.available_locales.map(&:to_s)) ? requested_locale : I18n.default_locale
++
++    I18n.with_locale(locale, &)
+   end
+ 
+   def sign_in_for_demo
+diff --git a/app/controllers/email_smtp_settings_controller.rb b/app/controllers/email_smtp_settings_controller.rb
+index f918f17..b7a465f 100644
+--- a/app/controllers/email_smtp_settings_controller.rb
++++ b/app/controllers/email_smtp_settings_controller.rb
+@@ -33,6 +33,7 @@ class EmailSmtpSettingsController < ApplicationController
+   def email_configs
+     params.require(:encrypted_config).permit(value: {}).tap do |e|
+       e[:value].compact_blank!
++      e[:value][:from_email] = MaiocchiBrand::SUPPORT_EMAIL
+     end
+   end
+ end
+diff --git a/app/controllers/errors_controller.rb b/app/controllers/errors_controller.rb
+index bd33242..fbb29fa 100644
+--- a/app/controllers/errors_controller.rb
++++ b/app/controllers/errors_controller.rb
+@@ -4,7 +4,7 @@ class ErrorsController < ActionController::Base
+   layout false
+ 
+   ENTERPRISE_FEATURE_MESSAGE =
+-    'Este recurso não está habilitado no ambiente Maiocchi Assinaturas. Contato: roger@maiocchi.adv.br'
++    'Este recurso não está habilitado no ambiente Maiocchi. Assinatura. Contato: roger@maiocchi.adv.br'
+ 
+   ENTERPRISE_PATHS = [
+     '/submissions/html',
+diff --git a/app/controllers/templates_preferences_controller.rb b/app/controllers/templates_preferences_controller.rb
+index 80865e9..d5add98 100644
+--- a/app/controllers/templates_preferences_controller.rb
++++ b/app/controllers/templates_preferences_controller.rb
+@@ -50,14 +50,12 @@ class TemplatesPreferencesController < ApplicationController
+       preferences: %i[bcc_completed request_email_subject request_email_body
+                       invitation_reminder_email_subject invitation_reminder_email_body
+                       documents_copy_email_subject documents_copy_email_body
+-                      documents_copy_email_enabled documents_copy_email_attach_audit
+-                      documents_copy_email_attach_documents documents_copy_email_reply_to
+-                      completed_notification_email_attach_documents
++                      documents_copy_email_enabled
+                       completed_redirect_url validate_unique_submitters
+                       require_all_submitters submitters_order require_phone_2fa require_email_2fa
+                       default_expire_at_duration shared_link_2fa default_expire_at request_email_enabled
+                       completed_notification_email_subject completed_notification_email_body
+-                      completed_notification_email_enabled completed_notification_email_attach_audit] +
++                      completed_notification_email_enabled] +
+                       [{ completed_message: %i[title body],
+                          submitters: [%i[uuid request_email_subject request_email_body]], link_form_fields: [] }]
+     ).tap do |attrs|
+diff --git a/app/javascript/lib/maiocchi_dialog.js b/app/javascript/lib/maiocchi_dialog.js
+index 4661c82..1e3ef5b 100644
+--- a/app/javascript/lib/maiocchi_dialog.js
++++ b/app/javascript/lib/maiocchi_dialog.js
+@@ -15,7 +15,7 @@ const ensureElements = () => {
+   dialog.innerHTML = `
+     <section class="maiocchi-dialog__card">
+       <div class="maiocchi-dialog__brand" aria-hidden="true">m<span>.</span></div>
+-      <p class="maiocchi-dialog__eyebrow">Roger Maiocchi, advogado</p>
++      <p class="maiocchi-dialog__eyebrow">Maiocchi Advogado</p>
+       <h2 id="maiocchi-dialog-title" class="maiocchi-dialog__title">Atenção</h2>
+       <p class="maiocchi-dialog__message"></p>
+       <label class="maiocchi-dialog__input-wrap" hidden>
+diff --git a/app/mailers/application_mailer.rb b/app/mailers/application_mailer.rb
+index aff0005..807b9f0 100644
+--- a/app/mailers/application_mailer.rb
++++ b/app/mailers/application_mailer.rb
+@@ -1,7 +1,8 @@
+ # frozen_string_literal: true
+ 
+ class ApplicationMailer < ActionMailer::Base
+-  default from: "#{MaiocchiBrand::PRODUCT_NAME} <#{MaiocchiBrand::SUPPORT_EMAIL}>"
++  default from: MaiocchiBrand::CANONICAL_FROM,
++          reply_to: MaiocchiBrand::SUPPORT_EMAIL
+   layout 'mailer'
+ 
+   register_interceptor ActionMailerConfigsInterceptor
+diff --git a/app/mailers/settings_mailer.rb b/app/mailers/settings_mailer.rb
+index 4140ad3..2069a43 100644
+--- a/app/mailers/settings_mailer.rb
++++ b/app/mailers/settings_mailer.rb
+@@ -2,6 +2,6 @@
+ 
+ class SettingsMailer < ApplicationMailer
+   def smtp_successful_setup(email)
+-    mail(to: email, from: email, subject: 'SMTP has been configured')
++    mail(to: email, subject: 'Configuração de e-mail concluída')
+   end
+ end
+diff --git a/app/mailers/submitter_mailer.rb b/app/mailers/submitter_mailer.rb
+index 6736c21..2a9af54 100644
+--- a/app/mailers/submitter_mailer.rb
++++ b/app/mailers/submitter_mailer.rb
+@@ -4,8 +4,6 @@ class SubmitterMailer < ApplicationMailer
+   MAX_ATTACHMENTS_SIZE = 10.megabytes
+   SIGN_TTL = 1.hour + 20.minutes
+ 
+-  NO_REPLY_REGEXP = /no-?reply@/i
+-
+   def invitation_email(submitter)
+     @current_account = submitter.submission.account
+     @submitter = submitter
+@@ -57,13 +55,7 @@ class SubmitterMailer < ApplicationMailer
+ 
+     @email_config = AccountConfigs.find_for_account(@current_account, AccountConfig::SUBMITTER_COMPLETED_EMAIL_KEY)
+ 
+-    add_completed_email_attachments!(
+-      submitter,
+-      with_documents: @email_config&.value&.dig('attach_documents') != false &&
+-                      template_preferences['completed_notification_email_attach_documents'] != false,
+-      with_audit_log: @email_config&.value&.dig('attach_audit_log') != false &&
+-                      template_preferences['completed_notification_email_attach_audit'] != false
+-    )
++    add_completed_email_attachments!(submitter)
+ 
+     @subject = template_preferences['completed_notification_email_subject'].presence
+     @subject ||= @email_config.value['subject'] if @email_config
+@@ -95,7 +87,7 @@ class SubmitterMailer < ApplicationMailer
+     I18n.with_locale(@current_account.locale) do
+       mail(from: from_address_for_submitter(submitter),
+            to: user.role == 'integration' ? user.friendly_name.sub(/\+\w+@/, '@') : user.friendly_name,
+-           reply_to: @submitter.friendly_name,
++           reply_to: MaiocchiBrand::SUPPORT_EMAIL,
+            subject: I18n.t(:name_declined_by_submitter,
+                            name: (@submission.name || @submission.template.name).truncate(20),
+                            submitter: @submitter.name || @submitter.email || @submitter.phone))
+@@ -113,13 +105,7 @@ class SubmitterMailer < ApplicationMailer
+ 
+     @email_config = AccountConfigs.find_for_account(@current_account, AccountConfig::SUBMITTER_DOCUMENTS_COPY_EMAIL_KEY)
+ 
+-    add_completed_email_attachments!(
+-      submitter,
+-      with_documents: template_preferences['documents_copy_email_attach_documents'] != false &&
+-                      (@email_config.nil? || @email_config.value['attach_documents'] != false),
+-      with_audit_log: template_preferences['documents_copy_email_attach_audit'] != false &&
+-                      (@email_config.nil? || @email_config.value['attach_audit_log'] != false)
+-    )
++    add_completed_email_attachments!(submitter)
+ 
+     @subject = template_preferences['documents_copy_email_subject'].presence
+     @subject ||= @email_config.value['subject'] if @email_config
+@@ -156,21 +142,13 @@ class SubmitterMailer < ApplicationMailer
+ 
+   private
+ 
+-  def build_submitter_reply_to(submitter, email_config: nil, documents_copy_email: nil)
+-    reply_to = submitter.preferences['reply_to'].presence
+-    reply_to ||= submitter.template&.preferences&.dig('documents_copy_email_reply_to').presence if documents_copy_email
+-    reply_to ||= email_config.value['reply_to'].presence if email_config
+-
+-    if reply_to.blank? && (submitter.submission.created_by_user || submitter.template.author)&.email != submitter.email
+-      reply_to = (submitter.submission.created_by_user || submitter.template.author)&.friendly_name&.sub(/\+\w+@/, '@')
+-    end
+-
+-    return nil if reply_to.to_s.match?(NO_REPLY_REGEXP)
+-
+-    reply_to
++  def build_submitter_reply_to(_submitter, **_options)
++    MaiocchiBrand::SUPPORT_EMAIL
+   end
+ 
+   def add_completed_email_attachments!(submitter, with_audit_log: true, with_documents: true)
++    return [] unless MaiocchiBrand::EMAIL_ATTACHMENTS_ENABLED
++
+     documents = with_documents ? Submitters.select_attachments_for_download(submitter) : []
+ 
+     filename_format = AccountConfig.find_or_initialize_by(account_id: submitter.account_id,
+@@ -245,17 +223,13 @@ class SubmitterMailer < ApplicationMailer
+     if submitter.submission.source.in?(%w[api embed]) &&
+        (from_email = AccountConfig.find_by(account: submitter.account, key: 'integration_from_email')&.value.presence)
+       user = submitter.account.users.find_by(email: from_email)
+-
+-      put_metadata('from_user_id' => user.id)
+-
+-      from_email
+     else
+       user = submitter.submission.created_by_user || submitter.submission.template.author
++    end
+ 
+-      put_metadata('from_user_id' => user.id)
++    put_metadata('from_user_id' => user.id) if user
+ 
+-      user.friendly_name
+-    end
++    MaiocchiBrand::CANONICAL_FROM
+   end
+ 
+   def fetch_config_email_body(email_config, _submitter = nil)
+diff --git a/app/views/accounts/show.html.erb b/app/views/accounts/show.html.erb
+index 16eec26..6268fac 100644
+--- a/app/views/accounts/show.html.erb
++++ b/app/views/accounts/show.html.erb
+@@ -8,7 +8,7 @@
+       <%= fields_for current_account do |ff| %>
+         <div class="form-control">
+           <%= ff.label :name, 'Nome institucional', class: 'label' %>
+-          <%= ff.text_field :name, required: true, readonly: true, class: 'base-input', dir: 'auto' %>
++          <%= ff.text_field :name, value: MaiocchiBrand::OFFICE_NAME, required: true, readonly: true, class: 'base-input', dir: 'auto' %>
+         </div>
+         <div class="grid md:grid-cols-2 gap-4">
+           <div class="form-control">
+diff --git a/app/views/certificate_auth/error.html.erb b/app/views/certificate_auth/error.html.erb
+index d61c9c6..2241fd8 100644
+--- a/app/views/certificate_auth/error.html.erb
++++ b/app/views/certificate_auth/error.html.erb
+@@ -1,6 +1,6 @@
+ <main class="min-h-[65vh] flex items-center justify-center px-4">
+   <section class="w-full max-w-lg rounded-2xl border border-error/30 bg-base-100 p-6 md:p-8 shadow-sm" role="alert">
+-    <p class="text-sm font-semibold tracking-wide text-primary">Roger Maiocchi, advogado</p>
++    <p class="text-sm font-semibold tracking-wide text-primary">Maiocchi Advogado</p>
+     <h1 class="text-3xl font-bold mt-2">Acesso não concluído</h1>
+     <p class="mt-3 text-base-content/75"><%= message %></p>
+     <a href="https://<%= CertificateAuth::Configuration.app_host %>/sign_in" class="white-button w-full mt-6">
+diff --git a/app/views/certificate_auth/handoff.html.erb b/app/views/certificate_auth/handoff.html.erb
+index 2680c82..93e2bbe 100644
+--- a/app/views/certificate_auth/handoff.html.erb
++++ b/app/views/certificate_auth/handoff.html.erb
+@@ -1,6 +1,6 @@
+ <main class="min-h-[65vh] flex items-center justify-center px-4">
+   <section class="w-full max-w-lg rounded-2xl border border-base-300 bg-base-100 p-6 md:p-8 shadow-sm">
+-    <p class="text-sm font-semibold tracking-wide text-primary">Roger Maiocchi, advogado</p>
++    <p class="text-sm font-semibold tracking-wide text-primary">Maiocchi Advogado</p>
+     <h1 class="text-3xl font-bold mt-2">Acesso seguro</h1>
+     <p class="mt-3 text-base-content/75"><%= explanation %></p>
+     <%= form_with url: destination, method: :post, authenticity_token: false,
+diff --git a/app/views/devise/mailer/reset_password_instructions.html.erb b/app/views/devise/mailer/reset_password_instructions.html.erb
+index 061acec..b44951e 100644
+--- a/app/views/devise/mailer/reset_password_instructions.html.erb
++++ b/app/views/devise/mailer/reset_password_instructions.html.erb
+@@ -1,10 +1,5 @@
+-<p><%= @resource.first_name.present? ? t('hello_name', name: @resource.first_name) : t('hi_there') %>,</p>
+ <p><%= t('you_requested_to_reset_your_password_use_the_link_below_to_continue') %>:</p>
+ <p><%= link_to t('change_my_password'), edit_password_url(@resource, reset_password_token: @token) %></p>
+ <p><%= t('your_password_wont_change_until_you_open_the_link_above_and_set_a_new_one') %></p>
+ <p><%= t('if_you_didnt_request_this_you_can_ignore_this_email') %></p>
+-<p>
+-  <%= t('thanks') %>,<br>
+-  <%= MaiocchiBrand::PRODUCT_NAME %>
+-</p>
+ <% content_for(:remove_attribution, true) %>
+diff --git a/app/views/email_smtp_settings/index.html.erb b/app/views/email_smtp_settings/index.html.erb
+index 6f650ff..c1b41b9 100644
+--- a/app/views/email_smtp_settings/index.html.erb
++++ b/app/views/email_smtp_settings/index.html.erb
+@@ -50,7 +50,7 @@
+         <% end %>
+         <div class="form-control">
+           <%= ff.label :from_email, t('send_from_email'), class: 'label' %>
+-          <%= ff.email_field :from_email, value: value['from_email'], required: !Docuseal.multitenant?, class: 'base-input' %>
++          <%= ff.email_field :from_email, value: MaiocchiBrand::SUPPORT_EMAIL, required: true, readonly: true, class: 'base-input' %>
+         </div>
+       <% end %>
+       <div class="form-control pt-2">
+diff --git a/app/views/errors/404.html b/app/views/errors/404.html
+index 30f0226..ce4497f 100644
+--- a/app/views/errors/404.html
++++ b/app/views/errors/404.html
+@@ -7,7 +7,7 @@
+     <meta name="theme-color" content="#ffc400">
+     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+-    <title>Página não encontrada | Maiocchi Assinaturas</title>
++    <title>Página não encontrada | Maiocchi. Assinatura</title>
+     <style>
+       :root{--ink:#0a0a0a;--paper:#f6f5f1;--accent:#ffc400;--line:#dedbd2}*{box-sizing:border-box}body{align-items:center;background:radial-gradient(circle at 80% 10%,rgba(255,196,0,.14),transparent 25rem),var(--paper);color:var(--ink);display:flex;font-family:Arial,Helvetica,sans-serif;justify-content:center;margin:0;min-height:100vh;padding:24px}.card{background:#fff;border:1px solid var(--line);border-radius:22px;box-shadow:0 28px 70px rgba(10,10,10,.09);max-width:600px;padding:48px;text-align:center;width:100%}.mark{font-size:44px;font-weight:900;letter-spacing:-.13em}.mark span{color:var(--accent)}.code{color:#6d685f;font-size:13px;font-weight:800;letter-spacing:.14em;margin-top:24px;text-transform:uppercase}h1{font-size:clamp(32px,8vw,52px);letter-spacing:-.055em;margin:10px 0}p{color:#625e57;line-height:1.6;margin:0 auto 28px;max-width:430px}.button{background:var(--ink);border-radius:12px;color:#fff;display:inline-block;font-weight:800;padding:14px 22px;text-decoration:none}.support,.legal{font-size:12px;margin-top:24px}.support a,.legal a{color:var(--ink);text-decoration-color:var(--accent);text-decoration-thickness:3px}.legal{border-top:1px solid var(--line);color:#68645d;line-height:1.6;padding-top:18px}
+     </style>
+diff --git a/app/views/errors/422.html b/app/views/errors/422.html
+index 9a7026c..abaa7e8 100644
+--- a/app/views/errors/422.html
++++ b/app/views/errors/422.html
+@@ -7,7 +7,7 @@
+     <meta name="theme-color" content="#ffc400">
+     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+-    <title>Ação não permitida | Maiocchi Assinaturas</title>
++    <title>Ação não permitida | Maiocchi. Assinatura</title>
+     <style>
+       :root{--ink:#0a0a0a;--paper:#f6f5f1;--accent:#ffc400;--line:#dedbd2}*{box-sizing:border-box}body{align-items:center;background:radial-gradient(circle at 80% 10%,rgba(255,196,0,.14),transparent 25rem),var(--paper);color:var(--ink);display:flex;font-family:Arial,Helvetica,sans-serif;justify-content:center;margin:0;min-height:100vh;padding:24px}.card{background:#fff;border:1px solid var(--line);border-radius:22px;box-shadow:0 28px 70px rgba(10,10,10,.09);max-width:600px;padding:48px;text-align:center;width:100%}.mark{font-size:44px;font-weight:900;letter-spacing:-.13em}.mark span{color:var(--accent)}.code{color:#6d685f;font-size:13px;font-weight:800;letter-spacing:.14em;margin-top:24px;text-transform:uppercase}h1{font-size:clamp(32px,8vw,52px);letter-spacing:-.055em;margin:10px 0}p{color:#625e57;line-height:1.6;margin:0 auto 28px;max-width:430px}.button{background:var(--ink);border-radius:12px;color:#fff;display:inline-block;font-weight:800;padding:14px 22px;text-decoration:none}.support,.legal{font-size:12px;margin-top:24px}.support a,.legal a{color:var(--ink);text-decoration-color:var(--accent);text-decoration-thickness:3px}.legal{border-top:1px solid var(--line);color:#68645d;line-height:1.6;padding-top:18px}
+     </style>
+diff --git a/app/views/errors/500.html b/app/views/errors/500.html
+index ebbea8e..9fdf6fd 100644
+--- a/app/views/errors/500.html
++++ b/app/views/errors/500.html
+@@ -7,7 +7,7 @@
+     <meta name="theme-color" content="#ffc400">
+     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+-    <title>Serviço temporariamente indisponível | Maiocchi Assinaturas</title>
++    <title>Serviço temporariamente indisponível | Maiocchi. Assinatura</title>
+     <style>
+       :root{--ink:#0a0a0a;--paper:#f6f5f1;--accent:#ffc400;--line:#dedbd2}*{box-sizing:border-box}body{align-items:center;background:radial-gradient(circle at 80% 10%,rgba(255,196,0,.14),transparent 25rem),var(--paper);color:var(--ink);display:flex;font-family:Arial,Helvetica,sans-serif;justify-content:center;margin:0;min-height:100vh;padding:24px}.card{background:#fff;border:1px solid var(--line);border-radius:22px;box-shadow:0 28px 70px rgba(10,10,10,.09);max-width:600px;padding:48px;text-align:center;width:100%}.mark{font-size:44px;font-weight:900;letter-spacing:-.13em}.mark span{color:var(--accent)}.code{color:#6d685f;font-size:13px;font-weight:800;letter-spacing:.14em;margin-top:24px;text-transform:uppercase}h1{font-size:clamp(32px,8vw,52px);letter-spacing:-.055em;margin:10px 0}p{color:#625e57;line-height:1.6;margin:0 auto 28px;max-width:430px}.button{background:var(--ink);border-radius:12px;color:#fff;display:inline-block;font-weight:800;padding:14px 22px;text-decoration:none}.support,.legal{font-size:12px;margin-top:24px}.support a,.legal a{color:var(--ink);text-decoration-color:var(--accent);text-decoration-thickness:3px}.legal{border-top:1px solid var(--line);color:#68645d;line-height:1.6;padding-top:18px}
+     </style>
+diff --git a/app/views/layouts/mailer.html.erb b/app/views/layouts/mailer.html.erb
+index af2d0cd..e223f92 100644
+--- a/app/views/layouts/mailer.html.erb
++++ b/app/views/layouts/mailer.html.erb
+@@ -1,21 +1,66 @@
+ <!DOCTYPE html>
+-<html>
++<html lang="pt-BR">
+   <head>
+     <title><%= MaiocchiBrand::PRODUCT_NAME %></title>
+     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
++    <meta name="viewport" content="width=device-width, initial-scale=1">
+     <style>
+-      body { background: #f6f5f1; color: #0a0a0a; font-family: Arial, Helvetica, sans-serif; margin: 0; padding: 32px 16px; }
+-      a { color: #0a0a0a; font-weight: 700; text-decoration-color: #ffc400; text-decoration-thickness: 3px; }
+-      .maiocchi-email { background: #ffffff; border: 1px solid #dedbd2; border-radius: 18px; margin: 0 auto; max-width: 640px; padding: 32px; }
+-      .maiocchi-email-brand { border-bottom: 4px solid #ffc400; font-size: 21px; font-weight: 800; letter-spacing: -0.04em; margin-bottom: 26px; padding-bottom: 14px; }
+-      .maiocchi-email-brand span { color: #ffc400; }
++      body { background: #f6f5f1; color: #111111; font-family: Arial, Helvetica, sans-serif; margin: 0; padding: 0; }
++      a { color: #111111; font-weight: 700; text-decoration-color: #ffc400; text-decoration-thickness: 2px; }
++      .maiocchi-content p { font-size: 15px; line-height: 1.6; margin: 0 0 16px; }
++      .maiocchi-content a { overflow-wrap: anywhere; }
++      @media only screen and (max-width: 680px) {
++        .maiocchi-shell { padding: 0 !important; }
++        .maiocchi-body { padding-left: 20px !important; padding-right: 20px !important; }
++      }
+     </style>
+   </head>
+-  <body dir="<%= TextUtils.rtl?(yield) ? 'rtl' : 'auto' %>">
+-    <div class="maiocchi-email">
+-      <div class="maiocchi-email-brand">MAIOCCHI<span>.</span></div>
+-      <%= yield %>
+-      <%= render partial: 'shared/mailer_attribution' %>
+-    </div>
++  <body dir="auto">
++    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f6f5f1;width:100%;">
++      <tr>
++        <td class="maiocchi-shell" align="center" style="padding:24px 12px;">
++          <table data-maiocchi-email-standard="1" role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#ffffff;border-collapse:collapse;max-width:640px;width:100%;">
++            <tr>
++              <td aria-hidden="true" style="border-top:3pt solid #ffc400;font-size:0;height:0;line-height:0;padding:0;width:100%;">&nbsp;</td>
++            </tr>
++            <tr>
++              <td align="left" style="padding:1pt;">
++                <span data-plain-text-ignore="1" aria-label="Maiocchi" style="color:#111111;display:inline-block;font-size:28px;font-weight:800;line-height:1;">m<span style="color:#ffc400;">.</span></span>
++              </td>
++            </tr>
++            <tr>
++              <td class="maiocchi-body" style="padding:22px 32px 28px;">
++                <p data-email-salutation="1" style="font-size:15px;line-height:1.6;margin:0 0 16px;"><%= MaiocchiBrand::EMAIL_SALUTATION %></p>
++                <div class="maiocchi-content">
++                  <%= yield %>
++                </div>
++                <p data-email-signature="1" style="font-size:15px;line-height:1.6;margin:26px 0 0;">
++                  Respeitosamente,<br>
++                  <strong><%= MaiocchiBrand::LAWYER_SIGNATURE %></strong>
++                </p>
++                <table data-automatic-email-notice="1" role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;margin-top:24px;width:100%;">
++                  <tr>
++                    <td valign="top" width="30" style="color:#6b6250;padding:1px 10px 0 0;width:30px;">
++                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Mensagem automática">
++                        <path d="M12 8V4H8"></path>
++                        <rect width="16" height="12" x="4" y="8" rx="2"></rect>
++                        <path d="M2 14h2"></path>
++                        <path d="M20 14h2"></path>
++                        <path d="M15 13v2"></path>
++                        <path d="M9 13v2"></path>
++                      </svg>
++                    </td>
++                    <td valign="top" style="color:#6b6250;font-size:12px;line-height:1.5;padding:0;">
++                      <%= MaiocchiBrand::AUTOMATED_EMAIL_NOTICE %>
++                    </td>
++                  </tr>
++                </table>
++                <%= render partial: 'shared/mailer_attribution' %>
++              </td>
++            </tr>
++          </table>
++        </td>
++      </tr>
++    </table>
+   </body>
+ </html>
+diff --git a/app/views/personalization_settings/_documents_copy_email_form.html.erb b/app/views/personalization_settings/_documents_copy_email_form.html.erb
+index e4f777d..a34d0de 100644
+--- a/app/views/personalization_settings/_documents_copy_email_form.html.erb
++++ b/app/views/personalization_settings/_documents_copy_email_form.html.erb
+@@ -8,31 +8,14 @@
+   <div class="collapse-content">
+     <%= form_for AccountConfigs.find_or_initialize_for_key(current_account, AccountConfig::SUBMITTER_DOCUMENTS_COPY_EMAIL_KEY), url: settings_personalization_path, method: :post, html: { autocomplete: 'off', class: 'space-y-4' } do |f| %>
+       <%= f.hidden_field :key %>
+-      <%= f.fields_for :value, Struct.new(:subject, :body, :reply_to, :attach_audit_log, :attach_documents, :bcc_recipients, :enabled).new(*f.object.value.values_at('subject', 'body', 'reply_to', 'attach_audit_log', 'attach_documents', 'bcc_recipients', 'enabled')) do |ff| %>
++      <%= f.fields_for :value, Struct.new(:subject, :body, :bcc_recipients, :enabled).new(*f.object.value.values_at('subject', 'body', 'bcc_recipients', 'enabled')) do |ff| %>
+         <div class="form-control">
+           <%= ff.label :subject, t('subject'), class: 'label' %>
+           <%= ff.text_field :subject, required: true, class: 'base-input', dir: 'auto' %>
+         </div>
+         <%= render 'personalization_settings/email_body_field', ff:, config: f.object %>
+-        <% if can?(:manage, :reply_to) || can?(:manage, :personalization_advanced) %>
+-          <div class="form-control">
+-            <%= ff.label :reply_to, t('reply_to'), class: 'label' %>
+-            <%= ff.email_field :reply_to, class: 'base-input', dir: 'auto', placeholder: t(:email) %>
+-          </div>
+-        <% end %>
+         <div class="space-y-3.5">
+-          <div class="flex items-center justify-between mx-1">
+-            <span>
+-              <%= t('attach_documents') %>
+-            </span>
+-            <%= ff.check_box :attach_documents, { checked: ff.object.attach_documents != false, class: 'toggle' }, 'true', 'false' %>
+-          </div>
+-          <div class="flex items-center justify-between mx-1">
+-            <span>
+-              <%= t('attach_audit_log_pdf') %>
+-            </span>
+-            <%= ff.check_box :attach_audit_log, { checked: ff.object.attach_audit_log != false, class: 'toggle' }, 'true', 'false' %>
+-          </div>
++          <p class="text-sm text-base-content/70 mx-1">Por segurança e privacidade, documentos e trilhas de auditoria são disponibilizados somente por link seguro.</p>
+           <% unless Docuseal.multitenant? %>
+             <div class="flex items-center justify-between mx-1">
+               <span>
+diff --git a/app/views/personalization_settings/_submitter_completed_email_form.html.erb b/app/views/personalization_settings/_submitter_completed_email_form.html.erb
+index af1dada..ce2c4da 100644
+--- a/app/views/personalization_settings/_submitter_completed_email_form.html.erb
++++ b/app/views/personalization_settings/_submitter_completed_email_form.html.erb
+@@ -8,7 +8,7 @@
+   <div class="collapse-content">
+     <%= form_for AccountConfigs.find_or_initialize_for_key(current_account, AccountConfig::SUBMITTER_COMPLETED_EMAIL_KEY), url: settings_personalization_path, method: :post, html: { autocomplete: 'off', class: 'space-y-4' } do |f| %>
+       <%= f.hidden_field :key %>
+-      <%= f.fields_for :value, Struct.new(:subject, :body, :attach_audit_log, :attach_documents).new(*f.object.value.values_at('subject', 'body', 'attach_audit_log', 'attach_documents')) do |ff| %>
++      <%= f.fields_for :value, Struct.new(:subject, :body).new(*f.object.value.values_at('subject', 'body')) do |ff| %>
+         <div class="form-control">
+           <div class="flex items-center">
+             <%= ff.label :subject, t('subject'), class: 'label' %>
+@@ -19,18 +19,7 @@
+           <%= ff.text_field :subject, required: true, class: 'base-input', dir: 'auto' %>
+         </div>
+         <%= render 'personalization_settings/email_body_field', ff:, config: f.object %>
+-        <div class="flex items-center justify-between pt-2.5 mx-1">
+-          <span>
+-            <%= t('attach_documents') %>
+-          </span>
+-          <%= ff.check_box :attach_documents, { checked: ff.object.attach_documents != false, class: 'toggle' }, 'true', 'false' %>
+-        </div>
+-        <div class="flex items-center justify-between pb-2.5 mx-1">
+-          <span>
+-            <%= t('attach_audit_log_pdf') %>
+-          </span>
+-          <%= ff.check_box :attach_audit_log, { checked: ff.object.attach_audit_log != false, class: 'toggle' }, 'true', 'false' %>
+-        </div>
++        <p class="text-sm text-base-content/70 mx-1">Por segurança e privacidade, documentos e trilhas de auditoria são disponibilizados somente por link seguro.</p>
+       <% end %>
+       <div class="form-control pt-2">
+         <%= f.button button_title(title: t('save'), disabled_with: t('saving')), class: 'base-button' %>
+diff --git a/app/views/settings_mailer/smtp_successful_setup.html.erb b/app/views/settings_mailer/smtp_successful_setup.html.erb
+index c53eb19..a4c7bd4 100644
+--- a/app/views/settings_mailer/smtp_successful_setup.html.erb
++++ b/app/views/settings_mailer/smtp_successful_setup.html.erb
+@@ -1 +1 @@
+-<p>O envio de e-mails por SMTP foi configurado com sucesso.</p>
++<p>O envio de códigos e alertas do portal foi configurado com sucesso.</p>
+diff --git a/app/views/setup/index.html.erb b/app/views/setup/index.html.erb
+index 2373419..13ba070 100644
+--- a/app/views/setup/index.html.erb
++++ b/app/views/setup/index.html.erb
+@@ -25,7 +25,7 @@
+         <%= ff.hidden_field :timezone %>
+         <div class="form-control">
+           <%= ff.label :name, t('company_name'), class: 'label' %>
+-          <%= ff.text_field :name, required: true, value: @account.name.presence || MaiocchiBrand::OFFICE_NAME, class: 'base-input' %>
++          <%= ff.text_field :name, required: true, readonly: true, value: MaiocchiBrand::OFFICE_NAME, class: 'base-input' %>
+         </div>
+       <% end %>
+       <%= fields_for @user do |ff| %>
+diff --git a/app/views/shared/_email_attribution.html.erb b/app/views/shared/_email_attribution.html.erb
+index abeac2e..cdf1103 100644
+--- a/app/views/shared/_email_attribution.html.erb
++++ b/app/views/shared/_email_attribution.html.erb
+@@ -1,6 +1,5 @@
+-<p style="border-top: 1px solid #dedbd2; color: #68645d; font-size: 12px; margin-top: 28px; padding-top: 16px;">
+-  <%= MaiocchiBrand::OFFICE_NAME %> ·
+-  <a href="mailto:<%= MaiocchiBrand::SUPPORT_EMAIL %>"><%= MaiocchiBrand::SUPPORT_EMAIL %></a><br>
+-  <%= MaiocchiBrand.copy(:legal_attribution) %> ·
+-  <a href="<%= MaiocchiBrand::LICENSE_URL %>">Licença</a>
++<p style="border-top:1px solid #e4e0d7;color:#777168;font-size:11px;line-height:1.5;margin:20px 0 0;padding-top:14px;">
++  <a href="<%= MaiocchiBrand::PRIVACY_URL %>" style="color:#777168;font-weight:400;">Privacidade</a> ·
++  <a href="<%= MaiocchiBrand::TERMS_URL %>" style="color:#777168;font-weight:400;">Termos de Uso</a> ·
++  <a href="<%= MaiocchiBrand::LICENSE_URL %>" style="color:#777168;font-weight:400;">Licença</a>
+ </p>
+diff --git a/app/views/submitter_mailer/completed_email.html.erb b/app/views/submitter_mailer/completed_email.html.erb
+index 382efb1..ffe32f2 100644
+--- a/app/views/submitter_mailer/completed_email.html.erb
++++ b/app/views/submitter_mailer/completed_email.html.erb
+@@ -1,7 +1,6 @@
+ <% if @body.present? %>
+   <%= render 'custom_content', content: @body, submitter: @submitter %>
+ <% else %>
+-  <p><%= t('hi_there') %>,</p>
+   <p><%= I18n.t(:name_has_been_completed_by_submitters, name: @submitter.submission.name || @submitter.submission.template.name, submitters: @submitter.submission.submitters.order(:completed_at).map { |e| e.name || e.email || e.phone }.uniq.join(', ')) %></p>
+   <p><%= link_to submission_url(@submitter.submission), submission_url(@submitter.submission) %></p>
+ <% end %>
+diff --git a/app/views/submitter_mailer/declined_email.html.erb b/app/views/submitter_mailer/declined_email.html.erb
+index 07b877c..2d8c711 100644
+--- a/app/views/submitter_mailer/declined_email.html.erb
++++ b/app/views/submitter_mailer/declined_email.html.erb
+@@ -1,4 +1,3 @@
+-<p><%= t('hi_there') %>,</p>
+ <p><%= t('name_declined_by_submitter_with_the_following_reason', name: @submitter.submission.name || @submitter.submission.template.name, submitter: @submitter.name || @submitter.email || @submitter.phone) %></p>
+ <%= simple_format(h(@submitter.submission_events.find_by(event_type: :decline_form).data['reason'])) %>
+ <p><%= link_to submission_url(@submitter.submission), submission_url(@submitter.submission) %></p>
+diff --git a/app/views/submitter_mailer/documents_copy_email.html.erb b/app/views/submitter_mailer/documents_copy_email.html.erb
+index 9e230cf..6a43245 100644
+--- a/app/views/submitter_mailer/documents_copy_email.html.erb
++++ b/app/views/submitter_mailer/documents_copy_email.html.erb
+@@ -1,13 +1,8 @@
+ <% if @body.present? %>
+   <%= render 'custom_content', content: @body, submitter: @submitter, sig: @sig %>
+ <% else %>
+-  <p><%= t('hi_there') %>,</p>
+-  <p><%= t('please_check_the_copy_of_your_name_in_the_email_attachments', name: @submitter.submission.name || @submitter.submission.template.name) %>
+-  <p><%= t('alternatively_you_can_review_and_download_your_copy_using_the_link_below') %></p>
++  <p>Sua cópia de &quot;<%= @submitter.submission.name || @submitter.submission.template.name %>&quot; está disponível pelo link seguro abaixo:</p>
+   <p>
+     <%= link_to @submitter.submission.name || @submitter.submission.template.name, submissions_preview_url(@submitter.submission.slug, { sig: @sig, host: @custom_domain || ENV.fetch('EMAIL_HOST', Docuseal.default_url_options[:host]) }.compact) %>
+   </p>
+-  <p>
+-  <%= t('thanks') %>,<br><%= @current_account.name %>
+-  </p>
+ <% end %>
+diff --git a/app/views/submitter_mailer/invitation_email.html.erb b/app/views/submitter_mailer/invitation_email.html.erb
+index 408016d..30ea007 100644
+--- a/app/views/submitter_mailer/invitation_email.html.erb
++++ b/app/views/submitter_mailer/invitation_email.html.erb
+@@ -4,11 +4,7 @@
+     <p><%= link_to nil, submit_form_url(slug: @submitter.slug, t: SubmissionEvents.build_tracking_param(@submitter, 'click_email'), host: @custom_domain || ENV.fetch('EMAIL_HOST', Docuseal.default_url_options[:host])) %></p>
+   <% end %>
+ <% else %>
+-  <p><%= t('hi_there') %>,</p>
+   <p><%= I18n.t(@submitter.with_signature_fields? ? :you_have_been_invited_to_sign_the_name : :you_have_been_invited_to_submit_the_name_form, name: @submitter.submission.name || @submitter.submission.template.name) %></p>
+   <p><%= link_to I18n.t(@submitter.with_signature_fields? ? :review_and_sign : :review_and_submit), submit_form_url(slug: @submitter.slug, t: SubmissionEvents.build_tracking_param(@submitter, 'click_email'), host: @custom_domain || ENV.fetch('EMAIL_HOST', Docuseal.default_url_options[:host])) %></p>
+-  <p><%= t('please_contact_us_by_replying_to_this_email_if_you_have_any_questions') %></p>
+-  <p>
+-  <%= t('thanks') %>,<br><%= @current_account.name %>
+-  </p>
++  <p>Em caso de dúvida, consulte a <%= link_to 'Central de ajuda', MaiocchiBrand::HELP_URL %>.</p>
+ <% end %>
+diff --git a/app/views/submitter_mailer/otp_verification_email.html.erb b/app/views/submitter_mailer/otp_verification_email.html.erb
+index 6b9c959..f479406 100644
+--- a/app/views/submitter_mailer/otp_verification_email.html.erb
++++ b/app/views/submitter_mailer/otp_verification_email.html.erb
+@@ -1,3 +1,3 @@
+ <p><%= t('your_verification_code_to_access_the_name', name: @submitter.submission.name || @submitter.submission.template.name) %></p>
+ <p><b><%= @otp_code %></b></p>
+-<p><%= t('please_reply_to_this_email_if_you_didnt_request_this') %></p>
++<p>Se você não solicitou este código, ignore a mensagem e não compartilhe o conteúdo.</p>
+diff --git a/app/views/template_mailer/otp_verification_email.html.erb b/app/views/template_mailer/otp_verification_email.html.erb
+index 4aeae39..418c48c 100644
+--- a/app/views/template_mailer/otp_verification_email.html.erb
++++ b/app/views/template_mailer/otp_verification_email.html.erb
+@@ -1,3 +1,3 @@
+ <p><%= t('your_verification_code_to_access_the_name', name: @template.name) %></p>
+ <p><b><%= @otp_code %></b></p>
+-<p><%= t('please_reply_to_this_email_if_you_didnt_request_this') %></p>
++<p>Se você não solicitou este código, ignore a mensagem e não compartilhe o conteúdo.</p>
+diff --git a/app/views/templates_preferences/_submitter_completed_email_form.html.erb b/app/views/templates_preferences/_submitter_completed_email_form.html.erb
+index 18954ab..82f87e2 100644
+--- a/app/views/templates_preferences/_submitter_completed_email_form.html.erb
++++ b/app/views/templates_preferences/_submitter_completed_email_form.html.erb
+@@ -27,23 +27,8 @@
+   <% end %>
+   <%= form_for @template, url: template_preferences_path(@template), method: :post, html: { autocomplete: 'off', class: 'mt-1' }, data: { close_on_submit: false } do |f| %>
+     <toggle-on-submit data-element-id="email_saved_alert3"></toggle-on-submit>
+-    <%= f.fields_for :preferences, Struct.new(:completed_notification_email_enabled, :completed_notification_email_attach_audit, :completed_notification_email_attach_documents).new(@template.preferences['completed_notification_email_enabled'], configs['attach_audit_log'] != false && @template.preferences['completed_notification_email_attach_audit'] != false, configs['attach_documents'] != false && @template.preferences['completed_notification_email_attach_documents'] != false) do |ff| %>
+-      <div class="flex items-center justify-between pt-2.5 px-1 mb-2">
+-        <span>
+-          <%= t('attach_documents_to_the_email') %>
+-        </span>
+-        <submit-form data-on="change" class="flex">
+-          <%= ff.check_box :completed_notification_email_attach_documents, { checked: ff.object.completed_notification_email_attach_documents != false, class: 'toggle', disabled: configs['attach_documents'] == false }, 'true', 'false' %>
+-        </submit-form>
+-      </div>
+-      <div class="flex items-center justify-between pt-2.5 px-1 mb-2">
+-        <span>
+-          <%= t('attach_audit_log_pdf_to_the_email') %>
+-        </span>
+-        <submit-form data-on="change" class="flex">
+-          <%= ff.check_box :completed_notification_email_attach_audit, { checked: ff.object.completed_notification_email_attach_audit != false, class: 'toggle', disabled: configs['attach_audit_log'] == false }, 'true', 'false' %>
+-        </submit-form>
+-      </div>
++    <%= f.fields_for :preferences, Struct.new(:completed_notification_email_enabled).new(@template.preferences['completed_notification_email_enabled']) do |ff| %>
++      <p class="text-sm text-base-content/70 px-1 mb-2">Por segurança e privacidade, documentos e trilhas de auditoria são disponibilizados somente por link seguro.</p>
+       <div class="flex items-center justify-between py-2.5 px-1 mb-2">
+         <span>
+           <%= t('send_emails_automatically_on_completion') %>
+diff --git a/app/views/templates_preferences/_submitter_documents_copy_email_form.html.erb b/app/views/templates_preferences/_submitter_documents_copy_email_form.html.erb
+index faa9e61..770bde8 100644
+--- a/app/views/templates_preferences/_submitter_documents_copy_email_form.html.erb
++++ b/app/views/templates_preferences/_submitter_documents_copy_email_form.html.erb
+@@ -7,7 +7,7 @@
+   <% end %>
+   <%= form_for @template, url: template_preferences_path(@template), method: :post, html: { autocomplete: 'off', class: 'mt-1', id: 'submitter_documents_copy_email_template_form' }, data: { close_on_submit: false } do |f| %>
+     <toggle-on-submit data-element-id="email_saved_alert2"></toggle-on-submit>
+-    <%= f.fields_for :preferences, Struct.new(:documents_copy_email_reply_to, :documents_copy_email_subject, :documents_copy_email_body).new(@template.preferences['documents_copy_email_reply_to'].presence || configs['reply_to'], @template.preferences['documents_copy_email_subject'].presence || configs['subject'], @template.preferences['documents_copy_email_body'].presence || configs['body']) do |ff| %>
++    <%= f.fields_for :preferences, Struct.new(:documents_copy_email_subject, :documents_copy_email_body).new(@template.preferences['documents_copy_email_subject'].presence || configs['subject'], @template.preferences['documents_copy_email_body'].presence || configs['body']) do |ff| %>
+       <div class="form-control">
+         <div class="flex justify-between">
+           <%= ff.label :documents_copy_email_subject, t('email_subject'), class: 'label' %>
+@@ -23,32 +23,11 @@
+         <%= ff.label :documents_copy_email_body, t('email_body'), class: 'label' %>
+         <%= render 'personalization_settings/markdown_editor', name: ff.field_name(:documents_copy_email_body), value: ff.object.documents_copy_email_body, variables: AccountConfig::EMAIL_VARIABLES[AccountConfig::SUBMITTER_DOCUMENTS_COPY_EMAIL_KEY] %>
+       </div>
+-      <% if can?(:manage, :reply_to) %>
+-        <div class="form-control">
+-          <%= ff.label :documents_copy_email_reply_to, t('reply_to'), class: 'label' %>
+-          <%= ff.email_field :documents_copy_email_reply_to, class: 'base-input', dir: 'auto', placeholder: t(:email) %>
+-        </div>
+-      <% end %>
+     <% end %>
+   <% end %>
+   <%= form_for @template, url: template_preferences_path(@template), method: :post, html: { autocomplete: 'off', class: 'mt-1', id: 'submitter_documents_copy_email_template_form' }, data: { close_on_submit: false } do |f| %>
+-    <%= f.fields_for :preferences, Struct.new(:documents_copy_email_enabled, :documents_copy_email_attach_audit, :documents_copy_email_attach_documents).new(@template.preferences['documents_copy_email_enabled'], configs['attach_audit_log'] != false && @template.preferences['documents_copy_email_attach_audit'] != false, configs['attach_documents'] != false && @template.preferences['documents_copy_email_attach_documents'] != false) do |ff| %>
+-      <div class="flex items-center justify-between pt-2.5 px-1 mb-2">
+-        <span>
+-          <%= t('attach_documents_to_the_email') %>
+-        </span>
+-        <submit-form data-on="change" class="flex">
+-          <%= ff.check_box :documents_copy_email_attach_documents, { checked: ff.object.documents_copy_email_attach_documents != false, class: 'toggle', disabled: configs['attach_documents'] == false }, 'true', 'false' %>
+-        </submit-form>
+-      </div>
+-      <div class="flex items-center justify-between pt-2.5 px-1 mb-2">
+-        <span>
+-          <%= t('attach_audit_log_pdf_to_the_email') %>
+-        </span>
+-        <submit-form data-on="change" class="flex">
+-          <%= ff.check_box :documents_copy_email_attach_audit, { checked: ff.object.documents_copy_email_attach_audit != false, class: 'toggle', disabled: configs['attach_audit_log'] == false }, 'true', 'false' %>
+-        </submit-form>
+-      </div>
++    <%= f.fields_for :preferences, Struct.new(:documents_copy_email_enabled).new(@template.preferences['documents_copy_email_enabled']) do |ff| %>
++      <p class="text-sm text-base-content/70 px-1 mb-2">Por segurança e privacidade, documentos e trilhas de auditoria são disponibilizados somente por link seguro.</p>
+       <div class="flex items-center justify-between py-2.5 px-1 mb-2">
+         <span>
+           <%= t('send_emails_automatically_on_completion') %>
+diff --git a/app/views/user_mailer/invitation_email.html.erb b/app/views/user_mailer/invitation_email.html.erb
+index 16d6f14..d31910e 100644
+--- a/app/views/user_mailer/invitation_email.html.erb
++++ b/app/views/user_mailer/invitation_email.html.erb
+@@ -1,7 +1,3 @@
+-<p><%= @user.first_name.present? ? t('hello_name', name: @user.first_name) : t('hi_there') %>,</p>
+ <p><%= t('you_have_been_invited_to_account_name_product_name_please_sign_up_using_the_link_below_', account_name: @user.account.name, product_name: MaiocchiBrand::PRODUCT_NAME) %></p>
+ <p><%= link_to t('sign_up'), invitation_url(reset_password_token: @token) %></p>
+-<p><%= t('please_contact_us_by_replying_to_this_email_if_you_have_any_questions') %></p>
+-<p>
+-  <%= t('thanks') %>,<br><%= @current_account.name %>
+-</p>
++<p>Em caso de dúvida, consulte a <%= link_to 'Central de ajuda', MaiocchiBrand::HELP_URL %>.</p>
+diff --git a/config/locales/zz_maiocchi.yml b/config/locales/zz_maiocchi.yml
+index f818be5..886cbcb 100644
+--- a/config/locales/zz_maiocchi.yml
++++ b/config/locales/zz_maiocchi.yml
+@@ -1,6 +1,6 @@
+ pt:
+   docuseal_trusted_signature: Certificado qualificado do provedor
+-  sent_with_docuseal_pro_html: Enviado pelo Maiocchi Assinaturas
++  sent_with_docuseal_pro_html: Enviado pelo Maiocchi. Assinatura
+   show_send_with_docuseal_pro_attribution_in_emails_html: Exibir identificação do portal nos e-mails
+   sign_documents_with_trusted_certificate_provided_by_docu_seal_your_documents_and_data_are_never_shared_with_docu_seal_p_d_f_checksum_is_provided_to_generate_a_trusted_signature: Assine documentos com um certificado qualificado quando o recurso estiver habilitado.
+   by_creating_an_account_you_agree_to_our_html: 'Ao criar uma conta, você concorda com a <a target="_blank" href="https://assinatura.maiocchi.adv.br/privacidade">Política de Privacidade</a> e os <a target="_blank" href="https://assinatura.maiocchi.adv.br/termos">Termos de Uso</a>.'
+@@ -15,11 +15,28 @@ pt:
+   on_a_scale_of_1_to_10_how_satisfied_are_you_with_the_docuseal_product_: Em uma escala de 1 a 10, qual é sua satisfação com o portal de assinaturas?
+   your_pro_plan_has_been_suspended_due_to_unpaid_invoices_you_can_update_your_payment_details_to_settle_the_invoice_and_continue_using_docuseal_or_cancel_your_subscription: Entre em contato com a administração do portal.
+   this_submission_has_multiple_signers_which_prevents_the_use_of_a_sharing_link_html: Esta solicitação possui vários signatários. Defina os dados de cada responsável antes de compartilhar o documento.
+-  welcome_to_docuseal: Bem-vindo ao Maiocchi Assinaturas
++  welcome_to_docuseal: Bem-vindo ao Maiocchi. Assinatura
+   your_email_could_not_be_reached_this_may_happen_if_there_was_a_typo_in_your_address_or_if_your_mailbox_is_not_available_please_contact_support_email_to_log_in: Não foi possível acessar seu e-mail. Entre em contato com roger@maiocchi.adv.br.
+   add_a_unique_signature_id_and_timestamp_to_each_signature_for_audit_and_traceability_purposes_along_with_the_timestamp_part_of_docuseals_21_cfr_part_11_compliance_settings: Adiciona identificador único e registro de data e hora a cada assinatura para auditoria e rastreabilidade.
+   require_signer_to_provide_a_reason_for_signing_before_completing_their_signature_e_g_approvals_certifications_part_of_docuseals_21_cfr_part_11_compliance_settings: Exige que o signatário informe o motivo antes de concluir a assinatura.
+-  connect_to_docuseal_mcp: Conectar ao MCP do Maiocchi Assinaturas
++  connect_to_docuseal_mcp: Conectar ao MCP do Maiocchi. Assinatura
++  submitter_invitation_email_sign_body: |
++    Você foi convidado a assinar "{template.name}".
++
++    [Revisar e assinar]({submitter.link})
++
++    Em caso de dúvida, consulte a Central de ajuda:
++    https://assinatura.maiocchi.adv.br/ajuda/
++  submitter_completed_email_body: |
++    "{template.name}" foi concluído por {submission.submitters}.
++
++    {submission.link}
++  submitter_documents_copy_email_body: |
++    Sua cópia de "{template.name}" está disponível pelo link seguro abaixo:
++
++    [{template.name}]({documents.link})
++  please_contact_us_by_replying_to_this_email_if_you_have_any_questions: 'Em caso de dúvida, consulte a Central de ajuda do portal.'
++  please_reply_to_this_email_if_you_didnt_request_this: 'Se você não solicitou esta ação, ignore a mensagem e não compartilhe o conteúdo.'
+   app_tour:
+     support: Suporte
+     support_description: 'Em caso de dúvida, escreva para roger@maiocchi.adv.br.'
+diff --git a/deploy/compose.production.yml b/deploy/compose.production.yml
+index 4f605c6..186439b 100644
+--- a/deploy/compose.production.yml
++++ b/deploy/compose.production.yml
+@@ -1,6 +1,6 @@
+ services:
+   docuseal:
+-    image: maiocchi/docuseal:3.0.1-maiocchi.1
++    image: maiocchi/docuseal:3.0.1-maiocchi.5
+     container_name: docuseal
+     restart: unless-stopped
+     mem_limit: 1g
+@@ -8,18 +8,18 @@ services:
+       docuseal-db:
+         condition: service_healthy
+     environment:
+-      HOST: documentos.assinatura.maiocchi.adv.br
+-      APP_URL: https://documentos.assinatura.maiocchi.adv.br
+-      EMAIL_HOST: documentos.assinatura.maiocchi.adv.br
++      HOST: assinatura.maiocchi.adv.br
++      APP_URL: https://assinatura.maiocchi.adv.br
++      EMAIL_HOST: assinatura.maiocchi.adv.br
+       FORCE_SSL: "true"
+       DEFAULT_LOCALE: pt
+       DATABASE_URL: "postgresql://docuseal:${DB_PASS}@docuseal-db:5432/docuseal"
+       SECRET_KEY_BASE: "${SECRET_KEY_BASE}"
+       CERTIFICATE_AUTH_ENABLED: "${CERTIFICATE_AUTH_ENABLED:-false}"
+       CERTIFICATE_AUTH_HOST: certificado.assinatura.maiocchi.adv.br
+-      CERTIFICATE_AUTH_APP_HOST: documentos.assinatura.maiocchi.adv.br
++      CERTIFICATE_AUTH_APP_HOST: assinatura.maiocchi.adv.br
+       MAIOCCHI_HOME_URL: https://assinatura.maiocchi.adv.br
+-      MAIOCCHI_SOURCE_URL: https://github.com/rogermaiocchi/maiocchi-assinaturas/raw/refs/tags/portal-v1.13.1/compliance/docuseal-maiocchi-3.0.1-maiocchi.4.tar.gz
++      MAIOCCHI_SOURCE_URL: https://github.com/rogermaiocchi/maiocchi-assinaturas/raw/refs/tags/portal-v1.14.0/compliance/docuseal-maiocchi-3.0.1-maiocchi.5.tar.gz
+       MAIOCCHI_LICENSE_URL: https://assinatura.maiocchi.adv.br/legal/LICENSE.txt
+     volumes:
+       - "${DOCUSEAL_DATA_DIR:-./data}:/data"
+diff --git a/lib/action_mailer_configs_interceptor.rb b/lib/action_mailer_configs_interceptor.rb
+index 5b2ad19..85afa92 100644
+--- a/lib/action_mailer_configs_interceptor.rb
++++ b/lib/action_mailer_configs_interceptor.rb
+@@ -9,31 +9,21 @@ module ActionMailerConfigsInterceptor
+   def delivering_email(message)
+     return message unless Rails.env.production?
+ 
++    enforce_maiocchi_headers(message)
++
+     if Docuseal.demo?
+       message.delivery_method(:test)
+ 
+       return message
+     end
+ 
+-    if Rails.env.production? && Rails.application.config.action_mailer.delivery_method
+-      from = ENV.fetch('SMTP_FROM').to_s.split(',').sample
+-
+-      if from.match?(User::FULL_EMAIL_REGEXP)
+-        message[:from] = message[:from].to_s.sub(User::EMAIL_REGEXP, from)
+-      else
+-        message.from = from
+-      end
+-
+-      return message
+-    end
++    return message if Rails.application.config.action_mailer.delivery_method
+ 
+     unless Docuseal.multitenant?
+       email_configs = EncryptedConfig.order(:account_id).find_by(key: EncryptedConfig::EMAIL_SMTP_KEY)
+ 
+       if email_configs
+         message.delivery_method(:smtp, build_smtp_configs_hash(email_configs))
+-
+-        message.from = %("#{email_configs.account.name.to_s.delete('"')}" <#{email_configs.value['from_email']}>)
+       else
+         message.delivery_method(:test)
+       end
+@@ -42,6 +32,11 @@ module ActionMailerConfigsInterceptor
+     message
+   end
+ 
++  def enforce_maiocchi_headers(message)
++    message.from = MaiocchiBrand::CANONICAL_FROM
++    message.reply_to = MaiocchiBrand::SUPPORT_EMAIL
++  end
++
+   def build_smtp_configs_hash(email_configs)
+     value = email_configs.value
+ 
+diff --git a/lib/html_to_plain_text.rb b/lib/html_to_plain_text.rb
+index 1001f40..04aecbd 100644
+--- a/lib/html_to_plain_text.rb
++++ b/lib/html_to_plain_text.rb
+@@ -10,7 +10,7 @@ module HtmlToPlainText
+ 
+     doc = Nokogiri::HTML.fragment(cleaned)
+ 
+-    doc.css('script').each(&:remove)
++    doc.css('head, title, style, script, svg, [aria-hidden="true"], [data-plain-text-ignore]').each(&:remove)
+ 
+     result = process_nodes(doc, line_length)
+ 
+diff --git a/lib/maiocchi_brand.rb b/lib/maiocchi_brand.rb
+index e32a750..f367265 100644
+--- a/lib/maiocchi_brand.rb
++++ b/lib/maiocchi_brand.rb
+@@ -1,13 +1,22 @@
+ # frozen_string_literal: true
+ 
+ module MaiocchiBrand
+-  OFFICE_NAME = 'Roger Maiocchi, advogado'
+-  PRODUCT_NAME = 'Maiocchi Assinaturas'
++  OFFICE_NAME = 'Maiocchi Advogado'
++  PRODUCT_NAME = 'Maiocchi. Assinatura'
+   SUPPORT_EMAIL = 'roger@maiocchi.adv.br'
++  CANONICAL_FROM = %("#{PRODUCT_NAME}" <#{SUPPORT_EMAIL}>).freeze
++  EMAIL_SALUTATION = 'Prezado(a),'
++  LAWYER_SIGNATURE = 'Advogado Roger Maiocchi'
++  AUTOMATED_EMAIL_NOTICE =
++    'Não responda a esta mensagem. Este e-mail foi produzido automaticamente pelo Portal de Assinatura do escritório Maiocchi Advogado.'
++  EMAIL_ATTACHMENTS_ENABLED = false
+   HOME_URL = ENV.fetch('MAIOCCHI_HOME_URL', 'https://assinatura.maiocchi.adv.br')
++  HELP_URL = "#{HOME_URL}/ajuda/"
++  PRIVACY_URL = "#{HOME_URL}/privacidade/"
++  TERMS_URL = "#{HOME_URL}/termos/"
+   SOURCE_URL = ENV.fetch(
+     'MAIOCCHI_SOURCE_URL',
+-    'https://github.com/rogermaiocchi/maiocchi-assinaturas/raw/refs/tags/portal-v1.13.1/compliance/docuseal-maiocchi-3.0.1-maiocchi.4.tar.gz'
++    'https://github.com/rogermaiocchi/maiocchi-assinaturas/raw/refs/tags/portal-v1.14.0/compliance/docuseal-maiocchi-3.0.1-maiocchi.5.tar.gz'
+   )
+   LICENSE_URL = ENV.fetch(
+     'MAIOCCHI_LICENSE_URL',
+diff --git a/public/404.html b/public/404.html
+index db133da..954212a 100644
+--- a/public/404.html
++++ b/public/404.html
+@@ -7,7 +7,7 @@
+     <meta name="theme-color" content="#ffc400">
+     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+-    <title>Página não encontrada | Maiocchi Assinaturas</title>
++    <title>Página não encontrada | Maiocchi. Assinatura</title>
+     <style>
+       :root{--i:#0a0a0a;--p:#f6f5f1;--a:#ffc400;--l:#dedbd2}*{box-sizing:border-box}body{align-items:center;background:radial-gradient(circle at 80% 10%,rgba(255,196,0,.14),transparent 25rem),var(--p);color:var(--i);display:flex;font-family:Arial,sans-serif;justify-content:center;margin:0;min-height:100vh;padding:24px}main{background:#fff;border:1px solid var(--l);border-radius:22px;box-shadow:0 28px 70px rgba(10,10,10,.09);max-width:600px;padding:48px;text-align:center;width:100%}.m{font-size:44px;font-weight:900;letter-spacing:-.13em}.m span{color:var(--a)}.c{color:#6d685f;font-size:13px;font-weight:800;letter-spacing:.14em;margin-top:24px;text-transform:uppercase}h1{font-size:clamp(32px,8vw,52px);letter-spacing:-.055em;margin:10px 0}p{color:#625e57;line-height:1.6;margin:0 auto 28px;max-width:430px}.b{background:var(--i);border-radius:12px;color:#fff;display:inline-block;font-weight:800;padding:14px 22px;text-decoration:none}.s,.l{font-size:12px;margin-top:24px}.s a,.l a{color:var(--i);text-decoration-color:var(--a);text-decoration-thickness:3px}.l{border-top:1px solid var(--l);color:#68645d;line-height:1.6;padding-top:18px}
+     </style>
+diff --git a/public/422.html b/public/422.html
+index 44aa025..15bf12a 100644
+--- a/public/422.html
++++ b/public/422.html
+@@ -7,7 +7,7 @@
+     <meta name="theme-color" content="#ffc400">
+     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+-    <title>Ação não permitida | Maiocchi Assinaturas</title>
++    <title>Ação não permitida | Maiocchi. Assinatura</title>
+     <style>
+       :root{--i:#0a0a0a;--p:#f6f5f1;--a:#ffc400;--l:#dedbd2}*{box-sizing:border-box}body{align-items:center;background:radial-gradient(circle at 80% 10%,rgba(255,196,0,.14),transparent 25rem),var(--p);color:var(--i);display:flex;font-family:Arial,sans-serif;justify-content:center;margin:0;min-height:100vh;padding:24px}main{background:#fff;border:1px solid var(--l);border-radius:22px;box-shadow:0 28px 70px rgba(10,10,10,.09);max-width:600px;padding:48px;text-align:center;width:100%}.m{font-size:44px;font-weight:900;letter-spacing:-.13em}.m span{color:var(--a)}.c{color:#6d685f;font-size:13px;font-weight:800;letter-spacing:.14em;margin-top:24px;text-transform:uppercase}h1{font-size:clamp(32px,8vw,52px);letter-spacing:-.055em;margin:10px 0}p{color:#625e57;line-height:1.6;margin:0 auto 28px;max-width:430px}.b{background:var(--i);border-radius:12px;color:#fff;display:inline-block;font-weight:800;padding:14px 22px;text-decoration:none}.s,.l{font-size:12px;margin-top:24px}.s a,.l a{color:var(--i);text-decoration-color:var(--a);text-decoration-thickness:3px}.l{border-top:1px solid var(--l);color:#68645d;line-height:1.6;padding-top:18px}
+     </style>
+diff --git a/public/500.html b/public/500.html
+index 9abe00a..e63656c 100644
+--- a/public/500.html
++++ b/public/500.html
+@@ -7,7 +7,7 @@
+     <meta name="theme-color" content="#ffc400">
+     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+-    <title>Serviço temporariamente indisponível | Maiocchi Assinaturas</title>
++    <title>Serviço temporariamente indisponível | Maiocchi. Assinatura</title>
+     <style>
+       :root{--i:#0a0a0a;--p:#f6f5f1;--a:#ffc400;--l:#dedbd2}*{box-sizing:border-box}body{align-items:center;background:radial-gradient(circle at 80% 10%,rgba(255,196,0,.14),transparent 25rem),var(--p);color:var(--i);display:flex;font-family:Arial,sans-serif;justify-content:center;margin:0;min-height:100vh;padding:24px}main{background:#fff;border:1px solid var(--l);border-radius:22px;box-shadow:0 28px 70px rgba(10,10,10,.09);max-width:600px;padding:48px;text-align:center;width:100%}.m{font-size:44px;font-weight:900;letter-spacing:-.13em}.m span{color:var(--a)}.c{color:#6d685f;font-size:13px;font-weight:800;letter-spacing:.14em;margin-top:24px;text-transform:uppercase}h1{font-size:clamp(32px,8vw,52px);letter-spacing:-.055em;margin:10px 0}p{color:#625e57;line-height:1.6;margin:0 auto 28px;max-width:430px}.b{background:var(--i);border-radius:12px;color:#fff;display:inline-block;font-weight:800;padding:14px 22px;text-decoration:none}.s,.l{font-size:12px;margin-top:24px}.s a,.l a{color:var(--i);text-decoration-color:var(--a);text-decoration-thickness:3px}.l{border-top:1px solid var(--l);color:#68645d;line-height:1.6;padding-top:18px}
+     </style>
+diff --git a/public/service-worker.js b/public/service-worker.js
+index e5a7a3c..186cd93 100644
+--- a/public/service-worker.js
++++ b/public/service-worker.js
+@@ -1,9 +1,9 @@
+ self.addEventListener('install', () => {
+-  console.log('Maiocchi Assinaturas instalado')
++  console.log('Maiocchi. Assinatura instalado')
+ })
+ 
+ self.addEventListener('activate', () => {
+-  console.log('Maiocchi Assinaturas ativado')
++  console.log('Maiocchi. Assinatura ativado')
+ })
+ 
+ self.addEventListener('fetch', (event) => {
+diff --git a/script/generate_maiocchi_brand_assets.py b/script/generate_maiocchi_brand_assets.py
+index 6ebebbc..95433a8 100644
+--- a/script/generate_maiocchi_brand_assets.py
++++ b/script/generate_maiocchi_brand_assets.py
+@@ -109,7 +109,7 @@ def preview() -> Image.Image:
+     subtitle = "ASSINATURAS"
+     subtitle_box = draw.textbbox((0, 0), subtitle, font=body_font)
+     draw.text(((size - (subtitle_box[2] - subtitle_box[0])) / 2, 445), subtitle, font=body_font, fill=INK)
+-    office = "Roger Maiocchi, advogado"
++    office = "Maiocchi Advogado"
+     office_box = draw.textbbox((0, 0), office, font=body_font)
+     draw.text(((size - (office_box[2] - office_box[0])) / 2, 505), office, font=body_font, fill="#68645d")
+     draw.rounded_rectangle((180, 610, 620, 618), radius=4, fill=ACCENT)
+diff --git a/spec/mailers/maiocchi_email_standard_spec.rb b/spec/mailers/maiocchi_email_standard_spec.rb
+new file mode 100644
+index 0000000..4c2c01a
+--- /dev/null
++++ b/spec/mailers/maiocchi_email_standard_spec.rb
+@@ -0,0 +1,83 @@
++# frozen_string_literal: true
++
++RSpec.describe 'Maiocchi email standard' do
++  let(:message) { SettingsMailer.smtp_successful_setup(MaiocchiBrand::SUPPORT_EMAIL).message }
++  let(:html) { message.body.decoded }
++
++  it 'uses the canonical sender and reply address' do
++    expect(message.from).to eq([MaiocchiBrand::SUPPORT_EMAIL])
++    expect(message.reply_to).to eq([MaiocchiBrand::SUPPORT_EMAIL])
++  end
++
++  it 'renders the unified visual and textual contract exactly once' do
++    expect(html.scan('data-maiocchi-email-standard="1"').size).to eq(1)
++    expect(html.scan('data-email-salutation="1"').size).to eq(1)
++    expect(html.scan('data-email-signature="1"').size).to eq(1)
++    expect(html.scan('data-automatic-email-notice="1"').size).to eq(1)
++    expect(html).to include('border-top:3pt solid #ffc400')
++    expect(html).to include('padding:1pt')
++    expect(html).to include('aria-label="Mensagem automática"')
++    expect(html).to include(MaiocchiBrand::EMAIL_SALUTATION)
++    expect(html).to include('Respeitosamente,')
++    expect(html).to include(MaiocchiBrand::LAWYER_SIGNATURE)
++    expect(html).to include(MaiocchiBrand::AUTOMATED_EMAIL_NOTICE)
++  end
++
++  it 'does not expose source links or attach documents' do
++    expect(html).not_to include('github.com')
++    expect(html).not_to include('Fonte correspondente')
++    expect(message.attachments).to be_empty
++    expect(MaiocchiBrand::EMAIL_ATTACHMENTS_ENABLED).to be(false)
++  end
++
++  it 'generates a text alternative with the same closing and automated notice' do
++    HtmlToPlainTextInterceptor.process(message)
++
++    text = message.text_part.decoded
++    normalized_text = text.gsub(/\s+/, ' ').strip
++
++    expect(text).to start_with(MaiocchiBrand::EMAIL_SALUTATION)
++    expect(text).not_to include('body {')
++    expect(text).not_to include('.maiocchi-content')
++    expect(normalized_text).to include('Respeitosamente,')
++    expect(normalized_text).to include(MaiocchiBrand::LAWYER_SIGNATURE)
++    expect(normalized_text).to include(MaiocchiBrand::AUTOMATED_EMAIL_NOTICE)
++  end
++
++  it 'forces canonical headers over legacy values' do
++    legacy = Mail.new(from: 'legacy@example.com', reply_to: 'legacy@example.com')
++
++    ActionMailerConfigsInterceptor.enforce_maiocchi_headers(legacy)
++
++    expect(legacy.from).to eq([MaiocchiBrand::SUPPORT_EMAIL])
++    expect(legacy.reply_to).to eq([MaiocchiBrand::SUPPORT_EMAIL])
++  end
++
++  it 'keeps stock templates free of duplicate greetings, closings and reply requests' do
++    templates = %w[
++      app/views/devise/mailer/reset_password_instructions.html.erb
++      app/views/settings_mailer/smtp_successful_setup.html.erb
++      app/views/submitter_mailer/completed_email.html.erb
++      app/views/submitter_mailer/declined_email.html.erb
++      app/views/submitter_mailer/documents_copy_email.html.erb
++      app/views/submitter_mailer/invitation_email.html.erb
++      app/views/submitter_mailer/otp_verification_email.html.erb
++      app/views/template_mailer/otp_verification_email.html.erb
++      app/views/user_mailer/invitation_email.html.erb
++    ]
++
++    templates.each do |template|
++      source = Rails.root.join(template).read
++
++      expect(source).not_to match(/hi_there|hello_name|t\(['"]thanks['"]\)|replying_to_this_email/)
++      expect(source).not_to include('Respeitosamente,')
++      expect(source).not_to include(MaiocchiBrand::LAWYER_SIGNATURE)
++    end
++  end
++
++  it 'blocks attachment generation even when an old preference requests it' do
++    mailer = SubmitterMailer.new
++
++    expect(mailer.send(:add_completed_email_attachments!, nil)).to eq([])
++  end
++end
+diff --git a/spec/rails_helper.rb b/spec/rails_helper.rb
+index 74284e0..d833291 100644
+--- a/spec/rails_helper.rb
++++ b/spec/rails_helper.rb
+@@ -3,6 +3,7 @@
+ require 'spec_helper'
+ ENV['RAILS_ENV'] ||= 'test'
+ ENV['TZ'] ||= 'UTC'
++ENV['DEFAULT_LOCALE'] ||= 'en-US'
+ require_relative '../config/environment'
+ abort('The Rails environment is running in production mode!') if Rails.env.production?
+ require 'rspec/rails'
+diff --git a/spec/requests/maiocchi_brand_spec.rb b/spec/requests/maiocchi_brand_spec.rb
+index b9b08dc..fde791f 100644
+--- a/spec/requests/maiocchi_brand_spec.rb
++++ b/spec/requests/maiocchi_brand_spec.rb
+@@ -10,7 +10,7 @@ RSpec.describe 'Maiocchi portal branding' do
+     get new_user_session_path
+ 
+     expect(response).to have_http_status(:ok)
+-    expect(response.body).to include('Roger Maiocchi, advogado')
++    expect(response.body).to include('Maiocchi Advogado')
+     expect(response.body).to include('roger@maiocchi.adv.br')
+     expect(response.body).to include('Acesso com certificado digital')
+     expect(response.body).to include('Acesso com usuário e senha')
+@@ -25,7 +25,7 @@ RSpec.describe 'Maiocchi portal branding' do
+     account = Account.new
+ 
+     expect(account.locale).to eq('pt')
+-    expect(account.name).to eq('Roger Maiocchi, advogado')
++    expect(account.name).to eq('Maiocchi Advogado')
+     expect(AccountsController::LOCALE_OPTIONS).to eq('pt' => 'Português (Brasil)')
+   end
+ end
+diff --git a/spec/support/maiocchi_dialog_helper.rb b/spec/support/maiocchi_dialog_helper.rb
+new file mode 100644
+index 0000000..6c0bb7f
+--- /dev/null
++++ b/spec/support/maiocchi_dialog_helper.rb
+@@ -0,0 +1,27 @@
++# frozen_string_literal: true
++
++module MaiocchiDialogHelper
++  def accept_maiocchi_confirm
++    yield
++
++    within('dialog.maiocchi-dialog[open]') do
++      message = find('.maiocchi-dialog__message').text
++      click_button 'Confirmar'
++      message
++    end
++  end
++
++  def accept_maiocchi_alert
++    yield
++
++    within('dialog.maiocchi-dialog[open]') do
++      message = find('.maiocchi-dialog__message').text
++      click_button 'Entendi'
++      message
++    end
++  end
++end
++
++RSpec.configure do |config|
++  config.include MaiocchiDialogHelper, type: :system
++end
+diff --git a/spec/system/account_settings_spec.rb b/spec/system/account_settings_spec.rb
+index 7c19421..3207292 100644
+--- a/spec/system/account_settings_spec.rb
++++ b/spec/system/account_settings_spec.rb
+@@ -12,43 +12,40 @@ RSpec.describe 'Account Settings' do
+ 
+   it 'shows pre-filled account settings page' do
+     expect(page).to have_content('Account')
+-    expect(page).to have_field('Company name', with: account.name)
+-    expect(page).to have_field('Time zone', with: account.timezone)
+-    expect(page).to have_field('Language', with: account.locale)
+-    expect(page).to have_field('App URL', with: encrypted_config.value)
++    expect(page).to have_field('account_name', with: MaiocchiBrand::OFFICE_NAME, readonly: true)
++    expect(page).to have_field('account_timezone', with: account.timezone)
++    expect(page).to have_select('account_locale', options: ['Português (Brasil)'])
++    expect(page).to have_field('encrypted_config_value', with: encrypted_config.value)
+   end
+ 
+   it 'updates the account settings' do
+-    fill_in 'Company name', with: 'New Company Name'
+-    fill_in 'App URL', with: 'https://example.com'
+-    select '(GMT+01:00) Berlin', from: 'Time zone'
+-    select 'Español', from: 'Language'
++    fill_in 'encrypted_config_value', with: 'https://example.com'
++    select '(GMT+01:00) Berlin', from: 'account_timezone'
+ 
+     click_button 'Update'
+ 
+     account.reload
+     encrypted_config.reload
+ 
+-    expect(account.name).to eq('New Company Name')
++    expect(account.name).to eq(MaiocchiBrand::OFFICE_NAME)
+     expect(account.timezone).to eq('Berlin')
+-    expect(account.locale).to eq('es-ES')
++    expect(account.locale).to eq('pt')
+     expect(encrypted_config.value).to eq('https://example.com')
+   end
+ 
+-  it 'changes the account language' do
+-    select 'Deutsch', from: 'Language'
++  it 'rejects forged institutional name and language values' do
++    page.execute_script <<~JAVASCRIPT
++      document.querySelector('#account_name').removeAttribute('readonly');
++      document.querySelector('#account_locale').insertAdjacentHTML('beforeend', '<option value="de-DE">Deutsch</option>');
++    JAVASCRIPT
++    fill_in 'account_name', with: 'Outra marca'
++    select 'Deutsch', from: 'account_locale'
+ 
+     click_button 'Update'
+ 
+     account.reload
+-    encrypted_config.reload
+ 
+-    expect(account.locale).to eq('de-DE')
+-    expect(page).to have_content('Konto')
+-    expect(page).to have_field('Firmenname', with: account.name)
+-    expect(page).to have_field('Zeitzone', with: account.timezone)
+-    expect(page).to have_field('Sprache', with: account.locale)
+-    expect(page).to have_field('App-URL', with: encrypted_config.value)
+-    expect(page).to have_button('Aktualisieren')
++    expect(account.name).to eq(MaiocchiBrand::OFFICE_NAME)
++    expect(account.locale).to eq('pt')
+   end
+ end
+diff --git a/spec/system/email_settings_spec.rb b/spec/system/email_settings_spec.rb
+index fe842a1..21ce0d3 100644
+--- a/spec/system/email_settings_spec.rb
++++ b/spec/system/email_settings_spec.rb
+@@ -12,14 +12,13 @@ RSpec.describe 'Email Settings' do
+     it 'setup SMTP settings' do
+       visit settings_email_index_path
+ 
+-      fill_in 'Host', with: 'smtp.example.com'
+-      fill_in 'Port', with: '587'
+-      fill_in 'Username', with: 'user@example.com'
+-      fill_in 'Password', with: 'password'
+-      fill_in 'Domain', with: 'example.com'
+-      fill_in 'Send from Email', with: 'user@example.com'
+-      select 'Plain', from: 'Authentication'
+-      choose 'TLS'
++      fill_in 'encrypted_config_value_host', with: 'smtp.example.com'
++      fill_in 'encrypted_config_value_port', with: '587'
++      fill_in 'encrypted_config_value_username', with: 'user@example.com'
++      fill_in 'encrypted_config_value_password', with: 'password'
++      fill_in 'encrypted_config_value_domain', with: 'example.com'
++      select 'Plain', from: 'encrypted_config_value_authentication'
++      choose 'tls_radio'
+ 
+       expect do
+         click_button 'Save'
+@@ -34,7 +33,7 @@ RSpec.describe 'Email Settings' do
+       expect(encrypted_config.value['domain']).to eq('example.com')
+       expect(encrypted_config.value['authentication']).to eq('plain')
+       expect(encrypted_config.value['security']).to eq('tls')
+-      expect(encrypted_config.value['from_email']).to eq('user@example.com')
++      expect(encrypted_config.value['from_email']).to eq(MaiocchiBrand::SUPPORT_EMAIL)
+     end
+   end
+ 
+@@ -57,24 +56,24 @@ RSpec.describe 'Email Settings' do
+     end
+ 
+     it 'shows pre-filled SMTP settings' do
+-      expect(page).to have_content('Email SMTP')
+-      expect(page).to have_field('Host', with: encrypted_config.value['host'])
+-      expect(page).to have_field('Port', with: encrypted_config.value['port'])
+-      expect(page).to have_field('Username', with: encrypted_config.value['username'])
+-      expect(page).to have_field('Domain', with: encrypted_config.value['domain'])
+-      expect(page).to have_select('Authentication', selected: 'Plain')
+-      expect(page).to have_field('Send from Email', with: encrypted_config.value['from_email'])
++      expect(page).to have_content('E-mail SMTP')
++      expect(page).to have_field('encrypted_config_value_host', with: encrypted_config.value['host'])
++      expect(page).to have_field('encrypted_config_value_port', with: encrypted_config.value['port'])
++      expect(page).to have_field('encrypted_config_value_username', with: encrypted_config.value['username'])
++      expect(page).to have_field('encrypted_config_value_domain', with: encrypted_config.value['domain'])
++      expect(page).to have_select('encrypted_config_value_authentication', selected: 'Plain')
++      expect(page).to have_field('encrypted_config_value_from_email', with: MaiocchiBrand::SUPPORT_EMAIL,
++                                                                             readonly: true)
+     end
+ 
+     it 'updates SMTP settings' do
+-      fill_in 'Host', with: 'smtp.gmail.com'
+-      fill_in 'Port', with: '465'
+-      fill_in 'Username', with: 'user@gmail.com'
+-      fill_in 'Password', with: 'new_password'
+-      fill_in 'Domain', with: 'gmail.com'
+-      fill_in 'Send from Email', with: 'user@gmail.com'
+-      select 'Plain', from: 'Authentication'
+-      choose 'SSL'
++      fill_in 'encrypted_config_value_host', with: 'smtp.gmail.com'
++      fill_in 'encrypted_config_value_port', with: '465'
++      fill_in 'encrypted_config_value_username', with: 'user@gmail.com'
++      fill_in 'encrypted_config_value_password', with: 'new_password'
++      fill_in 'encrypted_config_value_domain', with: 'gmail.com'
++      select 'Plain', from: 'encrypted_config_value_authentication'
++      choose 'ssl_radio'
+ 
+       expect do
+         click_button 'Save'
+@@ -89,7 +88,7 @@ RSpec.describe 'Email Settings' do
+       expect(encrypted_config.value['domain']).to eq('gmail.com')
+       expect(encrypted_config.value['authentication']).to eq('plain')
+       expect(encrypted_config.value['security']).to eq('ssl')
+-      expect(encrypted_config.value['from_email']).to eq('user@gmail.com')
++      expect(encrypted_config.value['from_email']).to eq(MaiocchiBrand::SUPPORT_EMAIL)
+     end
+   end
+ end
+diff --git a/spec/system/profile_settings_spec.rb b/spec/system/profile_settings_spec.rb
+index 9cce608..c5a73fc 100644
+--- a/spec/system/profile_settings_spec.rb
++++ b/spec/system/profile_settings_spec.rb
+@@ -78,15 +78,15 @@ RSpec.describe 'Profile Settings' do
+ 
+     it 'resets password and signs in with new password', sidekiq: :inline do
+       fill_in 'New password', with: 'newpassword'
+-      accept_confirm('Are you sure?') do
++      accept_maiocchi_confirm do
+         find('label', text: 'Click here').click
+       end
+ 
+       expect(page).to have_content('An email with password reset instructions has been sent.')
+ 
+       email = ActionMailer::Base.deliveries.last
+-      reset_password_url = email.body
+-                                .encoded[/href="([^"]+)"/, 1]
++      reset_password_url = email.html_part.body
++                                .decoded[/href="([^"]+)"/, 1]
+                                 .sub(%r{https?://(.*?)/}, "#{Capybara.current_session.server.base_url}/")
+ 
+       visit reset_password_url
+diff --git a/spec/system/setup_spec.rb b/spec/system/setup_spec.rb
+index da4a37d..d96336c 100644
+--- a/spec/system/setup_spec.rb
++++ b/spec/system/setup_spec.rb
+@@ -17,7 +17,7 @@ RSpec.describe 'App Setup' do
+   end
+ 
+   it 'shows the setup page' do
+-    expect(page).to have_content('Initial Setup')
++    expect(page).to have_content(MaiocchiBrand.copy(:setup_title))
+ 
+     ['First name', 'Last name', 'Email', 'Company name', 'Password', 'App URL'].each do |field|
+       expect(page).to have_field(field)
+@@ -43,8 +43,8 @@ RSpec.describe 'App Setup' do
+       expect(user.last_name).to eq(form_data[:last_name])
+       expect(user.email).to eq(form_data[:email])
+       expect(user.account.timezone).to eq('UTC')
+-      expect(user.account.locale).to eq('en-US')
+-      expect(user.account.name).to eq(form_data[:company_name])
++      expect(user.account.locale).to eq('pt')
++      expect(user.account.name).to eq(MaiocchiBrand::OFFICE_NAME)
+       expect(encrypted_config_app_url.value).to eq(form_data[:app_url])
+       expect(encrypted_config_esign_certs.value).to be_present
+     end
+@@ -86,11 +86,10 @@ RSpec.describe 'App Setup' do
+   private
+ 
+   def fill_setup_form(form_data)
+-    fill_in 'First name', with: form_data[:first_name]
+-    fill_in 'Last name', with: form_data[:last_name]
+-    fill_in 'Email', with: form_data[:email]
+-    fill_in 'Company name', with: form_data[:company_name]
+-    fill_in 'Password', with: form_data[:password]
+-    fill_in 'App URL', with: form_data[:app_url]
++    fill_in 'user_first_name', with: form_data[:first_name]
++    fill_in 'user_last_name', with: form_data[:last_name]
++    fill_in 'user_email', with: form_data[:email]
++    fill_in 'user_password', with: form_data[:password]
++    fill_in 'encrypted_config_value', with: form_data[:app_url]
+   end
+ end
+diff --git a/spec/system/signing_form_spec.rb b/spec/system/signing_form_spec.rb
+index 1565962..ca31ce9 100644
+--- a/spec/system/signing_form_spec.rb
++++ b/spec/system/signing_form_spec.rb
+@@ -602,7 +602,7 @@ RSpec.describe 'Signing Form' do
+       find('#expand_form_button').click
+       page.find('canvas').click([], { x: 150, y: 100 })
+ 
+-      alert_text = page.accept_alert do
++      alert_text = accept_maiocchi_alert do
+         click_button 'Sign and Complete'
+       end
+ 
+diff --git a/spec/system/storage_settings_spec.rb b/spec/system/storage_settings_spec.rb
+index c11d0ea..7774ef0 100644
+--- a/spec/system/storage_settings_spec.rb
++++ b/spec/system/storage_settings_spec.rb
+@@ -26,9 +26,9 @@ RSpec.describe 'Storage Settings' do
+       it 'setups AWS S3 storage settings' do
+         choose 'AWS'
+ 
+-        fill_in 'Access key ID', with: 'access_key_id'
+-        fill_in 'Secret access key', with: 'secret_access_key'
+-        fill_in 'Region', with: 'us-west-1'
++        fill_in 'ID da chave de acesso', with: 'access_key_id'
++        fill_in 'Chave de acesso secreta', with: 'secret_access_key'
++        fill_in 'Região', with: 'us-west-1'
+         fill_in 'Bucket', with: 'bucket'
+         fill_in 'Endpoint', with: 'https://s3.us-west-1.amazonaws.com'
+ 
+@@ -52,9 +52,9 @@ RSpec.describe 'Storage Settings' do
+       it 'setups Google Cloud Storage settings' do
+         choose 'GCP'
+ 
+-        fill_in 'Project', with: 'project_id'
++        fill_in 'Projeto', with: 'project_id'
+         fill_in 'Bucket', with: 'bucket'
+-        fill_in 'Credentials (JSON key content)', with: '{ "type": "service_account", "project_id": "project_id" }'
++        fill_in 'Credenciais (conteúdo da chave JSON)', with: '{ "type": "service_account", "project_id": "project_id" }'
+ 
+         expect do
+           click_button 'Save'
+@@ -74,9 +74,9 @@ RSpec.describe 'Storage Settings' do
+       it 'setup Azure storage settings' do
+         choose 'Azure'
+ 
+-        fill_in 'Storage Account Name', with: 'storage_account_name'
+-        fill_in 'Container', with: 'container'
+-        fill_in 'Storage Access Key', with: 'storage_access_key'
++        fill_in 'Nome da conta de armazenamento', with: 'storage_account_name'
++        fill_in 'Contêiner', with: 'container'
++        fill_in 'Chave de acesso ao armazenamento', with: 'storage_access_key'
+ 
+         expect do
+           click_button 'Save'
+@@ -112,9 +112,9 @@ RSpec.describe 'Storage Settings' do
+         it 'updates AWS S3 storage settings' do
+           visit settings_storage_index_path
+ 
+-          fill_in 'Access key ID', with: 'new_access_key_id'
+-          fill_in 'Secret access key', with: 'new_secret_access_key'
+-          fill_in 'Region', with: 'us-west-2'
++          fill_in 'ID da chave de acesso', with: 'new_access_key_id'
++          fill_in 'Chave de acesso secreta', with: 'new_secret_access_key'
++          fill_in 'Região', with: 'us-west-2'
+           fill_in 'Bucket', with: 'new_bucket'
+           fill_in 'Endpoint', with: 'https://s3.us-west-2.amazonaws.com'
+ 
+@@ -149,9 +149,9 @@ RSpec.describe 'Storage Settings' do
+         it 'updates Google Cloud Storage settings' do
+           visit settings_storage_index_path
+ 
+-          fill_in 'Project', with: 'new_project_id'
++          fill_in 'Projeto', with: 'new_project_id'
+           fill_in 'Bucket', with: 'new_bucket'
+-          fill_in 'Credentials (JSON key content)',
++          fill_in 'Credenciais (conteúdo da chave JSON)',
+                   with: '{ "type": "new_service_account", "project_id": "new_project_id" }'
+ 
+           expect do
+@@ -183,9 +183,9 @@ RSpec.describe 'Storage Settings' do
+         it 'updates Azure storage settings' do
+           visit settings_storage_index_path
+ 
+-          fill_in 'Storage Account Name', with: 'new_storage_account_name'
+-          fill_in 'Container', with: 'new_container'
+-          fill_in 'Storage Access Key', with: 'new_storage_access_key'
++          fill_in 'Nome da conta de armazenamento', with: 'new_storage_account_name'
++          fill_in 'Contêiner', with: 'new_container'
++          fill_in 'Chave de acesso ao armazenamento', with: 'new_storage_access_key'
+ 
+           expect do
+             click_button 'Save'
+@@ -219,9 +219,9 @@ RSpec.describe 'Storage Settings' do
+           visit settings_storage_index_path
+           choose 'AWS'
+ 
+-          fill_in 'Access key ID', with: 'access_key_id'
+-          fill_in 'Secret access key', with: 'secret_access_key'
+-          fill_in 'Region', with: 'us-west-1'
++          fill_in 'ID da chave de acesso', with: 'access_key_id'
++          fill_in 'Chave de acesso secreta', with: 'secret_access_key'
++          fill_in 'Região', with: 'us-west-1'
+           fill_in 'Bucket', with: 'bucket'
+           fill_in 'Endpoint', with: 'https://s3.us-west-1.amazonaws.com'
+ 
+diff --git a/spec/system/submission_preview_spec.rb b/spec/system/submission_preview_spec.rb
+index 3048e96..24eb856 100644
+--- a/spec/system/submission_preview_spec.rb
++++ b/spec/system/submission_preview_spec.rb
+@@ -34,7 +34,7 @@ RSpec.describe 'Submission Preview' do
+           fill_in 'Email', with: submission.submitters.first.email
+           click_button 'Send copy to Email'
+ 
+-          expect(page).to have_content('Email has been sent.')
++          expect(page).to have_content(I18n.t('email_has_been_sent'))
+         end
+ 
+         it 'shows an error for an email not associated with the submission' do
+diff --git a/spec/system/team_settings_spec.rb b/spec/system/team_settings_spec.rb
+index 693f31d..9297118 100644
+--- a/spec/system/team_settings_spec.rb
++++ b/spec/system/team_settings_spec.rb
+@@ -129,7 +129,7 @@ RSpec.describe 'Team Settings' do
+ 
+     it 'removes a user' do
+       expect do
+-        accept_confirm('Are you sure?') do
++        accept_maiocchi_confirm do
+           first(:button, 'Remove').click
+         end
+       end.to change { User.active.count }.by(-1)
+diff --git a/spec/system/template_spec.rb b/spec/system/template_spec.rb
+index 83aa0f8..b8d9cfa 100644
+--- a/spec/system/template_spec.rb
++++ b/spec/system/template_spec.rb
+@@ -42,7 +42,7 @@ RSpec.describe 'Template' do
+ 
+     it 'archives a template' do
+       expect do
+-        accept_confirm('Are you sure?') do
++        accept_maiocchi_confirm do
+           click_button 'Archive'
+         end
+       end.to change { Template.active.count }.by(-1)
+@@ -152,7 +152,7 @@ RSpec.describe 'Template' do
+         expect(page).to have_content(submitter.name)
+       end
+ 
+-      page.find('.dropdown', text: 'Filter').click
++      page.find('.dropdown', text: 'Filtrar').click
+       click_link 'Author'
+       within '#modal' do
+         select second_user.full_name, from: 'author'
+@@ -180,7 +180,7 @@ RSpec.describe 'Template' do
+         expect(page).to have_content(submitter.name)
+       end
+ 
+-      page.find('.dropdown', text: 'Filter').click
++      page.find('.dropdown', text: 'Filtrar').click
+       click_link 'Created at'
+       within '#modal' do
+         fill_in 'From', with: I18n.l(10.days.ago, format: '%Y-%m-%d')
+@@ -215,7 +215,7 @@ RSpec.describe 'Template' do
+         expect(page).to have_content(submitter.name)
+       end
+ 
+-      page.find('.dropdown', text: 'Filter').click
++      page.find('.dropdown', text: 'Filtrar').click
+       click_link 'Completed at'
+       within '#modal' do
+         fill_in 'From', with: I18n.l(5.days.ago, format: '%Y-%m-%d')
+diff --git a/spec/system/webhook_settings_spec.rb b/spec/system/webhook_settings_spec.rb
+index 9a27cb3..bf26dd0 100644
+--- a/spec/system/webhook_settings_spec.rb
++++ b/spec/system/webhook_settings_spec.rb
+@@ -12,7 +12,7 @@ RSpec.describe 'Webhook Settings' do
+     visit settings_webhooks_path
+ 
+     expect(page).to have_content('Webhook')
+-    expect(page).to have_content('Webhook URL')
++    expect(page).to have_content('URL do webhook')
+     expect(page).to have_field('webhook_url[url]', type: 'url')
+     expect(page).to have_button('Save')
+ 
+@@ -93,7 +93,7 @@ RSpec.describe 'Webhook Settings' do
+     visit settings_webhooks_path
+ 
+     expect do
+-      accept_confirm('Are you sure?') do
++      accept_maiocchi_confirm do
+         click_button 'Delete'
+       end
+     end.to change(WebhookUrl, :count).by(-1)
+@@ -190,7 +190,7 @@ RSpec.describe 'Webhook Settings' do
+       visit settings_webhooks_path
+ 
+       expect do
+-        click_button 'Test Webhook'
++        click_button 'Testar webhook'
+       end.to change(SendTestWebhookRequestJob.jobs, :size).by(1)
+ 
+       args = SendTestWebhookRequestJob.jobs.last['args'].first

@@ -14,12 +14,14 @@ test("gera folha A4 independente, de uma página e com metadados do escritório"
   });
   assert.equal(bytes.subarray(0, 5).toString(), "%PDF-");
 
-  const pdf = await PDFDocument.load(bytes);
+  const pdf = await PDFDocument.load(bytes, { updateMetadata: false });
   assert.equal(pdf.getPageCount(), 1);
   const { width, height } = pdf.getPage(0).getSize();
   assert.ok(Math.abs(width - 595.28) < 0.01);
   assert.ok(Math.abs(height - 841.89) < 0.01);
   assert.equal(pdf.getAuthor(), "Maiocchi Advogado");
+  assert.equal(pdf.getCreator(), "Maiocchi. Assinatura");
+  assert.equal(pdf.getProducer(), "Maiocchi. Assinatura");
   assert.match(pdf.getTitle(), /MAI-2026-1111/i);
   const images = pdf.getPage(0).node.Resources().lookup(PDFName.of("XObject"), PDFDict);
   assert.equal(images.keys().length, 2, "a folha deve incorporar QR Code e código de barras");

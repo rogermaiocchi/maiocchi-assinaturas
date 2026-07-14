@@ -6,6 +6,12 @@ COPY services/pades-provider/src ./src
 RUN mvn -q package
 
 FROM eclipse-temurin:21-jre-alpine
+ARG SOURCE_REVISION=unknown
+LABEL org.opencontainers.image.title="Maiocchi. Assinatura PAdES Provider" \
+      org.opencontainers.image.vendor="Maiocchi Advogado" \
+      org.opencontainers.image.version="1.2.5" \
+      org.opencontainers.image.source="https://github.com/rogermaiocchi/maiocchi-assinaturas/tree/portal-v1.14.0" \
+      org.opencontainers.image.revision="${SOURCE_REVISION}"
 RUN addgroup -S pades && adduser -S -G pades -u 10001 pades
 COPY --from=build /src/target/pades-provider-*.jar /app/provider.jar
 USER 10001:10001

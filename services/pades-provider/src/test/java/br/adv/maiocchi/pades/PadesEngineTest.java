@@ -116,6 +116,7 @@ class PadesEngineTest {
             assertEquals("Brasil", pdfSignature.getLocation());
             assertEquals("Formalização contratual", pdfSignature.getReason());
             assertEquals("roger@maiocchi.adv.br", pdfSignature.getContactInfo());
+            assertEquals("Maiocchi. Assinatura PAdES Provider 1.2.5", ItiPadesAdRbAttributes.APPLICATION_NAME);
             assertTrue(pdfSignature.getCOSObject().containsKey(COSName.getPDFName("Prop_Build")));
             assertFalse(pdfSignature.getCOSObject().containsKey(COSName.CERT));
             assertFalse(pdfSignature.getCOSObject().containsKey(COSName.getPDFName("R")));

@@ -23,7 +23,7 @@ As rotas de assinatura exigem `X-Provider-Key`; o container deve existir somente
 
 ## Atributos opcionais do ITI
 
-O provider `1.2.2` inclui `id-aa-ets-signerAttr`, `/Name`, `/M`, `/Location`, `/Reason`,
+O provider `1.2.5` inclui `id-aa-ets-signerAttr`, `/Name`, `/M`, `/Location`, `/Reason`,
 `/ContactInfo` e `/Prop_Build`, e audita a ausência das entradas proibidas antes de
 liberar o PDF. A finalidade do documento é incorporada em `/Reason`; o papel declarado
 integra o CMS assinado.

@@ -699,8 +699,8 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
   document.setTitle(manifest.source.name.replace(/\.pdf$/i, ""));
   document.setAuthor("Maiocchi Advogado");
   document.setSubject(`${manifest.signature.format} ${manifest.signature.infrastructure} · ${manifest.publicId}`);
-  document.setCreator("Maiocchi Assinatura");
-  document.setProducer("Maiocchi Assinatura");
+  document.setCreator("Maiocchi. Assinatura");
+  document.setProducer("Maiocchi. Assinatura");
   document.setKeywords([
     manifest.signature.format,
     manifest.signature.infrastructure,
@@ -712,10 +712,17 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
   document.setModificationDate(new Date(manifest.createdAt));
 
   const presentation = Buffer.from(await document.save({ useObjectStreams: false, addDefaultPage: false }));
-  const sheetDocument = await PDFDocument.create();
+  const sheetDocument = await PDFDocument.create({ updateMetadata: false });
   const [copied] = await sheetDocument.copyPages(document, [document.getPageCount() - 1]);
   sheetDocument.addPage(copied);
   sheetDocument.catalog.set(PDFName.of("Lang"), PDFString.of("pt-BR"));
+  sheetDocument.setTitle(`Evidências da assinatura digital · ${manifest.publicId}`);
+  sheetDocument.setAuthor("Maiocchi Advogado");
+  sheetDocument.setSubject(`${manifest.signature.format} ${manifest.signature.infrastructure} · ${manifest.publicId}`);
+  sheetDocument.setCreator("Maiocchi. Assinatura");
+  sheetDocument.setProducer("Maiocchi. Assinatura");
+  sheetDocument.setCreationDate(new Date(manifest.createdAt));
+  sheetDocument.setModificationDate(new Date(manifest.createdAt));
   const evidencePage = Buffer.from(await sheetDocument.save({ useObjectStreams: false, addDefaultPage: false }));
   return {
     presentation,

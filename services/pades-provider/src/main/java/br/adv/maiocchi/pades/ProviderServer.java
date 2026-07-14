@@ -23,6 +23,8 @@ public final class ProviderServer {
     private static final ObjectMapper JSON = new ObjectMapper()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, true);
     private static final int MAX_JSON_BYTES = 60 * 1024 * 1024;
+    private static final String VERSION = ProviderServer.class.getPackage().getImplementationVersion() == null
+            ? "development" : ProviderServer.class.getPackage().getImplementationVersion();
 
     private final HttpServer server;
     private final PadesEngine engine;
@@ -48,7 +50,13 @@ public final class ProviderServer {
             problem(exchange, 405, "method_not_allowed", "Método não permitido.");
             return;
         }
-        json(exchange, 200, Map.of("status", "ok", "ready", true, "activeSessions", engine.activeSessions()));
+        json(exchange, 200, Map.of(
+                "status", "ok",
+                "service", "pades-provider",
+                "version", VERSION,
+                "ready", true,
+                "activeSessions", engine.activeSessions()
+        ));
     }
 
     private void prepare(HttpExchange exchange) throws IOException {

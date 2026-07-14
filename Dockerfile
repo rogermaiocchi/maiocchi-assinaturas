@@ -18,6 +18,12 @@ ENV NEXT_PUBLIC_PKI_BRIDGE_URL=$NEXT_PUBLIC_PKI_BRIDGE_URL
 RUN npm run build
 
 FROM nginxinc/nginx-unprivileged:1.27-alpine
+ARG SOURCE_REVISION=unknown
+LABEL org.opencontainers.image.title="Maiocchi. Assinatura" \
+      org.opencontainers.image.vendor="Maiocchi Advogado" \
+      org.opencontainers.image.version="1.14.0" \
+      org.opencontainers.image.source="https://github.com/rogermaiocchi/maiocchi-assinaturas/tree/portal-v1.14.0" \
+      org.opencontainers.image.revision="${SOURCE_REVISION}"
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/out /usr/share/nginx/html
 EXPOSE 8080

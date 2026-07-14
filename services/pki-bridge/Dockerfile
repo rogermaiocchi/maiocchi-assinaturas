@@ -1,4 +1,10 @@
 FROM node:24.18-alpine
+ARG SOURCE_REVISION=unknown
+LABEL org.opencontainers.image.title="Maiocchi. Assinatura PKI Bridge" \
+      org.opencontainers.image.vendor="Maiocchi Advogado" \
+      org.opencontainers.image.version="1.3.17" \
+      org.opencontainers.image.source="https://github.com/rogermaiocchi/maiocchi-assinaturas/tree/portal-v1.14.0" \
+      org.opencontainers.image.revision="${SOURCE_REVISION}"
 
 WORKDIR /app
 COPY services/pki-bridge/package.json services/pki-bridge/package-lock.json ./

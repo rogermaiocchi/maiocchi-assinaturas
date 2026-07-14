@@ -2,14 +2,14 @@
 
 ## Escopo
 
-Padrão implementado pelo provider privado `1.2.2`, com base no DOC-ICP-15.03 v9.1,
+Padrão implementado pelo provider privado `1.2.5`, com base no DOC-ICP-15.03 v9.1,
 tabelas A.14 a A.22, e no DOC-ICP-15.02 v4.0. O símbolo `P` significa
 **permitido/opcional**, não “preencher sempre”. Uma entrada opcional só é emitida quando
 seu fato gerador existe e pode ser provado.
 
 ## CMS do assinante
 
-| Atributo | Regra AD-RB | Provider 1.2.2 |
+| Atributo | Regra AD-RB | Provider 1.2.5 |
 |---|---:|---|
 | `id-contentType` | O | presente e verificado |
 | `id-messageDigest` | O | presente e verificado |
@@ -33,13 +33,19 @@ PDF `/M` e `/Location`, como determina o DOC-ICP-15.02.
 | `/Location` | `Brasil`; geolocalização detalhada permanece na folha de evidências |
 | `/Reason` | finalidade normalizada do documento |
 | `/ContactInfo` | contato institucional do portal |
-| `/Prop_Build` | `Maiocchi Assinatura PAdES Provider 1.2.2` |
+| `/Prop_Build` | `Maiocchi. Assinatura PAdES Provider 1.2.5` |
 | `/V` | default normativo efetivo `0`; não se duplica o valor padrão |
 | `/Reference` | somente assinatura de certificação/DocMDP; não aplicável à assinatura de aprovação atual |
 | `/Changes` | somente quando houver transformação referenciada; não aplicável ao fluxo atual |
 | `/Prop_AuthTime` | depende de tempo de autenticação mensurável antes da preparação; indisponível no fluxo A3 atual |
 
 As entradas `/Cert`, `/R` e `/Prop_AuthType` são proibidas e auditadas como ausentes.
+
+O relatório DSS pode emitir um aviso genérico do perfil ETSI ao encontrar `/Reason` junto
+de uma política explícita. Esse aviso não altera a regra ICP-Brasil: a tabela A.18 do
+DOC-ICP-15.03 v9.1 classifica `/Reason` como `P` (pode/opcional) nos quatro perfis PAdES.
+O provider preserva a entrada, verifica sua presença e condiciona a entrega à integridade
+criptográfica e à política oficial no CMS final.
 
 ## Sinais físicos no documento
 
@@ -82,7 +88,7 @@ ACT credenciada. Nenhum segredo integra o repositório.
 
 ## Fontes oficiais
 
-- [DOC-ICP-15.03 v9.1](https://repositorio.iti.gov.br/instrucoes-normativas/IN2021_03_DOC-ICP-15.03.htm)
+- [DOC-ICP-15.03 v9.1 compilado](https://www.gov.br/iti/pt-br/assuntos/legislacao/documentos-principais/v9.1_IN2021_03_DOCICP15.03_compilada.pdf)
 - [DOC-ICP-15.02 v4.0](https://repositorio.iti.gov.br/instrucoes-normativas/IN2021_02_DOC-ICP-15.02.htm)
 - [Autoridades de Carimbo do Tempo](https://www.gov.br/iti/pt-br/assuntos/icp-brasil/autoridades-de-carimbo-do-tempo)
 - [DSS 6.4](https://ec.europa.eu/digital-building-blocks/DSS/webapp-demo/doc/dss-documentation.html)

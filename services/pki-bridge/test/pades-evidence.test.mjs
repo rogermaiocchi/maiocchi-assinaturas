@@ -73,8 +73,8 @@ test("acrescenta evidências, registra apenas páginas de conteúdo e vincula o 
     code: "PQC-MLDSA65-1111-2222-3333-4444", manifestSha256: sha256(JSON.stringify(manifest)),
   };
   const result = await composePadesEvidence({ sourcePdf: source, manifest, attestation });
-  const composed = await PDFDocument.load(result.presentation);
-  const sheet = await PDFDocument.load(result.evidencePage);
+  const composed = await PDFDocument.load(result.presentation, { updateMetadata: false });
+  const sheet = await PDFDocument.load(result.evidencePage, { updateMetadata: false });
   assert.equal(composed.getPageCount(), 3);
   assert.equal(sheet.getPageCount(), 1);
   assert.equal(result.totalPages, 3);
@@ -109,8 +109,13 @@ test("acrescenta evidências, registra apenas páginas de conteúdo e vincula o 
   assert.equal(isItiValidationEligible(manifest.signature), true);
   assert.equal(manifest.signature.itiValidationEligible, true);
   assert.equal(composed.getTitle(), "relatorio");
+  assert.equal(composed.getCreator(), "Maiocchi. Assinatura");
+  assert.equal(composed.getProducer(), "Maiocchi. Assinatura");
   assert.match(composed.getSubject(), /ICP-Brasil/);
   assert.match(composed.catalog.get(PDFName.of("Lang")).toString(), /pt-BR/);
+  assert.equal(sheet.getCreator(), "Maiocchi. Assinatura");
+  assert.equal(sheet.getProducer(), "Maiocchi. Assinatura");
+  assert.match(sheet.getTitle(), /Evidências da assinatura digital/);
   assert.equal(manifest.signature.policyOid, "2.16.76.1.7.1.11.1.3");
   assert.equal(manifest.signature.optionalAttributes.assurance, "private-provider-enforced");
   assert.deepEqual(manifest.signature.optionalAttributes.incorporated, [

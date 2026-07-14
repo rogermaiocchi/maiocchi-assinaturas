@@ -64,6 +64,10 @@ test("expõe verificação, CORS restrito, redirect e bloqueio do original", asy
   const { port } = server.address();
   const base = `http://127.0.0.1:${port}`;
 
+  const health = await (await fetch(`${base}/healthz`)).json();
+  assert.equal(health.service, "pki-bridge");
+  assert.equal(health.version, "1.3.17");
+
   const verification = await fetch(`${base}/verificacao/${publicId}`, { headers: { origin: "https://preview.example" } });
   assert.equal(verification.status, 200);
   assert.equal(verification.headers.get("access-control-allow-origin"), "https://preview.example");

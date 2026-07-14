@@ -18,6 +18,7 @@ import { verifyWebhookSignature } from "./webhook.mjs";
 
 const JSON_TYPE = "application/json; charset=utf-8";
 const KEY_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+const SERVICE_VERSION = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8")).version;
 
 function responseHeaders(extra = {}) {
   return {
@@ -205,6 +206,8 @@ export function createRequestHandler({
         await healthCheck();
         return json(200, {
           status: "ok",
+          service: "pki-bridge",
+          version: SERVICE_VERSION,
           privatePadesProvider: privateSigningService?.provider ? "ready" : "disabled",
           remoteSigning: privateSigningService?.remoteProvider ? "ready" : "disabled",
           postQuantumEvidence: privateSigningService ? "ml-dsa-65" : "disabled",

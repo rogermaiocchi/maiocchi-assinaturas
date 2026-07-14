@@ -54,7 +54,7 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 
 ## Padrão visual e de interação
 
-- O portal publico `1.13.1` adota uma unica camada visual translucida: midia
+- O portal publico `1.14.0` adota uma unica camada visual translucida: midia
   institucional full-bleed, superficies com transparencia controlada, bordas
   discretas, acento dourado e continuidade entre hero, operacoes, acesso,
   validacao e fluxo. As imagens otimizadas permanecem em WebP e devem manter
@@ -95,7 +95,7 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 - Quando a assinatura validada é ICP-Brasil, a marca oficial ocupa a área direita do selo e a base legal física é exatamente `MP 2.200-2/2001, art. 10, § 1º · L 14.063/2020, art. 4º, III.`, sem prefixo autodeclaratório. Em outras modalidades, a marca ICP-Brasil e a alegação qualificada são omitidas, e a marca PAdES ocupa a área direita do selo.
 - O QR não recebe rótulo isolado. O Code 128 continua codificando `MAI|<publicId>|R1`, mas o payload não é impresso acima das barras. Nenhuma página exibe `Página X de Y`; a quantidade total permanece somente nos metadados documentais.
 - Todos os blocos da folha final ficam dentro da área útil A4: 3 cm no topo e à esquerda, 2 cm à direita e na base. A composição ocupa horizontal e verticalmente essa área sem invadir margens, sobrepor blocos ou deformar o selo.
-- O provider `1.2.4` gera os dados do signatário como PNG ARGB dinâmico em 288 dpi, sem preenchimento opaco: nome, CPF mascarado, instante, A3, `signerAttr`, `/Location`, `/Reason`, estado de ACT e fingerprint SHA-256 ficam na área esquerda reservada da quinta zona; a marca ICP-Brasil permanece fora do campo criptográfico, à direita.
+- O provider `1.2.5` gera os dados do signatário como PNG ARGB dinâmico em 288 dpi, sem preenchimento opaco: nome, CPF mascarado, instante, A3, `signerAttr`, `/Location`, `/Reason`, estado de ACT e fingerprint SHA-256 ficam na área esquerda reservada da quinta zona; a marca ICP-Brasil permanece fora do campo criptográfico, à direita.
 - O campo gráfico da assinatura não exibe os rótulos redundantes “Resumo visual da assinatura” ou “Resumo visual da assinatura · confira pelo QR ou código”. A identificação operacional desse bloco é somente “Assinatura”, sem alteração de geometria, conteúdo criptográfico ou estado de confiança.
 - Controles têm alvo mínimo de 44 por 44 pixels, foco visível e ordem de teclado verificável.
 - A largura móvel usa a viewport disponível com margem lateral de 16 pixels; não se fixa conteúdo em uma coluna artificialmente estreita.

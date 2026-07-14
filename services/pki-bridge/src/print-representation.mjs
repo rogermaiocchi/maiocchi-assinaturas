@@ -65,7 +65,7 @@ export async function createAuthenticitySheet({ publicId, originalSha256, revisi
   if (Number.isNaN(finalizedDate.getTime()) || finalizedDate.toISOString() !== finalizedAt) throw new TypeError("finalizedAt is invalid");
   const verificationUrl = new URL(verifyUrl);
   if (verificationUrl.protocol !== "https:" || verificationUrl.username || verificationUrl.password) throw new TypeError("verification URL must use HTTPS");
-  const pdf = await PDFDocument.create();
+  const pdf = await PDFDocument.create({ updateMetadata: false });
   const page = pdf.addPage(A4);
   const times = await pdf.embedFont(StandardFonts.TimesRoman);
   const timesBold = await pdf.embedFont(StandardFonts.TimesRomanBold);
@@ -80,8 +80,8 @@ export async function createAuthenticitySheet({ publicId, originalSha256, revisi
   pdf.setTitle(`Folha de autenticidade ${id}`);
   pdf.setAuthor("Maiocchi Advogado");
   pdf.setSubject("Representação impressa de documento eletrônico");
-  pdf.setCreator("Maiocchi Assinaturas");
-  pdf.setProducer("Maiocchi Assinaturas");
+  pdf.setCreator("Maiocchi. Assinatura");
+  pdf.setProducer("Maiocchi. Assinatura");
   pdf.setCreationDate(finalizedDate);
   pdf.setModificationDate(finalizedDate);
 

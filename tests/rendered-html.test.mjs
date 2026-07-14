@@ -187,16 +187,20 @@ test("publica sem alteração a cadeia GOV.BR indicada na fonte oficial", async 
 });
 
 test("não expõe código no portal e conserva a fonte correspondente fora da raiz pública", async () => {
-  const [archive, redesignPatch, sourcePatch, chromeSource, outputFiles] = await Promise.all([
-    stat(new URL("../compliance/docuseal-maiocchi-3.0.1-maiocchi.4.tar.gz", import.meta.url)),
+  const [archive, redesignPatch, sourcePatch, emailPatch, chromeSource, outputFiles] = await Promise.all([
+    readFile(new URL("../compliance/docuseal-maiocchi-3.0.1-maiocchi.5.tar.gz", import.meta.url)),
     readFile(new URL("../patches/docuseal/0002-institutional-signing-window.patch", import.meta.url), "utf8"),
     readFile(new URL("../patches/docuseal/0003-unified-contact-and-source-surface.patch", import.meta.url), "utf8"),
+    readFile(new URL("../patches/docuseal/0004-unified-email-standard.patch", import.meta.url), "utf8"),
     readFile(new URL("../app/site-chrome.tsx", import.meta.url), "utf8"),
     readdir(outputRoot, { recursive: true }),
   ]);
 
-  assert.ok(archive.isFile());
-  assert.ok(archive.size > 1_000_000, "o arquivo-fonte deve conter o fork completo e suas licenças");
+  assert.ok(archive.length > 1_000_000, "o arquivo-fonte deve conter o fork completo e suas licenças");
+  assert.equal(
+    createHash("sha256").update(archive).digest("hex"),
+    "563e09624f73aee0a373bda65af0529dea2e4bb15f71ee70b740f98694cfaa14",
+  );
   await assert.rejects(
     stat(new URL("../public/codigo-fonte/docuseal-maiocchi-3.0.1.tar.gz", import.meta.url)),
     (error) => error?.code === "ENOENT",
@@ -224,6 +228,11 @@ test("não expõe código no portal e conserva a fonte correspondente fora da ra
   assert.match(redesignPatch, /render 'shared\/logo'/i);
   assert.match(redesignPatch, /^-\s*radial-gradient/m);
   assert.doesNotMatch(redesignPatch, /^\+\s*radial-gradient/m);
+  assert.match(emailPatch, /data-maiocchi-email-standard/i);
+  assert.match(emailPatch, /border-top:3pt solid #ffc400/i);
+  assert.match(emailPatch, /Advogado Roger Maiocchi/i);
+  assert.match(emailPatch, /data-automatic-email-notice/i);
+  assert.match(emailPatch, /MaiocchiBrand::SUPPORT_EMAIL/i);
 });
 
 test("publica identidade de navegador Maiocchi", async () => {
@@ -259,7 +268,8 @@ test("padroniza páginas inexistentes e redirecionamentos internos", async () =>
   assert.match(traefik, /documents-to-main:/i);
   assert.match(traefik, /replacement: 'https:\/\/assinatura\.maiocchi\.adv\.br\/\$\{1\}'/i);
   assert.match(docuseal, /APP_URL: https:\/\/assinatura\.maiocchi\.adv\.br/i);
-  assert.match(docuseal, /image: maiocchi\/docuseal:3\.0\.1-maiocchi\.4/i);
+  assert.match(docuseal, /image: maiocchi\/docuseal:3\.0\.1-maiocchi\.5/i);
+  assert.match(docuseal, /DEFAULT_LOCALE: pt/i);
   assert.match(docuseal, /CERTIFICATE_AUTH_APP_HOST: assinatura\.maiocchi\.adv\.br/i);
   assert.match(docuseal, /SMTP_ADDRESS: smtp\.mail\.me\.com/i);
   assert.match(docuseal, /SMTP_PORT: "587"/i);
@@ -272,7 +282,7 @@ test("padroniza páginas inexistentes e redirecionamentos internos", async () =>
   assert.match(docuseal, /SMTP_ENABLE_TLS: "false"/i);
   assert.match(docuseal, /SMTP_SSL_VERIFY: "true"/i);
   assert.match(docuseal, /SMTP_FROM: "Maiocchi\. Assinatura <roger@maiocchi\.adv\.br>"/i);
-  assert.match(docuseal, /MAIOCCHI_SOURCE_URL: https:\/\/github\.com\/rogermaiocchi\/maiocchi-assinaturas\/raw\/refs\/tags\/portal-v1\.13\.1\/compliance\/docuseal-maiocchi-3\.0\.1-maiocchi\.4\.tar\.gz/i);
+  assert.match(docuseal, /MAIOCCHI_SOURCE_URL: https:\/\/github\.com\/rogermaiocchi\/maiocchi-assinaturas\/raw\/refs\/tags\/portal-v1\.14\.0\/compliance\/docuseal-maiocchi-3\.0\.1-maiocchi\.5\.tar\.gz/i);
   assert.doesNotMatch(docuseal, /assinatura\.maiocchi\.adv\.br\/codigo-fonte/i);
   assert.equal(docuseal.match(/^\s*SMTP_PASSWORD:/gim)?.length, 1);
   assert.match(docuseal, /^\s*SMTP_PASSWORD: "\$\{SMTP_PASSWORD:\?defina SMTP_PASSWORD em \/opt\/docuseal\/\.env\}"$/im);

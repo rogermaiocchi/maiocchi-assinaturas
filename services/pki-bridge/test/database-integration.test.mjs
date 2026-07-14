@@ -15,10 +15,22 @@ import { PostgresPrivateSigningRepository } from "../src/private-signing-reposit
 
 const databaseUrl = process.env.PKI_TEST_DATABASE_URL;
 
+async function resetTestData(pool) {
+  const result = await pool.query(
+    "SELECT tablename FROM pg_tables WHERE schemaname = current_schema() AND tablename <> 'pki_schema_migrations' ORDER BY tablename",
+  );
+  const tables = result.rows.map(({ tablename }) => {
+    if (!/^[a-z0-9_]+$/.test(tablename)) throw new Error("unsafe test table name");
+    return `"${tablename}"`;
+  });
+  if (tables.length) await pool.query(`TRUNCATE TABLE ${tables.join(", ")} RESTART IDENTITY CASCADE`);
+}
+
 test("substitui sessão PAdES preparada somente com compare-and-swap", { skip: !databaseUrl }, async (context) => {
   const pool = new Pool({ connectionString: databaseUrl, max: 2 });
   context.after(async () => pool.end());
   await applyMigrations(pool);
+  await resetTestData(pool);
   const ticketId = randomUUID();
   const originalSessionId = randomUUID();
   const replacementSessionId = randomUUID();
@@ -67,6 +79,7 @@ test("migra e persiste a trilha de autenticidade no PostgreSQL", { skip: !databa
 
   await applyMigrations(pool);
   await applyMigrations(pool);
+  await resetTestData(pool);
   const migrations = await pool.query("SELECT name FROM pki_schema_migrations ORDER BY name");
   assert.deepEqual(migrations.rows.map((row) => row.name), [
     "001_initial.sql",
