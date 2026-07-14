@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./glass-system.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://assinatura.maiocchi.adv.br"),

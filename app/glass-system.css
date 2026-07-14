@@ -1,0 +1,469 @@
+/* Maiocchi translucent system. This file is the final visual layer for every route. */
+:root {
+  --glass-white: rgba(255, 255, 255, 0.74);
+  --glass-white-strong: rgba(255, 255, 255, 0.88);
+  --glass-dark: rgba(15, 15, 16, 0.66);
+  --glass-line-light: rgba(255, 255, 255, 0.44);
+  --glass-line-dark: rgba(29, 29, 31, 0.16);
+  --glass-shadow: 0 24px 70px rgba(18, 18, 20, 0.13);
+  --glass-blur: blur(24px) saturate(118%);
+}
+
+::selection { color: var(--ink); background: var(--yellow); }
+:where(a, button, input, summary):focus-visible { outline: 3px solid var(--yellow); outline-offset: 3px; }
+.portal-page--editorial main { overflow: clip; }
+
+/* Header */
+.site-header {
+  border-bottom-color: rgba(255, 255, 255, 0.2);
+  background: rgba(13, 13, 14, 0.12);
+  backdrop-filter: blur(16px) saturate(125%);
+}
+.site-header.is-scrolled {
+  border-bottom-color: rgba(29, 29, 31, 0.1);
+  background: rgba(247, 247, 246, 0.76);
+  box-shadow: 0 12px 38px rgba(24, 24, 26, 0.07);
+  backdrop-filter: blur(26px) saturate(135%);
+}
+.header-inner { min-height: 74px; }
+.brand,
+.brand__mark { width: 56px; min-width: 56px; height: 56px; min-height: 56px; }
+.brand__mark { font-size: 43px; }
+.icon-nav-link,
+.header-icon-action {
+  width: 44px;
+  height: 44px;
+  border-color: rgba(255, 255, 255, 0.42);
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(18px);
+}
+.site-header.is-scrolled .icon-nav-link,
+.site-header.is-scrolled .header-icon-action {
+  border-color: rgba(29, 29, 31, 0.14);
+  background: rgba(255, 255, 255, 0.56);
+}
+.mobile-nav nav {
+  border-color: rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  background: rgba(16, 16, 17, 0.82);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(28px) saturate(130%);
+}
+
+/* Home hero */
+.hero--institutional {
+  height: clamp(700px, 92svh, 920px);
+  min-height: 700px;
+  background: #e8e8e7;
+}
+.hero--institutional::after {
+  height: 190px;
+  background: linear-gradient(to bottom, transparent 0%, rgba(245, 245, 247, 0.38) 45%, var(--paper) 100%);
+}
+.hero--institutional .hero__media {
+  inset: -38px;
+  background-color: #e8e8e7;
+  background-image: url("/hero-roger-maiocchi-hd.webp");
+  background-position: 77% 19%;
+  background-size: auto 134%;
+  filter: saturate(0.78) contrast(1.04);
+  transform: translate3d(calc(var(--depth-x) * -7px), calc(var(--depth-y) * -5px), 0) scale(1.014);
+}
+.hero--institutional .hero__shade {
+  background:
+    linear-gradient(180deg, rgba(10, 10, 11, 0.42) 0%, rgba(10, 10, 11, 0.05) 31%, rgba(10, 10, 11, 0.08) 67%, rgba(10, 10, 11, 0.28) 100%),
+    linear-gradient(90deg, rgba(10, 10, 11, 0.94) 0%, rgba(10, 10, 11, 0.82) 34%, rgba(10, 10, 11, 0.48) 54%, rgba(10, 10, 11, 0.08) 78%, transparent 100%);
+}
+.hero--institutional .hero__content { padding-top: 118px; padding-bottom: 112px; }
+.hero--institutional .hero-copy { width: min(100%, 670px); }
+.hero--institutional .hero-title { font-size: 76px; font-weight: 820; }
+.hero--institutional .hero-lead { max-width: 520px; color: rgba(255, 255, 255, 0.82); }
+.hero--institutional .hero-access {
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  border-left: 3px solid var(--yellow);
+  border-radius: 6px;
+  background: rgba(14, 14, 15, 0.36);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(26px) saturate(125%);
+  overflow: hidden;
+}
+.hero--institutional .code-field { background: rgba(255, 255, 255, 0.1); }
+.hero--institutional .code-field input::placeholder { color: rgba(255, 255, 255, 0.62); }
+.hero-text-link { border-bottom-color: rgba(255, 255, 255, 0.32); }
+.hero-scroll { right: max(28px, calc((100vw - var(--max)) / 2)); }
+
+/* Direct operations */
+.operation-rail {
+  margin-top: -34px;
+  border: 0;
+  background: transparent;
+}
+.operation-rail__inner {
+  border: 1px solid rgba(29, 29, 31, 0.12);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.68);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
+  overflow: hidden;
+}
+.operation-rail__inner > a,
+.operation-rail__inner > a:first-child {
+  min-height: 104px;
+  border-color: rgba(29, 29, 31, 0.1);
+}
+.operation-rail__inner > a:hover { background: rgba(255, 255, 255, 0.72); }
+
+/* Shared full-bleed bands */
+.portal-band { position: relative; isolation: isolate; }
+.portal-band > .shell { position: relative; z-index: 2; }
+.portal-band--workspace {
+  min-height: 820px;
+  display: flex;
+  align-items: center;
+  background-color: #ededec;
+  background-image:
+    linear-gradient(180deg, var(--paper) 0%, rgba(245, 245, 247, 0.08) 15%, rgba(245, 245, 247, 0.06) 82%, var(--paper) 100%),
+    linear-gradient(90deg, rgba(245, 245, 247, 0.82) 0%, rgba(245, 245, 247, 0.16) 32%, rgba(245, 245, 247, 0.08) 68%, rgba(245, 245, 247, 0.76) 100%),
+    url("/hero-access-professional.webp");
+  background-position: center, center, center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+.portal-band--workspace .lawyer-access {
+  grid-template-columns: minmax(300px, 390px) minmax(380px, 440px);
+  justify-content: space-between;
+  gap: 128px;
+}
+.portal-band--workspace .lawyer-access__intro,
+.portal-band--workspace .lawyer-access__panel {
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  border-radius: 6px;
+  box-shadow: var(--glass-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.62);
+  backdrop-filter: blur(24px) saturate(120%);
+}
+.portal-band--workspace .lawyer-access__intro {
+  padding: 34px;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.64);
+}
+.portal-band--workspace .lawyer-access__intro h2 { font-size: 42px; }
+.portal-band--workspace .lawyer-access__intro > p:not(.eyebrow) { font-size: 14px; }
+.portal-band--workspace .lawyer-access__intro ul { margin-top: 24px; }
+.portal-band--workspace .lawyer-access__panel {
+  min-height: 430px;
+  padding: 30px;
+  border-top: 3px solid var(--yellow);
+  background: rgba(255, 255, 255, 0.78);
+}
+.access-methods {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid rgba(29, 29, 31, 0.12);
+  border-radius: 6px;
+  background: rgba(235, 235, 234, 0.58);
+}
+.access-methods button {
+  min-height: 46px;
+  border: 0;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--muted);
+  background: transparent;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.access-methods button[aria-selected="true"] {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 7px 20px rgba(29, 29, 31, 0.08);
+}
+.access-method-panel { min-height: 260px; padding-top: 26px; }
+.portal-band--workspace .certificate-access {
+  min-height: 110px;
+  border-color: rgba(29, 29, 31, 0.16);
+  background: rgba(255, 255, 255, 0.5);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+.portal-band--workspace .certificate-access:hover { background: rgba(255, 247, 217, 0.78); }
+.certificate-enrollment {
+  margin: 18px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.55;
+  text-align: center;
+}
+.certificate-enrollment button {
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  color: var(--ink);
+  background: transparent;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+.portal-band--workspace .credentials-form input,
+.portal-band--workspace .password-field {
+  border-color: rgba(29, 29, 31, 0.2);
+  background: rgba(255, 255, 255, 0.68);
+}
+.access-feedback { border-radius: 4px; background: rgba(255, 248, 223, 0.84); }
+.access-feedback--error { background: rgba(255, 242, 240, 0.88); }
+
+/* Verification */
+.portal-band--verification {
+  background-color: #f2f3f3;
+  background-image:
+    linear-gradient(180deg, var(--paper) 0%, rgba(255, 255, 255, 0.8) 18%, rgba(255, 255, 255, 0.7) 82%, var(--paper) 100%),
+    url("/hero-validation-glass.webp");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+.portal-band--verification .editorial-heading {
+  padding: 30px;
+  border-left: 3px solid var(--yellow);
+  background: rgba(255, 255, 255, 0.52);
+  backdrop-filter: blur(20px) saturate(115%);
+}
+.portal-band--verification .auth-verifier,
+.official-validator {
+  border-color: rgba(29, 29, 31, 0.15);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(28px) saturate(122%);
+  overflow: hidden;
+}
+.portal-band--verification .auth-verifier__heading,
+.portal-band--verification .auth-lookup,
+.official-validator summary,
+.official-validator__notice { background: rgba(255, 255, 255, 0.34); }
+.portal-band--verification .auth-lookup__field {
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.62);
+  overflow: hidden;
+}
+.official-validator { border: 1px solid rgba(29, 29, 31, 0.14); }
+
+/* Evidence flow */
+.portal-band--process {
+  background-color: #101011;
+  background-image:
+    linear-gradient(90deg, rgba(9, 9, 10, 0.9), rgba(9, 9, 10, 0.62)),
+    linear-gradient(180deg, var(--ink) 0%, transparent 22%, transparent 80%, var(--ink) 100%),
+    url("/hero-evidence-gold.webp");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+.portal-band--process .flow-map__caption > p:last-child { color: rgba(255, 255, 255, 0.68); }
+.portal-band--process .flow-map__node {
+  border-color: rgba(255, 255, 255, 0.25);
+  background: rgba(8, 8, 9, 0.42);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(18px) saturate(120%);
+}
+.portal-band--process .flow-map__node--yellow {
+  border-color: rgba(255, 184, 0, 0.8);
+  color: var(--ink);
+  background: rgba(255, 184, 0, 0.82);
+}
+
+/* Modalities and help */
+.portal-band--modalities {
+  background: rgba(236, 236, 238, 0.82);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
+}
+.modality-list details { border-color: rgba(29, 29, 31, 0.22); }
+.modality-list details[open] { background: rgba(255, 255, 255, 0.38); }
+.modality-list summary,
+.modality-list details > div { padding-inline: 18px; }
+.modality-list details > div { padding-left: calc(58% + 18px); }
+.portal-page--editorial .help-cta {
+  min-height: 560px;
+  background-image:
+    linear-gradient(90deg, rgba(9, 9, 10, 0.93) 0%, rgba(9, 9, 10, 0.7) 45%, rgba(9, 9, 10, 0.12) 78%, transparent 100%),
+    linear-gradient(180deg, var(--ink) 0%, transparent 22%, transparent 78%, var(--ink) 100%),
+    url("/hero-support-maiocchi.jpg");
+  background-position: center, center, center 42%;
+}
+.portal-page--editorial .help-cta__copy {
+  padding: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-left: 3px solid var(--yellow);
+  border-radius: 6px;
+  background: rgba(12, 12, 13, 0.34);
+  backdrop-filter: blur(22px) saturate(120%);
+}
+
+/* Inner pages */
+.page-hero,
+.signing-masthead { background: #dfe1e0; }
+.page-hero::after {
+  background:
+    linear-gradient(180deg, rgba(9, 9, 10, 0.45), rgba(9, 9, 10, 0.14) 45%, rgba(9, 9, 10, 0.5)),
+    linear-gradient(90deg, rgba(9, 9, 10, 0.88), rgba(9, 9, 10, 0.38) 62%, transparent);
+}
+.page-hero__media {
+  background-image: url("/hero-validation-glass.webp");
+  background-position: center;
+  filter: saturate(0.72) contrast(1.06);
+}
+.portal-sections {
+  border-bottom-color: rgba(29, 29, 31, 0.1);
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 12px 34px rgba(29, 29, 31, 0.05);
+  backdrop-filter: blur(24px) saturate(125%);
+}
+.legal-page { background: #f4f4f2; }
+.legal-content { width: min(calc(100% - 40px), 900px); }
+.legal-body { border-top-color: rgba(29, 29, 31, 0.26); }
+.icp-console,
+.pades-workspace {
+  border-color: rgba(29, 29, 31, 0.15);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.76);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
+}
+.signing-masthead__media {
+  background-image: url("/hero-roger-maiocchi-hd.webp");
+  background-position: 76% 20%;
+  background-size: auto 150%;
+}
+.signing-workspace-band {
+  background-image:
+    linear-gradient(180deg, rgba(245, 245, 247, 0.88), rgba(245, 245, 247, 0.96)),
+    url("/hero-validation-glass.webp");
+  background-position: center;
+  background-size: cover;
+}
+
+/* Footer */
+footer {
+  background: rgba(15, 15, 16, 0.98);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.footer-main { min-height: 138px; }
+.footer-disclosure { border-top-color: rgba(255, 255, 255, 0.1); }
+.footer-group {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.035);
+  backdrop-filter: blur(12px);
+}
+.footer-bottom { border-top-color: rgba(255, 255, 255, 0.08); }
+
+@media (max-width: 1100px) {
+  .hero--institutional .hero__media { background-position: 82% 18%; }
+  .portal-band--workspace {
+    background-image:
+      linear-gradient(180deg, var(--paper) 0%, rgba(245, 245, 247, 0.16) 16%, rgba(245, 245, 247, 0.1) 82%, var(--paper) 100%),
+      linear-gradient(90deg, rgba(245, 245, 247, 0.72), rgba(245, 245, 247, 0.1) 54%, rgba(245, 245, 247, 0.68)),
+      url("/hero-access-professional.webp");
+  }
+  .portal-band--workspace .lawyer-access {
+    grid-template-columns: minmax(270px, 0.82fr) minmax(360px, 1fr);
+    gap: 90px;
+  }
+}
+
+@media (max-width: 900px) {
+  .hero--institutional { height: 820px; }
+  .hero--institutional .hero__media { background-position: 72% 16%; background-size: auto 122%; }
+  .hero--institutional .hero__shade {
+    background:
+      linear-gradient(180deg, rgba(9, 9, 10, 0.44), rgba(9, 9, 10, 0.08) 32%, rgba(9, 9, 10, 0.25) 70%, rgba(9, 9, 10, 0.86)),
+      linear-gradient(90deg, rgba(9, 9, 10, 0.82), rgba(9, 9, 10, 0.28) 74%, transparent);
+  }
+  .operation-rail { margin-top: -22px; }
+  .portal-band--workspace {
+    min-height: 980px;
+    align-items: flex-end;
+    background-position: center, center, 57% center;
+  }
+  .portal-band--workspace .lawyer-access { grid-template-columns: 1fr; gap: 18px; }
+  .portal-band--workspace .lawyer-access__intro,
+  .portal-band--workspace .lawyer-access__panel { width: min(100%, 580px); }
+  .portal-band--workspace .lawyer-access__panel { margin-left: auto; }
+  .portal-band--workspace .lawyer-access__intro { padding: 28px; }
+  .portal-band--verification .editorial-heading { padding: 24px; }
+}
+
+@media (max-width: 720px) {
+  .shell { width: min(calc(100% - 28px), var(--max)); }
+  .site-header { background: rgba(12, 12, 13, 0.24); }
+  .header-inner { min-height: 66px; }
+  .brand,
+  .brand__mark { width: 50px; min-width: 50px; height: 50px; min-height: 50px; }
+  .brand__mark { font-size: 39px; }
+  .hero--institutional { height: 780px; min-height: 720px; max-height: none; }
+  .hero--institutional .hero__media {
+    inset: -20px;
+    background-position: 63% 12%;
+    background-size: auto 112%;
+  }
+  .hero--institutional .hero__shade {
+    background: linear-gradient(0deg, rgba(9, 9, 10, 0.96) 0%, rgba(9, 9, 10, 0.78) 48%, rgba(9, 9, 10, 0.2) 76%, rgba(9, 9, 10, 0.18) 100%);
+  }
+  .hero--institutional .hero__content { padding-top: 90px; padding-bottom: 52px; align-items: flex-end; }
+  .hero--institutional .hero-title { font-size: 50px; }
+  .hero--institutional .hero-copy { text-shadow: 0 2px 18px rgba(0, 0, 0, 0.58); }
+  .hero--institutional .hero-access { backdrop-filter: blur(20px); }
+  .operation-rail { margin-top: 0; }
+  .operation-rail__inner { border-inline: 0; border-radius: 0; box-shadow: none; }
+  .operation-rail__inner > a,
+  .operation-rail__inner > a:first-child { min-height: 78px; border-inline: 0; }
+  .portal-band { padding-block: 72px; }
+  .portal-band--workspace {
+    min-height: 1060px;
+    padding-top: 260px;
+    background-image:
+      linear-gradient(180deg, var(--paper) 0%, rgba(245, 245, 247, 0.04) 20%, rgba(245, 245, 247, 0.28) 52%, var(--paper) 100%),
+      url("/hero-access-professional.webp");
+    background-position: center, 52% 8%;
+    background-size: cover, auto 54%;
+  }
+  .portal-band--workspace .lawyer-access__intro,
+  .portal-band--workspace .lawyer-access__panel { width: 100%; }
+  .portal-band--workspace .lawyer-access__intro h2 { font-size: 34px; }
+  .portal-band--workspace .lawyer-access__panel { min-height: 390px; padding: 22px; }
+  .access-method-panel { min-height: 236px; }
+  .portal-band--verification .editorial-heading { padding: 20px; }
+  .portal-band--verification .auth-verifier,
+  .official-validator { backdrop-filter: blur(18px); }
+  .portal-band--process { background-position: 62% center; }
+  .modality-list summary,
+  .modality-list details > div { padding-inline: 0; }
+  .modality-list details > div { padding-left: 0; }
+  .portal-page--editorial .help-cta__copy { padding: 24px 20px; }
+  .page-hero__media { background-position: 62% center; }
+  .legal-content { width: min(calc(100% - 28px), 900px); }
+}
+
+@media (max-width: 420px) {
+  .hero--institutional .hero-title { font-size: 44px; }
+  .hero--institutional .hero-lead { font-size: 14px; }
+  .hero--institutional .hero-access__heading { min-height: 54px; }
+  .access-methods button { min-height: 44px; }
+  .certificate-access { grid-template-columns: 24px 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero--institutional .hero__media,
+  .hero--institutional .hero-copy { transform: none; transition: none; }
+}
+
+@media (prefers-contrast: more) {
+  :root { --glass-white: rgba(255, 255, 255, 0.94); }
+  .portal-band--workspace .lawyer-access__intro,
+  .portal-band--workspace .lawyer-access__panel,
+  .portal-band--verification .auth-verifier { background: rgba(255, 255, 255, 0.94); }
+}

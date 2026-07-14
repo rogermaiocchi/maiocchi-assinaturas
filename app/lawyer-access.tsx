@@ -19,6 +19,11 @@ type AccessState =
   | { kind: "error"; message: string }
   | { kind: "authenticated"; message: string };
 
+type AccessMethod = "certificate" | "password";
+
+const certificateRelayOrigin = "https://certificado.assinatura.maiocchi.adv.br";
+const certificateRelayPath = "/certificate_auth/login/present";
+
 async function requestCsrfToken(formSelector: string) {
   const response = await fetch("/portal-auth/session", {
     method: "GET",
@@ -43,6 +48,7 @@ function responseMessage(html: string) {
 }
 
 export function LawyerAccess() {
+  const [accessMethod, setAccessMethod] = useState<AccessMethod>("certificate");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [otp, setOtp] = useState("");
@@ -99,14 +105,44 @@ export function LawyerAccess() {
     setState({ kind: "loading", message: "Preparando o certificado conectado..." });
     try {
       const token = await requestCsrfToken("form[action='/certificate_auth/login/start']");
+      const response = await fetch("/portal-auth/certificate", {
+        method: "POST",
+        credentials: "same-origin",
+        redirect: "follow",
+        headers: {
+          accept: "text/html",
+          "content-type": "application/x-www-form-urlencoded;charset=UTF-8",
+          "x-csrf-token": token,
+        },
+        body: new URLSearchParams({ authenticity_token: token }).toString(),
+      });
+      const html = await response.text();
+      if (!response.ok) throw new Error(responseMessage(html));
+
+      const relayDocument = new DOMParser().parseFromString(html, "text/html");
+      const relay = relayDocument.querySelector<HTMLFormElement>("form[action]");
+      const relayAction = new URL(relay?.getAttribute("action") || "", window.location.origin);
+      const relayState = relay?.querySelector<HTMLInputElement>("input[name='state']")?.value;
+      if (
+        !relay
+        || relay.method.toLowerCase() !== "post"
+        || relayAction.origin !== certificateRelayOrigin
+        || relayAction.pathname !== certificateRelayPath
+        || !relayState
+      ) {
+        throw new Error("O provedor de certificado devolveu uma transição inválida.");
+      }
+
       const form = document.createElement("form");
       form.method = "post";
-      form.action = "/portal-auth/certificate";
-      const input = document.createElement("input");
-      input.type = "hidden";
-      input.name = "authenticity_token";
-      input.value = token;
-      form.appendChild(input);
+      form.action = relayAction.href;
+      relay.querySelectorAll<HTMLInputElement>("input[type='hidden'][name]").forEach((source) => {
+        const input = document.createElement("input");
+        input.type = "hidden";
+        input.name = source.name;
+        input.value = source.value;
+        form.appendChild(input);
+      });
       document.body.appendChild(form);
       form.submit();
     } catch (error) {
@@ -119,6 +155,12 @@ export function LawyerAccess() {
 
   const busy = state.kind === "loading";
   const needsOtp = state.kind === "otp" || Boolean(otp);
+
+  function selectAccessMethod(method: AccessMethod) {
+    if (busy) return;
+    setAccessMethod(method);
+    if (state.kind !== "authenticated") setState({ kind: "idle" });
+  }
 
   return (
     <section className="lawyer-access" aria-labelledby="lawyer-access-title">
@@ -142,62 +184,78 @@ export function LawyerAccess() {
           </div>
         ) : (
           <>
-            <button className="certificate-access" type="button" onClick={startCertificateAccess} disabled={busy}>
-              <IdCard aria-hidden="true" size={22} />
-              <span><strong>Entrar com certificado digital</strong><small>Use o A1, A3 ou certificado em nuvem vinculado.</small></span>
-            </button>
-            <div className="access-divider"><span>ou use suas credenciais</span></div>
-            <form className="credentials-form" onSubmit={submit} noValidate>
-              <div className="access-field">
-                <label htmlFor="lawyer-email">E-mail</label>
-                <input
-                  id="lawyer-email"
-                  type="email"
-                  name="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  autoComplete="email"
-                  inputMode="email"
-                  required
-                />
-              </div>
-              <div className="access-field">
-                <label htmlFor="lawyer-password">Senha</label>
-                <div className="password-field">
-                  <input
-                    id="lawyer-password"
-                    type={showPassword ? "text" : "password"}
-                    name="password"
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    autoComplete="current-password"
-                    required
-                  />
-                  <button className="password-toggle" type="button" onClick={() => setShowPassword((visible) => !visible)} title={showPassword ? "Ocultar senha" : "Exibir senha"} aria-label={showPassword ? "Ocultar senha" : "Exibir senha"}>
-                    {showPassword ? <EyeOff aria-hidden="true" size={18} /> : <Eye aria-hidden="true" size={18} />}
-                  </button>
-                </div>
-              </div>
-              {needsOtp && (
-                <div className="access-field access-field--wide">
-                  <label htmlFor="lawyer-otp">Código do autenticador</label>
-                  <input
-                    id="lawyer-otp"
-                    name="otp"
-                    value={otp}
-                    onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 8))}
-                    autoComplete="one-time-code"
-                    inputMode="numeric"
-                    required
-                  />
-                </div>
-              )}
-              <button className="button button--yellow credentials-submit" type="submit" disabled={busy || !email || !password}>
-                {busy ? <LoaderCircle className="spin" aria-hidden="true" size={18} /> : <LogIn aria-hidden="true" size={18} />}
-                <span>{busy ? "Confirmando..." : needsOtp ? "Confirmar código" : "Entrar"}</span>
+            <div className="access-methods" role="tablist" aria-label="Método de acesso profissional">
+              <button id="certificate-access-tab" type="button" role="tab" aria-selected={accessMethod === "certificate"} aria-controls="certificate-access-panel" onClick={() => selectAccessMethod("certificate")}>
+                <IdCard aria-hidden="true" size={18} /><span>Certificado</span>
               </button>
-            </form>
-            <a className="access-help" href="/ajuda/">Recuperar ou solicitar acesso</a>
+              <button id="password-access-tab" type="button" role="tab" aria-selected={accessMethod === "password"} aria-controls="password-access-panel" onClick={() => selectAccessMethod("password")}>
+                <KeyRound aria-hidden="true" size={18} /><span>Senha</span>
+              </button>
+            </div>
+
+            {accessMethod === "certificate" ? (
+              <div className="access-method-panel" id="certificate-access-panel" role="tabpanel" aria-labelledby="certificate-access-tab">
+                <button className="certificate-access" type="button" onClick={startCertificateAccess} disabled={busy}>
+                  <IdCard aria-hidden="true" size={22} />
+                  <span><strong>Entrar com certificado digital</strong><small>Use o A1, A3 ou certificado em nuvem já vinculado ao seu perfil.</small></span>
+                </button>
+                <p className="certificate-enrollment">Primeiro acesso neste certificado? <button type="button" onClick={() => selectAccessMethod("password")}>Entre com senha para vinculá-lo</button>.</p>
+              </div>
+            ) : (
+              <div className="access-method-panel" id="password-access-panel" role="tabpanel" aria-labelledby="password-access-tab">
+                <form className="credentials-form" onSubmit={submit} noValidate>
+                  <div className="access-field">
+                    <label htmlFor="lawyer-email">E-mail</label>
+                    <input
+                      id="lawyer-email"
+                      type="email"
+                      name="email"
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      autoComplete="email"
+                      inputMode="email"
+                      required
+                    />
+                  </div>
+                  <div className="access-field">
+                    <label htmlFor="lawyer-password">Senha</label>
+                    <div className="password-field">
+                      <input
+                        id="lawyer-password"
+                        type={showPassword ? "text" : "password"}
+                        name="password"
+                        value={password}
+                        onChange={(event) => setPassword(event.target.value)}
+                        autoComplete="current-password"
+                        required
+                      />
+                      <button className="password-toggle" type="button" onClick={() => setShowPassword((visible) => !visible)} title={showPassword ? "Ocultar senha" : "Exibir senha"} aria-label={showPassword ? "Ocultar senha" : "Exibir senha"}>
+                        {showPassword ? <EyeOff aria-hidden="true" size={18} /> : <Eye aria-hidden="true" size={18} />}
+                      </button>
+                    </div>
+                  </div>
+                  {needsOtp && (
+                    <div className="access-field access-field--wide">
+                      <label htmlFor="lawyer-otp">Código do autenticador</label>
+                      <input
+                        id="lawyer-otp"
+                        name="otp"
+                        value={otp}
+                        onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 8))}
+                        autoComplete="one-time-code"
+                        inputMode="numeric"
+                        required
+                      />
+                    </div>
+                  )}
+                  <button className="button button--yellow credentials-submit" type="submit" disabled={busy || !email || !password}>
+                    {busy ? <LoaderCircle className="spin" aria-hidden="true" size={18} /> : <LogIn aria-hidden="true" size={18} />}
+                    <span>{busy ? "Confirmando..." : needsOtp ? "Confirmar código" : "Entrar"}</span>
+                  </button>
+                </form>
+                <a className="access-help" href="/ajuda/">Recuperar ou solicitar acesso</a>
+              </div>
+            )}
           </>
         )}
 

@@ -49,14 +49,48 @@ test("incorpora autenticação e reconduz páginas intermediárias à home", asy
   assert.match(accessSource, /fetch\("\/portal-auth\/session"/i);
   assert.match(accessSource, /authenticity_token/i);
   assert.match(accessSource, /\/portal-auth\/certificate/i);
+  assert.match(accessSource, /fetch\("\/portal-auth\/certificate"/i);
   assert.match(accessSource, /form\[action='\/certificate_auth\/login\/start'\]/i);
   assert.match(accessSource, /credentials: "same-origin"/i);
+  assert.match(accessSource, /certificateRelayOrigin = "https:\/\/certificado\.assinatura\.maiocchi\.adv\.br"/i);
+  assert.match(accessSource, /relayAction\.origin !== certificateRelayOrigin/i);
+  assert.match(accessSource, /relayAction\.pathname !== certificateRelayPath/i);
+  assert.match(accessSource, /role="tablist"/i);
+  assert.match(accessSource, /aria-selected=\{accessMethod === "certificate"\}/i);
   assert.match(dashboardPatch, /redirect_to.*#advogados/i);
   assert.match(traefik, /replacePath:[\s\S]*path: \/sign_in/i);
   assert.match(traefik, /sign-in-to-home/i);
   assert.match(nginx, /location = \/validar[\s\S]*try_files \/validar\/index[.]html =404;/i);
   assert.match(nginx, /location = \/validar\/[\s\S]*try_files \/validar\/index[.]html =404;/i);
+  assert.match(nginx, /form-action 'self' https:\/\/certificado\.assinatura\.maiocchi\.adv\.br/i);
   assert.doesNotMatch(nginx, /return 302 \/\$is_args\$args#validar;/i);
+});
+
+test("aplica o sistema visual translúcido com imagens responsivas em alta resolução", async () => {
+  const [layout, theme, home, ...assets] = await Promise.all([
+    readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/glass-system.css", import.meta.url), "utf8"),
+    readFile(new URL("index.html", outputRoot), "utf8"),
+    ...[
+      "hero-roger-maiocchi-hd.webp",
+      "hero-access-professional.webp",
+      "hero-validation-glass.webp",
+      "hero-evidence-gold.webp",
+    ].map((asset) => stat(new URL(`../public/${asset}`, import.meta.url))),
+  ]);
+
+  assert.match(layout, /import "[.]\/glass-system[.]css"/i);
+  assert.match(theme, /--glass-blur: blur\(24px\) saturate\(118%\)/i);
+  assert.match(theme, /url\("\/hero-roger-maiocchi-hd[.]webp"\)/i);
+  assert.match(theme, /url\("\/hero-access-professional[.]webp"\)/i);
+  assert.match(theme, /url\("\/hero-validation-glass[.]webp"\)/i);
+  assert.match(theme, /url\("\/hero-evidence-gold[.]webp"\)/i);
+  assert.match(theme, /@media \(max-width: 720px\)/i);
+  assert.match(theme, /@media \(prefers-reduced-motion: reduce\)/i);
+  assert.match(home, /Método de acesso profissional/i);
+  assert.match(home, /Certificado/i);
+  assert.match(home, /Senha/i);
+  for (const asset of assets) assert.ok(asset.size > 100_000, "cada imagem editorial deve ser um WebP real de alta resolução");
 });
 
 test("publica páginas legais e de ajuda", async () => {
