@@ -99,24 +99,24 @@ software aparece na rota de certificados.
 
 ### T5 - Ensaio criptográfico ponta a ponta
 
-- [ ] Emitir ticket novo e de uso único para o PDF de homologação.
-- [ ] Assinar com o token ICP-Brasil conectado.
-- [ ] Validar `ByteRange`, cobertura integral, CMS e SHA-256 do arquivo final.
-- [ ] Confirmar prova ML-DSA-65 no verificador Maiocchi.
-- [ ] Submeter o mesmo arquivo ao VALIDAR ITI.
-- [ ] Preservar PDF, relatório e hashes fora do Git.
+- [x] Emitir ticket novo e de uso único para o PDF de homologação.
+- [x] Assinar com o token ICP-Brasil conectado.
+- [x] Validar `ByteRange`, cobertura integral, CMS e SHA-256 do arquivo final.
+- [x] Confirmar prova ML-DSA-65 no verificador Maiocchi.
+- [x] Submeter o mesmo arquivo ao VALIDAR ITI.
+- [x] Preservar PDF, relatório e hashes fora do Git.
 
 Aceite: `pdfsig` retorna assinatura válida, o verificador público retorna
 `proofVerified=true` e o VALIDAR ITI retorna “Assinatura aprovada.” sem alerta.
 
 ### T6 - Baseline, produção e GitHub
 
-- [ ] Registrar hashes, versões, imagem da VPS e resultado ITI em baseline versionada.
-- [ ] Confirmar `pki-bridge` saudável e HTTPS público.
-- [ ] Verificar novamente a ausência das duas frases no código e no PDF.
-- [ ] Commitar apenas arquivos do escopo, preservando mudanças preexistentes.
-- [ ] Enviar `main` ao repositório GitHub configurado como `origin`.
-- [ ] Confirmar que `origin/main` contém o commit final.
+- [x] Registrar hashes, versões, imagem da VPS e resultado ITI em baseline versionada.
+- [x] Confirmar `pki-bridge` saudável e HTTPS público.
+- [x] Verificar novamente a ausência das duas frases no código e no PDF.
+- [x] Commitar apenas arquivos do escopo, preservando mudanças preexistentes.
+- [x] Enviar `main` ao repositório GitHub configurado como `origin`.
+- [x] Confirmar que `origin/main` contém o commit final.
 
 Aceite: baseline e implementação pertencem ao mesmo histórico publicado; o
 working tree pode conter somente arquivos preexistentes fora deste escopo.

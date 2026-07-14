@@ -18,12 +18,15 @@ isso a composição visual corresponde ao PDF preparado para assinatura.
 ## Ativos
 
 - folha A4: margens de 3 cm no topo e à esquerda, e 2 cm na base e à direita.
-- cabeçalho: “Evidências da assinatura digital” alinhado à esquerda, sem ícone.
+- cabeçalho: “Evidências da assinatura digital” alinhado à esquerda, sem ícone,
+  e “Modalidade · ICP-Brasil” no lado oposto quando a infraestrutura validada
+  for ICP-Brasil.
 - credencial ICP-Brasil: fundo de segurança sem marca institucional, com dados
   da assinatura alinhados à esquerda e marca oficial ICP-Brasil à direita; só
   aparece no modo ICP-Brasil.
-- modalidade não ICP-Brasil: quadro neutro, sem logo oficial, medalhão PAdES ou
-  texto que sugira certificação ICP-Brasil.
+- modalidade não ICP-Brasil: quadro neutro com a marca tipográfica PAdES no
+  lugar da marca ICP-Brasil, sem OID, link ITI ou texto que sugira certificação
+  ICP-Brasil.
 - `PAdES AD-RB`: identificação textual vinculada aos dados assinados, sem
   medalhão autodeclaratório; a marca oficial exibida decorre da infraestrutura
   confirmada pelo certificado.

@@ -69,16 +69,26 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 
 ## Perfil A3 homologado
 
-O padrão de sucesso atual do MacBook primário é portal `1.11.1`, bridge `1.3.4`,
-provider `1.2.2`, código `85fcdb841c8952f5dee04a14e5fdbfb1240ef5bc`,
-agente local em `127.0.0.1:35100`, token ICP-Brasil A3 via CryptoTokenKit e
-política PAdES AD-RB v1.3. O ensaio final de 13/07/2026 às 17:07:29 BRT foi
+O padrão de sucesso atual do MacBook primário é portal `1.11.1`, bridge `1.3.6`,
+provider `1.2.3`, código `b42bf163d5fe6a830970c64597fd7e2d0da7e8fd`,
+agente local `1.2.1` em `127.0.0.1:35100`, token ICP-Brasil A3 via
+CryptoTokenKit e política PAdES AD-RB v1.3. O ensaio final de 13/07/2026 às
+20:56:25 BRT foi
 aprovado novamente pelo VALIDAR ITI, com cadeia `Valid`, estrutura conforme,
 resumo criptográfico `true`, atributos obrigatórios aprovados e
-`IdAaEtsSignerAttr` opcional `Valid`.
+`IdAaEtsSignerAttr` opcional `Valid`, sem mensagem de alerta.
+
+O agente `1.2.1` mantém o perfil
+`external-store-rsa-2048-fail-closed` e permite retomar o mesmo ticket em
+estado `prepared`. O ensaio de retomada chegou novamente ao desafio da chave
+externa e, diante de cancelamento físico, não concluiu nem publicou documento;
+o ticket permaneceu preparado. Esse comportamento é a referência operacional
+para repetição segura após cancelamento do PIN/token.
 
 Os valores canônicos, a composição final e os hashes da evidência estão na
-[baseline do layout aprovado pelo ITI](../baseline/2026-07-13-pades-canonical-layout-iti-approved.md).
+[baseline PAdES por modalidade aprovada pelo ITI](../baseline/2026-07-13-pades-dual-modality-iti-approved.md).
+A [baseline do layout anterior](../baseline/2026-07-13-pades-canonical-layout-iti-approved.md)
+permanece como histórico da revisão substituída.
 A [baseline dos sinais físicos ITI](../baseline/2026-07-13-pades-iti-physical-signals-approved.md)
 permanece como histórico da revisão anterior.
 A [baseline criptográfica original](../baseline/2026-07-13-pades-iti-approved.md)
