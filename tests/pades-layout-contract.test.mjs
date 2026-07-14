@@ -72,9 +72,9 @@ test("mantém uma única geometria entre renderer, editor e provider PAdES", asy
   assert.doesNotMatch(renderer, /drawPageFooter|Página \$\{index \+ 1\} de \$\{totalPages\}/);
   assert.match(renderer, /degrees\(-90\)/);
   const railRenderer = renderer.slice(renderer.indexOf("const drawContentRail"), renderer.indexOf("originalPages.forEach"));
-  assert.match(railRenderer, /DOCUMENTO \$\{manifest[.]documentNumber\} - HASH \$\{manifest[.]source[.]sha256\}/);
+  assert.match(railRenderer, /DOCUMENTO \$\{manifest[.]documentNumber\} - HASH \$\{manifest[.]source[.]sha256\} - CÓDIGO \$\{attestation[.]code\}/);
   assert.match(railRenderer, /railLeft \+ \(PAGE_CHROME[.]sideRailWidth - PAGE_CHROME[.]sideMarkSize\) \/ 2/);
-  assert.doesNotMatch(railRenderer, /drawLine|manifest[.]publicId|attestation[.]code|CÓDIGO|ATESTADO PÓS-QUÂNTICO/);
+  assert.doesNotMatch(railRenderer, /drawLine|manifest[.]publicId|registryLines|ATESTADO PÓS-QUÂNTICO/);
   assert.doesNotMatch(editor, /Página 13 de 13/);
   assert.doesNotMatch(editor, /MAI\|MAI-/);
   assert.doesNotMatch(editor, />VALIDAR<\/span>/);

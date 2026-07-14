@@ -309,7 +309,7 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
   const drawContentRail = (page) => {
     const width = page.getWidth();
     const height = page.getHeight();
-    const registry = `DOCUMENTO ${manifest.documentNumber} - HASH ${manifest.source.sha256}`;
+    const registry = `DOCUMENTO ${manifest.documentNumber} - HASH ${manifest.source.sha256} - CÓDIGO ${attestation.code}`;
     const railLeft = width - PAGE_CHROME.sideRailWidth;
     const markY = height - PAGE_CHROME.sideMarkTop - PAGE_CHROME.sideMarkSize;
     const registryStartY = markY - PAGE_CHROME.sideRegistryGap;

@@ -278,7 +278,7 @@ O link do portal existe em todas as modalidades. O link `https://validar.iti.gov
 
 # 6. Folha impressa
 
-A folha final é A4, uma página, e mantém todo o grid dentro de 3 cm no topo e à esquerda e 2 cm à direita e na base. Ela contém ID textual, número documental, total de páginas, hash SHA-256 da entrada, QR com correção de erro H, Code 128, endereços de validação, metadados, atributos, atestado ML-DSA-65 e evidência visual do signatário. As páginas de conteúdo recebem linha dourada superior e uma faixa lateral direita sem divisor, com `m.` centralizado e somente `DOCUMENTO <número> - HASH <SHA-256>`; a folha final não repete essa faixa. Nenhuma página imprime `Página X de Y`; a contagem total permanece apenas nos metadados documentais. O texto canônico é:
+A folha final é A4, uma página, e mantém todo o grid dentro de 3 cm no topo e à esquerda e 2 cm à direita e na base. Ela contém ID textual, número documental, total de páginas, hash SHA-256 da entrada, QR com correção de erro H, Code 128, endereços de validação, metadados, atributos, atestado ML-DSA-65 e evidência visual do signatário. As páginas de conteúdo recebem linha dourada superior e uma faixa lateral direita sem divisor, com `m.` centralizado e uma única inscrição contínua, sem quebra: `DOCUMENTO <número> - HASH <SHA-256> - CÓDIGO <PQC-MLDSA65>`; a folha final não repete essa faixa. Nenhuma página imprime `Página X de Y`; a contagem total permanece apenas nos metadados documentais. O texto canônico é:
 
 > Esta folha não substitui o PDF eletrônico assinado. O valor criptográfico e a validação pertencem ao arquivo PAdES original; confira a correspondência pelo código, pelo hash SHA-256 e pelo endereço abaixo.
 

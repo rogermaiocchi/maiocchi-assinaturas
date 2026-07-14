@@ -38,8 +38,9 @@ isso a composição visual corresponde ao PDF preparado para assinatura.
   `MAI|<publicId>|R1`. O payload do Code 128 permanece codificado nas barras,
   sem repetição textual acima delas.
 - páginas originais: linha dourada superior e faixa lateral direita sem divisor,
-  com a marca `m.` centralizada e uma única inscrição vertical no formato
-  `DOCUMENTO <número> - HASH <SHA-256>`. A folha final não recebe essa faixa.
+  com a marca `m.` centralizada e uma única inscrição vertical contínua, sem
+  quebra: `DOCUMENTO <número> - HASH <SHA-256> - CÓDIGO <PQC-MLDSA65>`. A folha
+  final não recebe essa faixa.
 - validação: o quadro `VALIDAR O ORIGINAL` exibe o endereço do portal e,
   somente nos modos ICP-Brasil e GOV.BR reconhecido, o link clicável
   `validar.iti.gov.br` na linha seguinte.
