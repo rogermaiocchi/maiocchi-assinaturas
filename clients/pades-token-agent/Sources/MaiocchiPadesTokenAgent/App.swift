@@ -4,7 +4,7 @@ import Vapor
 
 @main
 struct MaiocchiPadesTokenAgent {
-    private static let version = "1.2.0"
+    private static let version = "1.2.1"
     private static let logger = Logger(
         subsystem: "br.adv.maiocchi.pades-agent",
         category: "lifecycle"

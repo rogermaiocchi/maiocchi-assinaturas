@@ -27,6 +27,8 @@ import Testing
     #expect(AuthorizationPage.javascript.contains("/api/pades/prepare"))
     #expect(AuthorizationPage.javascript.contains("prepared.sourceDocumentSha256 !== ticket.documentSha256"))
     #expect(AuthorizationPage.javascript.contains("prepared.documentSha256 !== prepared.presentationSha256"))
+    #expect(AuthorizationPage.javascript.contains("['pending', 'prepared'].includes(ticket.status)"))
+    #expect(AuthorizationPage.javascript.contains("Assinatura preparada e vinculada ao documento"))
     #expect(AuthorizationPage.javascript.contains("certificate.tokenBacked === true"))
     #expect(AuthorizationPage.javascript.contains("certificate.keyOrigin === 'CryptoTokenKit'"))
     #expect(AuthorizationPage.javascript.contains("certificate.trustClassification === 'external-token-unverified'"))

@@ -98,11 +98,13 @@ enum AuthorizationPage {
           status('Documento já assinado e validado. Retornando ao portal.');
           return setTimeout(() => location.replace(`${portal}/assinar-icp#ticket=${token}`), 700);
         }
-        if (ticket.status !== 'pending') throw new Error('O ticket não está disponível para uma nova assinatura.');
+        if (!['pending', 'prepared'].includes(ticket.status)) throw new Error('O ticket não está disponível para uma nova assinatura.');
         if (!certificates.length) throw new Error('Nenhum certificado RSA com chave externa aprovada foi encontrado no token.');
         certificateNode.disabled = false;
         signNode.disabled = false;
-        status('Documento e credencial externa prontos; a cadeia será validada pelo servidor.');
+        status(ticket.status === 'prepared'
+          ? 'Assinatura preparada e vinculada ao documento; confirme novamente no token.'
+          : 'Documento e credencial externa prontos; a cadeia será validada pelo servidor.');
       }
 
       async function sign() {
