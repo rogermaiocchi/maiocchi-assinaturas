@@ -27,6 +27,37 @@ import "./style.css";
 
 type Box = { x: number; y: number; w: number; h: number };
 type Layout = Record<string, Box>;
+type SignatureMode = "icp-brasil" | "gov-br" | "simples";
+
+const SIGNATURE_MODES: Record<SignatureMode, {
+  label: string;
+  header: string;
+  infrastructure: string;
+  icpBrasil: boolean;
+  itiValidationEligible: boolean;
+}> = {
+  "icp-brasil": {
+    label: "ICP-Brasil",
+    header: "ICP-BRASIL",
+    infrastructure: "ICP-Brasil",
+    icpBrasil: true,
+    itiValidationEligible: true,
+  },
+  "gov-br": {
+    label: "GOV.BR",
+    header: "GOV.BR",
+    infrastructure: "GOV.BR",
+    icpBrasil: false,
+    itiValidationEligible: true,
+  },
+  simples: {
+    label: "Simples",
+    header: "ASSINATURA SIMPLES",
+    infrastructure: "Assinatura eletrônica simples",
+    icpBrasil: false,
+    itiValidationEligible: false,
+  },
+};
 
 const A4 = {
   width: Math.round(PDF_A4.width * EDITOR_SCALE),
@@ -38,7 +69,7 @@ const PAGE_MARGINS = {
   bottom: Math.round(PDF_PAGE_MARGINS.bottom * EDITOR_SCALE),
   left: Math.round(PDF_PAGE_MARGINS.left * EDITOR_SCALE),
 };
-const LAYOUT_STORAGE_KEY = "maiocchi-pades-layout-v5";
+const LAYOUT_STORAGE_KEY = "maiocchi-pades-layout-v6";
 const initialLayout = Object.fromEntries(
   Object.entries(EVIDENCE_BLOCKS).map(([id, block]) => [id, editorBox(block)]),
 ) as Layout;
@@ -146,14 +177,16 @@ function DocumentCanvas({
   selected,
   select,
   startAction,
-  icpBrasil,
+  mode,
 }: {
   layout: Layout;
   selected: string;
   select: (id: string) => void;
   startAction: (mode: "drag" | "resize", id: string, event: React.PointerEvent) => void;
-  icpBrasil: boolean;
+  mode: SignatureMode;
 }) {
+  const modeConfig = SIGNATURE_MODES[mode];
+  const { icpBrasil, itiValidationEligible } = modeConfig;
   const props = (id: string, className = "") => ({
     id,
     box: layout[id],
@@ -170,7 +203,7 @@ function DocumentCanvas({
         <div className="header-brand-row">
           <span className="header-record">Evidências da assinatura digital</span>
           <span className={icpBrasil ? "header-mode is-icp" : "header-mode"}>
-            Modalidade · {icpBrasil ? "ICP-Brasil" : "assinatura eletrônica"}
+            Modalidade · {modeConfig.header}
           </span>
         </div>
       </Block>
@@ -207,8 +240,8 @@ function DocumentCanvas({
           <Field label="Finalidade">Conferência e preservação do documento eletrônico</Field>
           <Field label="Evento 1 · documento preparado">13/07/2026, 15:52:50 · America/Sao_Paulo</Field>
           <Field label="Evento 2 · assinatura">Instante registrado no resumo visual abaixo</Field>
-          <Field label="Token / modalidade">{icpBrasil ? "Certificado ICP-Brasil A3 · token criptográfico" : "Modalidade informada pelo fluxo"}</Field>
-          <Field label="Tipo de assinatura">{icpBrasil ? "PAdES AD-RB · ICP-Brasil" : "Assinatura eletrônica"}</Field>
+          <Field label="Token / modalidade">{icpBrasil ? "Certificado ICP-Brasil A3 · token criptográfico" : mode === "gov-br" ? "Conta GOV.BR · infraestrutura reconhecida" : "Modalidade simples registrada pelo fluxo"}</Field>
+          <Field label="Tipo de assinatura">{icpBrasil ? "PAdES AD-RB · ICP-Brasil" : mode === "gov-br" ? "Assinatura avançada · GOV.BR" : "Assinatura eletrônica simples"}</Field>
           <Field label="Ambiente">MacBook · macOS · MaiocchiPadesTokenAgent</Field>
           <Field label="IP / localização">189.6.10.176 · não fornecida pelo usuário</Field>
         </div>
@@ -221,9 +254,9 @@ function DocumentCanvas({
           <div className="attribute-row conditional"><i></i><b>ACT / CONDICIONAL</b><span contentEditable suppressContentEditableWarning>contentTimeStamp · signatureTimeStampToken · Document Time-stamp</span></div>
           <div className="attribute-row context"><i></i><b>CONTEXTO</b><span contentEditable suppressContentEditableWarning>/Reference · /Changes · /V=0 · /Prop_AuthTime · DSS · VRI</span></div>
         </> : <>
-          <div className="section-heading"><h2>Atributos da assinatura</h2><code>modalidade não ICP-Brasil</code></div>
-          <div className="attribute-row generic"><i></i><b>FORMATO</b><span contentEditable suppressContentEditableWarning>Assinatura eletrônica</span></div>
-          <div className="attribute-row context"><i></i><b>MODALIDADE</b><span contentEditable suppressContentEditableWarning>Informada pelo fluxo de assinatura</span></div>
+          <div className="section-heading"><h2>Atributos da assinatura</h2><code>{modeConfig.infrastructure}</code></div>
+          <div className="attribute-row generic"><i></i><b>FORMATO</b><span contentEditable suppressContentEditableWarning>{mode === "gov-br" ? "Assinatura eletrônica avançada" : "Assinatura eletrônica simples"}</span></div>
+          <div className="attribute-row context"><i></i><b>MODALIDADE</b><span contentEditable suppressContentEditableWarning>{mode === "gov-br" ? "Infraestrutura oficial GOV.BR" : "Registrada pelo fluxo de assinatura"}</span></div>
           <div className="attribute-row context"><i></i><b>CONFERÊNCIA</b><span contentEditable suppressContentEditableWarning>Consultar QR e código de verificação</span></div>
         </>}
       </Block>
@@ -237,7 +270,7 @@ function DocumentCanvas({
 
       <Block {...props("validation", "validation-block")}>
         <span>VALIDAR O ORIGINAL</span>
-        <strong contentEditable suppressContentEditableWarning>assinatura.maiocchi.adv.br/v/</strong>
+        <strong contentEditable suppressContentEditableWarning>assinatura.maiocchi.adv.br/validar</strong>
         <small contentEditable suppressContentEditableWarning>MAI-2026-ESY0-6MPD-QQBP-RMG4</small>
       </Block>
 
@@ -254,7 +287,7 @@ function DocumentCanvas({
         <p contentEditable suppressContentEditableWarning>{icpBrasil
           ? "Assinatura eletrônica qualificada · MP 2.200-2/2001, art. 10, § 1º · Lei 14.063/2020, art. 4º, III."
           : "Assinatura eletrônica conforme a modalidade registrada · MP 2.200-2/2001, art. 10, § 2º · Lei 14.063/2020, art. 4º."}</p>
-        {icpBrasil && <a href="https://validar.iti.gov.br/" target="_blank" rel="noreferrer">Validação externa: validar.iti.gov.br</a>}
+        {itiValidationEligible && <a href="https://validar.iti.gov.br/" target="_blank" rel="noreferrer">Validação externa: validar.iti.gov.br</a>}
       </Block>
 
       <Block {...props("footer", "footer-block")}>
@@ -269,7 +302,7 @@ function App() {
     try { return JSON.parse(localStorage.getItem(LAYOUT_STORAGE_KEY) || "null"); } catch { return null; }
   }, []);
   const [layout, setLayout] = useState<Layout>(stored?.layout || initialLayout);
-  const [icpBrasil, setIcpBrasil] = useState(stored?.icpBrasil !== false);
+  const [mode, setMode] = useState<SignatureMode>(stored?.mode in SIGNATURE_MODES ? stored.mode : "icp-brasil");
   const [selected, setSelected] = useState("seal");
   const [zoom, setZoom] = useState(0.76);
   const [grid, setGrid] = useState(true);
@@ -325,15 +358,18 @@ function App() {
         ? Math.round((PAGE_MARGINS.left + A4.width - PAGE_MARGINS.right - layout[selected].w) / 2)
         : A4.width - PAGE_MARGINS.right - layout[selected].w,
   });
-  const save = () => localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify({ layout, icpBrasil }));
-  const reset = () => { setLayout(initialLayout); setIcpBrasil(true); localStorage.removeItem(LAYOUT_STORAGE_KEY); };
+  const save = () => localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify({ layout, mode }));
+  const reset = () => { setLayout(initialLayout); setMode("icp-brasil"); localStorage.removeItem(LAYOUT_STORAGE_KEY); };
   const download = () => {
+    const modeConfig = SIGNATURE_MODES[mode];
     const blob = new Blob([JSON.stringify({
-      version: 5,
+      version: 6,
       canvas: A4,
       margins: PAGE_MARGINS,
-      profile: icpBrasil ? "ICP-Brasil" : "não ICP-Brasil",
-      icpBrasilCredentialIncluded: icpBrasil,
+      mode,
+      infrastructure: modeConfig.infrastructure,
+      icpBrasilCredentialIncluded: modeConfig.icpBrasil,
+      itiValidationEligible: modeConfig.itiValidationEligible,
       layout,
     }, null, 2)], { type: "application/json" });
     const href = URL.createObjectURL(blob);
@@ -371,12 +407,21 @@ function App() {
           {(["x", "y", "w", "h"] as const).map((key) => <label key={key}><span>{key.toUpperCase()}</span><input type="number" value={box[key]} onChange={(event) => updateSelected({ [key]: Number(event.target.value) })} /></label>)}
         </div>
         <label className="zoom-control"><span>Zoom {Math.round(zoom * 100)}%</span><input type="range" min="0.5" max="1" step="0.02" value={zoom} onChange={(event) => setZoom(Number(event.target.value))} /></label>
-        <label className="mode-switch">
-          <input type="checkbox" checked={icpBrasil} onChange={(event) => setIcpBrasil(event.target.checked)} />
-          <span aria-hidden="true"><i /></span>
-          <strong>Assinatura ICP-Brasil</strong>
-          <small>Exibe a marca ICP no selo e o link oficial do ITI somente quando a assinatura é qualificada.</small>
-        </label>
+        <div className="mode-selector" role="group" aria-label="Modalidade da assinatura">
+          <span>Modalidade</span>
+          <div>
+            {(Object.keys(SIGNATURE_MODES) as SignatureMode[]).map((value) => (
+              <button
+                key={value}
+                type="button"
+                className={mode === value ? "is-selected" : ""}
+                aria-pressed={mode === value}
+                onClick={() => setMode(value)}
+              >{SIGNATURE_MODES[value].label}</button>
+            ))}
+          </div>
+          <small>O VALIDAR ITI aparece somente para ICP-Brasil e GOV.BR reconhecido.</small>
+        </div>
         <p>Arraste pela etiqueta amarela. Redimensione pelo canto inferior direito. Textos sublinhados são editáveis diretamente.</p>
         <div className="legend"><i></i><span>Coordenadas compartilhadas com o renderer do PDF.</span></div>
       </aside>
@@ -384,7 +429,7 @@ function App() {
       <section className="workspace" aria-label="Editor visual">
         <div className="canvas-stage" style={{ width: A4.width * zoom, height: A4.height * zoom }}>
           <div style={{ transform: `scale(${zoom})`, transformOrigin: "top left" }}>
-            <DocumentCanvas layout={layout} selected={selected} select={setSelected} startAction={startAction} icpBrasil={icpBrasil} />
+            <DocumentCanvas layout={layout} selected={selected} select={setSelected} startAction={startAction} mode={mode} />
           </div>
         </div>
       </section>

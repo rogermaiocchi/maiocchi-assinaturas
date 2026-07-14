@@ -3,6 +3,7 @@ import { createHash, randomBytes, sign, verify } from "node:crypto";
 export const AUTHENTICITY_SCHEMA = "https://assinatura.maiocchi.adv.br/schemas/authenticity-key-v1.schema.json";
 export const AUTHENTICITY_VERSION = "1.1.0";
 export const OFFICIAL_VALIDATOR_URL = "https://validar.iti.gov.br/";
+export const PORTAL_VALIDATOR_PATH = "/validar";
 
 const PUBLIC_ID_PATTERN = /^MAI-\d{4}(?:-[0-9A-HJKMNP-TV-Z]{4}){4}$/;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
@@ -142,6 +143,14 @@ export function publicIdFromRegistrationKey(registrationKey, { year = new Date()
   return `MAI-${year}-${symbols.match(/.{4}/g).join("-")}`;
 }
 
+export function portalVerificationUrl(publicId, baseUrl = "https://assinatura.maiocchi.adv.br") {
+  const id = assertPublicId(publicId);
+  const origin = new URL(requireHttpsUrl(baseUrl instanceof URL ? baseUrl.toString() : baseUrl, "portal base URL"));
+  const url = new URL(PORTAL_VALIDATOR_PATH, origin);
+  url.searchParams.set("codigo", id);
+  return url.toString();
+}
+
 export function buildAuthenticityRecord({
   publicId,
   revision,
@@ -172,7 +181,7 @@ export function buildAuthenticityRecord({
   if (!DISCLOSURE_MODES.has(disclosureMode)) throw new TypeError("disclosure mode is invalid");
 
   const origin = new URL(requireHttpsUrl(baseUrl, "portal base URL"));
-  const verifyUrl = new URL(`/v/${id}`, origin).toString();
+  const verifyUrl = portalVerificationUrl(id, origin.toString());
   const originalUrl = disclosureMode === "public" ? new URL(`/original/${id}.pdf`, origin).toString() : null;
   const normalizedSignatures = Array.isArray(signatures) ? signatures : [];
   if (normalizedSignatures.length !== signatureCount) throw new TypeError("signature metadata count is invalid");

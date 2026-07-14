@@ -240,7 +240,7 @@ Os valores abaixo são ilustrativos e não constituem evidência válida. O OID 
       "mode": "restricted"
     },
     "links": {
-      "verify": "https://assinatura.maiocchi.adv.br/v/MAI-2026-1111-1111-1111-1111",
+      "verify": "https://assinatura.maiocchi.adv.br/validar?codigo=MAI-2026-1111-1111-1111-1111",
       "original": null,
       "print": "https://assinatura.maiocchi.adv.br/folha/MAI-2026-1111-1111-1111-1111.pdf",
       "officialValidator": "https://validar.iti.gov.br/"
@@ -263,7 +263,8 @@ As chaves de objeto são ordenadas por código Unicode, sem espaços. O JWS comp
 
 | Método e rota | Função | Exposição |
 |---|---|---|
-| `GET /v/{id}` | redireciona QR para `/validar/?codigo={id}` | pública |
+| `GET /validar?codigo={id}` | endereço canônico do QR e da chave textual | pública |
+| `GET /v/{id}` | compatibilidade; redireciona para `/validar?codigo={id}` | pública |
 | `GET /verificacao/{id}` | devolve status e envelope verificado | pública |
 | `POST /verificacao/{id}/evento` | registra somente `match` ou `mismatch` | pública, limitada |
 | `GET /folha/{id}.pdf` | entrega a representação impressa | pública |
@@ -272,6 +273,8 @@ As chaves de objeto são ordenadas por código Unicode, sem espaços. O JWS comp
 | `POST /internal/authenticity/records` | registra pacote validado com HMAC e janela temporal | rede interna |
 
 Rotas GET não escrevem telemetria. O POST de comparação registra apenas uma observação não confiável, amostrada uma vez por resultado em cada janela de dez minutos. O endpoint interno recebe `timestamp.HMAC-SHA256(timestamp + "." + corpo bruto)` no cabeçalho `X-Maiocchi-Signature`. Além do HMAC e da janela de cinco minutos, o corpo deve conter `validationAttestation`, um JWS de chave autorizada. O mesmo pacote é idempotente; pacote divergente para o mesmo workflow recebe `409`. O Traefik não publica a rota `/internal`.
+
+O link do portal existe em todas as modalidades. O link `https://validar.iti.gov.br/` é incluído somente quando o registro comprova infraestrutura ICP-Brasil ou GOV.BR reconhecida pelo serviço oficial. Assinatura simples e classificação avançada sem infraestrutura reconhecida permanecem fail-closed, sem link ITI.
 
 # 6. Folha impressa
 

@@ -10,7 +10,7 @@ const QRCode = requireFromBridge("qrcode");
 const bwipjs = requireFromBridge("bwip-js");
 
 const publicId = "MAI-2026-ESY0-6MPD-QQBP-RMG4";
-const verificationUrl = `https://assinatura.maiocchi.adv.br/v/${publicId}`;
+const verificationUrl = `https://assinatura.maiocchi.adv.br/validar?codigo=${publicId}`;
 const barcodeValue = `MAI|${publicId}|R1`;
 const outputDirectory = path.join(editorDirectory, "public", "assets");
 

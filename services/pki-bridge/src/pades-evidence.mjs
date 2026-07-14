@@ -4,7 +4,7 @@ import fontkit from "@pdf-lib/fontkit";
 import { PDFDocument, PDFName, PDFString, degrees, rgb } from "pdf-lib";
 import bwipjs from "bwip-js";
 import QRCode from "qrcode";
-import { assertPublicId } from "./authenticity-contract.mjs";
+import { assertPublicId, portalVerificationUrl } from "./authenticity-contract.mjs";
 import {
   A4,
   BODY,
@@ -31,6 +31,7 @@ const REGULAR_FONT_PATH = fileURLToPath(new URL("../assets/inter-latin-400-norma
 const BOLD_FONT_PATH = fileURLToPath(new URL("../assets/inter-latin-700-normal.woff", import.meta.url));
 const ITI_POLICY_OID = "2.16.76.1.7.1.11.1.3";
 const ITI_VALIDATOR_URL = "https://validar.iti.gov.br/";
+const ITI_ELIGIBLE_INFRASTRUCTURES = new Set(["icpbrasil", "govbr", "assinaturagovbr"]);
 const ITI_OPTIONAL_ATTRIBUTES = Object.freeze({
   incorporated: Object.freeze([
     "signerAttr", "/Name", "/M", "/Location", "/Reason", "/ContactInfo", "/Prop_Build",
@@ -57,6 +58,10 @@ function normalizedInfrastructure(value) {
 
 export function isIcpBrasilSignature(signature) {
   return normalizedInfrastructure(signature?.infrastructure) === "icpbrasil";
+}
+
+export function isItiValidationEligible(signature) {
+  return ITI_ELIGIBLE_INFRASTRUCTURES.has(normalizedInfrastructure(signature?.infrastructure));
 }
 
 function signatureTypeLabel(signature) {
@@ -215,9 +220,10 @@ export async function inspectUnsignedPdf(pdf) {
 export function buildEvidenceManifest({ publicId, documentNumber, documentName, sourceSha256, sourceSize, sourcePageCount, createdAt, documentContext, signingMetadata }) {
   const infrastructure = clean(signingMetadata?.infrastructure, "Não informada", 80);
   const icpBrasil = isIcpBrasilSignature({ infrastructure });
+  const itiValidationEligible = isItiValidationEligible({ infrastructure });
   return {
     schema: "https://assinatura.maiocchi.adv.br/schemas/pades-evidence-manifest-v1.json",
-    version: "1.1.0",
+    version: "1.2.0",
     publicId: assertPublicId(publicId),
     documentNumber: clean(documentNumber, "", 64),
     source: {
@@ -255,6 +261,7 @@ export function buildEvidenceManifest({ publicId, documentNumber, documentName, 
       policyOid: icpBrasil ? ITI_POLICY_OID : null,
       tokenType: clean(signingMetadata?.tokenType, "Não informado", 100),
       signerIdentitySource: icpBrasil ? "certificado-digital" : "modalidade-informada",
+      itiValidationEligible,
       optionalAttributes: icpBrasil ? {
         normativeDocument: "DOC-ICP-15.03 v9.1",
         assurance: signingMetadata?.modality === "remote" ? "psc-final-validation" : "private-provider-enforced",
@@ -267,10 +274,11 @@ export function buildEvidenceManifest({ publicId, documentNumber, documentName, 
 }
 
 export async function composePadesEvidence({ sourcePdf, manifest, attestation, baseUrl = "https://assinatura.maiocchi.adv.br" }) {
-  const verificationUrl = new URL(`/v/${encodeURIComponent(manifest.publicId)}`, baseUrl).toString();
+  const verificationUrl = portalVerificationUrl(manifest.publicId, baseUrl);
   const verificationDisplay = new URL(verificationUrl);
-  const verificationHost = `${verificationDisplay.host}/v/`;
+  const verificationHost = `${verificationDisplay.host}${verificationDisplay.pathname}`;
   const icpBrasil = isIcpBrasilSignature(manifest.signature);
+  const itiValidationEligible = isItiValidationEligible(manifest.signature);
   const document = await PDFDocument.load(sourcePdf, { updateMetadata: false });
   const fonts = await embeddedFonts(document);
   const maiocchiMark = await document.embedPng(await readFile(MAIOCCHI_MARK_PATH));
@@ -583,7 +591,7 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
     : "Assinatura eletrônica conforme a modalidade registrada · MP 2.200-2/2001, art. 10, § 2º · Lei 14.063/2020, art. 4º.";
   const itiLabel = "Validação externa: validar.iti.gov.br";
   const itiLabelWidth = fonts.bold.widthOfTextAtSize(itiLabel, 7.2);
-  const legalTextWidth = icpBrasil ? BODY.width - itiLabelWidth - 18 : BODY.width;
+  const legalTextWidth = itiValidationEligible ? BODY.width - itiLabelWidth - 18 : BODY.width;
   wrap(fonts.regular, legalText, 7.2, legalTextWidth, 2).forEach((line, index) => page.drawText(line, {
     x: EVIDENCE_BLOCKS.legal.left,
     y: baseline(EVIDENCE_BLOCKS.legal.top + 14 + index * 10),
@@ -591,7 +599,7 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
     size: 7.2,
     color: MUTED,
   }));
-  if (icpBrasil) {
+  if (itiValidationEligible) {
     const itiLabelX = EVIDENCE_BLOCKS.legal.left + EVIDENCE_BLOCKS.legal.width - itiLabelWidth;
     page.drawText(itiLabel, {
       x: itiLabelX,
@@ -643,7 +651,7 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
     pageMargins: PAGE_MARGINS,
     icpBrasilSealIncluded: icpBrasil,
     visualSealMark: icpBrasil ? "ICP-Brasil" : "PAdES",
-    itiValidatorUrl: icpBrasil ? ITI_VALIDATOR_URL : null,
+    itiValidatorUrl: itiValidationEligible ? ITI_VALIDATOR_URL : null,
   };
 }
 

@@ -51,7 +51,8 @@ O download temporário retornado pelo REST PKI Core só é aceito no mesmo host 
 - `POST /api/pades/remote/session`
 - `POST /api/pades/remote/complete`
 - `GET /api/pades/result`
-- `GET /v/:id`
+- `GET /validar?codigo=:id` (endereço canônico público servido pelo portal)
+- `GET /v/:id` (compatibilidade: redireciona para o endereço canônico)
 - `GET /verificacao/:id`
 - `POST /verificacao/:id/evento`
 - `GET /folha/:id.pdf`
@@ -63,6 +64,8 @@ O download temporário retornado pelo REST PKI Core só é aceito no mesmo host 
 ## Configuração
 
 `DATABASE_URL`, `ARTIFACT_ROOT`, `ARTIFACT_ENCRYPTION_KEY_FILE`, `AUTHENTICITY_PRIVATE_KEY_FILE`, `AUTHENTICITY_ML_DSA_PRIVATE_KEY_FILE`, `AUTHENTICITY_KEY_ID` e `AUTHENTICITY_INTERNAL_HMAC_KEY` são obrigatórios em produção. A chave ML-DSA deve ser `ml-dsa-65`; tipo divergente interrompe o serviço. A chave de artefatos contém exatamente 32 bytes e habilita AES-256-GCM com nonce aleatório e a chave de storage como AAD. `PUBLIC_BASE_URL` fixa os links canônicos. `ALLOWED_ORIGINS` recebe uma lista separada por vírgulas apenas para previews autorizados. `AUTHENTICITY_PUBLIC_KEYS_DIR` mantém arquivos históricos `{keyId}.pub.pem`; a chave ativa é sempre derivada do arquivo privado montado. `VALIDATOR_PUBLIC_KEYS_DIR` contém chaves públicas e `keyring.json`; diretório sem manifesto mantém a API de registro bloqueada.
+
+Todo registro novo aponta para `https://assinatura.maiocchi.adv.br/validar?codigo=<ID>`. O endereço oficial `https://validar.iti.gov.br/` é publicado na folha e no JSON somente quando a infraestrutura validada for exatamente ICP-Brasil ou GOV.BR reconhecido. O rótulo genérico “assinatura avançada” não libera esse link.
 
 Assinatura remota só é anunciada quando `REST_PKI_CORE_ENDPOINT`, `REST_PKI_CORE_API_KEY` e `REST_PKI_CORE_SECURITY_CONTEXT_ID` estão todos presentes. Configuração parcial interrompe a inicialização. O ticket do portal nunca é enviado ao PSC: a sessão é vinculada por UUID interno e o retorno só é aceito após conferência do `callbackArgument`, download do PDF, inspeção PAdES e validação de todos os signatários.
 

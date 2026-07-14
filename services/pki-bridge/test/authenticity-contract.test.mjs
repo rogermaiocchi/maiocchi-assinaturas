@@ -5,6 +5,7 @@ import {
   buildAuthenticityRecord,
   canonicalize,
   generatePublicId,
+  portalVerificationUrl,
   publicIdFromRegistrationKey,
   signAuthenticityRecord,
   verifyAuthenticityEnvelope,
@@ -44,6 +45,9 @@ test("gera ID com 80 bits úteis e JSON canônico estável", () => {
   assert.equal(id, publicId);
   assert.equal(publicIdFromRegistrationKey("a".repeat(64), { year: 2026 }), "MAI-2026-AAAA-AAAA-AAAA-AAAA");
   assert.equal(canonicalize({ z: 1, a: { y: 2, b: 3 } }), '{"a":{"b":3,"y":2},"z":1}');
+  assert.equal(portalVerificationUrl(publicId), `https://assinatura.maiocchi.adv.br/validar?codigo=${publicId}`);
+  assert.equal(portalVerificationUrl(publicId, new URL("https://assinatura.maiocchi.adv.br/base")), `https://assinatura.maiocchi.adv.br/validar?codigo=${publicId}`);
+  assert.equal(record().links.verify, `https://assinatura.maiocchi.adv.br/validar?codigo=${publicId}`);
 });
 
 test("assina o registro com Ed25519 e detecta qualquer alteração", () => {

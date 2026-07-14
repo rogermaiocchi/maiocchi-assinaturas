@@ -10,6 +10,7 @@ import {
   composePadesEvidence,
   inspectUnsignedPdf,
   isIcpBrasilSignature,
+  isItiValidationEligible,
 } from "../src/pades-evidence.mjs";
 import { createPostQuantumSigner, verifyPostQuantumAttestation } from "../src/post-quantum-evidence.mjs";
 
@@ -93,16 +94,18 @@ test("acrescenta evidências, registra apenas páginas de conteúdo e vincula o 
   const annotations = evidence.node.lookup(PDFName.of("Annots"), PDFArray);
   assert.equal(annotations.size(), 3, "QR, bloco textual e VALIDAR ITI devem ser links completos");
   assert.deepEqual(annotationUris(evidence).sort(), [
-    "https://assinatura.maiocchi.adv.br/v/MAI-2026-1111-2222-3333-4444",
-    "https://assinatura.maiocchi.adv.br/v/MAI-2026-1111-2222-3333-4444",
+    "https://assinatura.maiocchi.adv.br/validar?codigo=MAI-2026-1111-2222-3333-4444",
+    "https://assinatura.maiocchi.adv.br/validar?codigo=MAI-2026-1111-2222-3333-4444",
     "https://validar.iti.gov.br/",
   ].sort());
-  assert.match(result.verificationUrl, /\/v\/MAI-2026-1111-2222-3333-4444$/);
+  assert.equal(result.verificationUrl, "https://assinatura.maiocchi.adv.br/validar?codigo=MAI-2026-1111-2222-3333-4444");
   assert.equal(result.barcodeValue, "MAI|MAI-2026-1111-2222-3333-4444|R1");
   assert.equal(result.icpBrasilSealIncluded, true);
   assert.equal(result.visualSealMark, "ICP-Brasil");
   assert.equal(result.itiValidatorUrl, "https://validar.iti.gov.br/");
   assert.equal(isIcpBrasilSignature(manifest.signature), true);
+  assert.equal(isItiValidationEligible(manifest.signature), true);
+  assert.equal(manifest.signature.itiValidationEligible, true);
   assert.equal(composed.getTitle(), "relatorio");
   assert.match(composed.getSubject(), /ICP-Brasil/);
   assert.match(composed.catalog.get(PDFName.of("Lang")).toString(), /pt-BR/);
@@ -120,7 +123,7 @@ test("acrescenta evidências, registra apenas páginas de conteúdo e vincula o 
   assert.doesNotMatch(manifest.purpose, /⚖/u);
 });
 
-test("usa marca PAdES e omite sinais ICP-Brasil nas modalidades simples e avançada", async () => {
+test("usa marca PAdES e omite ITI nas modalidades simples e avançada sem infraestrutura reconhecida", async () => {
   for (const infrastructure of ["Assinatura eletrônica simples", "Assinatura eletrônica avançada"]) {
     const source = await sourceDocument(1);
     const manifest = manifestFor(source, 1, infrastructure);
@@ -135,14 +138,46 @@ test("usa marca PAdES e omite sinais ICP-Brasil nas modalidades simples e avanç
     assert.equal(result.icpBrasilSealIncluded, false);
     assert.equal(result.visualSealMark, "PAdES");
     assert.equal(isIcpBrasilSignature(manifest.signature), false);
+    assert.equal(isItiValidationEligible(manifest.signature), false);
+    assert.equal(manifest.signature.itiValidationEligible, false);
     assert.equal(manifest.signature.policyOid, null);
     assert.equal(manifest.signature.optionalAttributes, null);
     assert.doesNotMatch(composed.getSubject(), /ICP-Brasil/);
     assert.equal(evidenceImages.keys().length, 3, "modalidade não ICP deve conter QR, Code128 e fundo de segurança");
     assert.equal(evidence.node.lookup(PDFName.of("Annots"), PDFArray).size(), 2);
     assert.equal(result.itiValidatorUrl, null);
+    assert.equal(result.verificationUrl, "https://assinatura.maiocchi.adv.br/validar?codigo=MAI-2026-1111-2222-3333-4444");
     assert.doesNotMatch(annotationUris(evidence).join(" "), /validar[.]iti[.]gov[.]br/);
   }
+});
+
+test("mantém marca PAdES e oferece VALIDAR ITI para assinatura avançada GOV.BR reconhecida", async () => {
+  const source = await sourceDocument(1);
+  const manifest = manifestFor(source, 1, "GOV.BR");
+  const attestation = {
+    algorithm: "ML-DSA-65", keyId: "ml-dsa-65-test",
+    code: "PQC-MLDSA65-1111-2222-3333-4444", manifestSha256: sha256(JSON.stringify(manifest)),
+  };
+  const result = await composePadesEvidence({ sourcePdf: source, manifest, attestation });
+  const composed = await PDFDocument.load(result.presentation);
+  const evidence = composed.getPage(1);
+  const evidenceImages = evidence.node.Resources().lookup(PDFName.of("XObject"), PDFDict);
+
+  assert.equal(result.icpBrasilSealIncluded, false);
+  assert.equal(result.visualSealMark, "PAdES");
+  assert.equal(isIcpBrasilSignature(manifest.signature), false);
+  assert.equal(isItiValidationEligible(manifest.signature), true);
+  assert.equal(manifest.signature.itiValidationEligible, true);
+  assert.equal(manifest.signature.policyOid, null);
+  assert.equal(manifest.signature.optionalAttributes, null);
+  assert.equal(evidenceImages.keys().length, 3);
+  assert.equal(evidence.node.lookup(PDFName.of("Annots"), PDFArray).size(), 3);
+  assert.equal(result.itiValidatorUrl, "https://validar.iti.gov.br/");
+  assert.deepEqual(annotationUris(evidence).sort(), [
+    "https://assinatura.maiocchi.adv.br/validar?codigo=MAI-2026-1111-2222-3333-4444",
+    "https://assinatura.maiocchi.adv.br/validar?codigo=MAI-2026-1111-2222-3333-4444",
+    "https://validar.iti.gov.br/",
+  ].sort());
 });
 
 test("recusa PDF que já contém ByteRange de assinatura", async () => {

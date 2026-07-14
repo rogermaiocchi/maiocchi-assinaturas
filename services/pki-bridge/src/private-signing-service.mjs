@@ -1,5 +1,5 @@
 import { createHash, randomBytes, randomInt } from "node:crypto";
-import { canonicalize, generatePublicId } from "./authenticity-contract.mjs";
+import { canonicalize, generatePublicId, portalVerificationUrl } from "./authenticity-contract.mjs";
 import { buildEvidenceManifest, composePadesEvidence, inspectUnsignedPdf } from "./pades-evidence.mjs";
 
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
@@ -493,7 +493,7 @@ export class PrivateSigningService {
     const finalHash = bufferHex(ticket.signed_pdf_sha256);
     const finalizedAt = new Date(ticket.completed_at).toISOString();
     const manifest = ticket.evidence_manifest;
-    const verifyUrl = new URL(`/v/${ticket.public_id}`, this.baseUrl).toString();
+    const verifyUrl = portalVerificationUrl(ticket.public_id, this.baseUrl);
     return {
       documentStatus: "active",
       proofVerified: true,

@@ -38,11 +38,11 @@ type AuthenticityEnvelope = {
     };
     signature: {
       format: "PAdES";
-      infrastructure: "ICP-Brasil";
-      profile: "AD-RB" | "AD-RT";
-      policyOid: string;
+      infrastructure: string;
+      profile: string;
+      policyOid: string | null;
       count: number;
-      docMdp: "valid";
+      docMdp: string;
       itiAttributes?: {
         normativeDocument: string;
         profile: string;
@@ -81,7 +81,7 @@ type AuthenticityEnvelope = {
       signers: Array<{ name: string; role: string; nationalIdMasked?: string; certificateType?: string; certificateFingerprintSha256: string; signedAt: string }>;
     };
     disclosure: { mode: "restricted" | "public" };
-    links: { verify: string; original: string | null; print: string; officialValidator: string };
+    links: { verify: string; original: string | null; print: string; officialValidator: string | null };
   };
   proof: { type: "JWS" | "ML-DSA"; algorithm: "EdDSA" | "ML-DSA-65"; keyId: string; scope?: "final-pades-record"; value: string };
 };
@@ -204,6 +204,7 @@ export function AuthenticityVerifier({ officialValidatorMode = "external" }: { o
 
   const active = lookup.kind === "found" && lookup.value.documentStatus === "active";
   const record = lookup.kind === "found" ? lookup.value.envelope.record : null;
+  const officialValidator = record?.links.officialValidator || null;
   const itiAttributes = record?.signature.itiAttributes || null;
   const gold = record?.goldStandard || {
     barcodeValue: `${record?.document.id || "MAI"}|LEGACY`,
@@ -211,7 +212,7 @@ export function AuthenticityVerifier({ officialValidatorMode = "external" }: { o
     purpose: "Documento eletrônico",
     signingLocation: "Não informado",
     tokenType: "Não informado",
-    signatureType: record ? `${record.signature.format} ${record.signature.profile} - ICP-Brasil` : "PAdES - ICP-Brasil",
+    signatureType: record ? `${record.signature.format} ${record.signature.profile} · ${record.signature.infrastructure}` : "PAdES",
     signers: [],
   };
 
@@ -265,13 +266,14 @@ export function AuthenticityVerifier({ officialValidatorMode = "external" }: { o
               {record.document.pageCount && <div><dt>Páginas</dt><dd>{record.document.pageCount}</dd></div>}
               <div><dt>Versão</dt><dd>{record.document.revision}</dd></div>
               <div><dt>Formato</dt><dd>{record.signature.format} · {record.signature.profile}</dd></div>
+              <div><dt>Infraestrutura</dt><dd>{record.signature.infrastructure}</dd></div>
               <div><dt>Assinaturas</dt><dd>{record.signature.count}</dd></div>
               <div><dt>Finalizado</dt><dd>{formatDate(record.document.finalizedAt)}</dd></div>
               <div><dt>Validado</dt><dd>{formatDate(record.validation.validatedAt)}</dd></div>
               <div><dt>Validador</dt><dd>{record.validation.validator}</dd></div>
               <div><dt>Atestado</dt><dd>{record.validation.attestation.algorithm} · {record.validation.attestation.keyId}</dd></div>
               <div><dt>Tamanho</dt><dd>{formatBytes(record.document.size)}</dd></div>
-              <div><dt>Política</dt><dd>{record.signature.policyOid}</dd></div>
+              {record.signature.policyOid && <div><dt>Política</dt><dd>{record.signature.policyOid}</dd></div>}
               <div><dt>Destinado a</dt><dd>{gold.intendedFor}</dd></div>
               <div><dt>Finalidade</dt><dd>{gold.purpose}</dd></div>
               <div><dt>Assinante</dt><dd>{gold.signers.length ? gold.signers.map((signer) => `${signer.name}${signer.nationalIdMasked ? ` · CPF ${signer.nationalIdMasked}` : ""} (${signer.role})`).join(", ") : "Não informado"}</dd></div>
@@ -349,11 +351,11 @@ export function AuthenticityVerifier({ officialValidatorMode = "external" }: { o
                 <span className="auth-restricted">Original protegido por autorização adicional.</span>
               )}
               <a className="button button--dark" href={record.links.print}><Download aria-hidden="true" size={18} /><span>Baixar folha impressa</span></a>
-              {officialValidatorMode === "embedded" ? (
+              {officialValidator && (officialValidatorMode === "embedded" ? (
                 <a className="button button--outline" href="#validar-iti"><ExternalLink aria-hidden="true" size={17} /><span>Continuar no VALIDAR ITI</span></a>
               ) : (
-                <a className="button button--outline" href={record.links.officialValidator} target="_blank" rel="noreferrer"><ExternalLink aria-hidden="true" size={17} /><span>Abrir VALIDAR ITI</span></a>
-              )}
+                <a className="button button--outline" href={officialValidator} target="_blank" rel="noreferrer"><ExternalLink aria-hidden="true" size={17} /><span>Abrir VALIDAR ITI</span></a>
+              ))}
             </div>
 
             <details className="auth-json">

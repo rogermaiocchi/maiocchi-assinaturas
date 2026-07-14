@@ -37,8 +37,11 @@ test("mantém uma única geometria entre renderer, editor e provider PAdES", asy
   assert.equal(Math.round(A4.height * EDITOR_SCALE), 1123);
 
   assert.match(editor, /pades-evidence-layout\.mjs/);
-  assert.match(editor, /maiocchi-pades-layout-v5/);
-  assert.match(editor, /icpBrasilCredentialIncluded: icpBrasil/);
+  assert.match(editor, /maiocchi-pades-layout-v6/);
+  assert.match(editor, /type SignatureMode = "icp-brasil" \| "gov-br" \| "simples"/);
+  assert.match(editor, /icpBrasilCredentialIncluded: modeConfig[.]icpBrasil/);
+  assert.match(editor, /itiValidationEligible: modeConfig[.]itiValidationEligible/);
+  assert.match(editor, /assinatura[.]maiocchi[.]adv[.]br\/validar/);
   assert.doesNotMatch(editor, /FingerprintPattern/);
   assert.doesNotMatch(editor, /margin-verification/);
   assert.match(editor, /seal-icp-mark/);
@@ -52,6 +55,8 @@ test("mantém uma única geometria entre renderer, editor e provider PAdES", asy
   assert.match(renderer, /drawTopRule\(page\)/);
   assert.match(renderer, /page[.]drawRectangle\(\{ x: 0, y: 0, width: A4[.]width, height: A4[.]height, color: rgb\(1, 1, 1\) \}\)/);
   assert.match(renderer, /Validação externa: validar[.]iti[.]gov[.]br/);
+  assert.match(renderer, /portalVerificationUrl\(manifest[.]publicId, baseUrl\)/);
+  assert.match(renderer, /isItiValidationEligible\(manifest[.]signature\)/);
   assert.match(renderer, /function drawPadesMark/);
   assert.match(renderer, /visualSealMark: icpBrasil \? "ICP-Brasil" : "PAdES"/);
   assert.doesNotMatch(renderer, /FUNDAMENTO JURÍDICO/);

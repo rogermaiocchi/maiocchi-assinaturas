@@ -101,6 +101,7 @@ test("registra somente resultado PAdES validado e preserva o PDF final", async (
 
   assert.equal(result.envelope.record.document.hash.value, sha256Hex(signedPdf));
   assert.equal(result.envelope.record.links.original, null);
+  assert.equal(result.envelope.record.links.verify, "https://assinatura.maiocchi.adv.br/validar?codigo=MAI-2026-1111-1111-1111-1111");
   assert.equal(verifyAuthenticityEnvelope(result.envelope, publicKey), true);
   assert.deepEqual(await artifactStore.get(persisted.artifacts.original.storageKey), signedPdf);
   assert.notEqual(persisted.artifacts.original.sha256, persisted.artifacts.representation.sha256);

@@ -54,7 +54,9 @@ test("incorpora autenticação e reconduz páginas intermediárias à home", asy
   assert.match(dashboardPatch, /redirect_to.*#advogados/i);
   assert.match(traefik, /replacePath:[\s\S]*path: \/sign_in/i);
   assert.match(traefik, /sign-in-to-home/i);
-  assert.match(nginx, /return 302 \/\$is_args\$args#validar;/i);
+  assert.match(nginx, /location = \/validar[\s\S]*try_files \/validar\/index[.]html =404;/i);
+  assert.match(nginx, /location = \/validar\/[\s\S]*try_files \/validar\/index[.]html =404;/i);
+  assert.doesNotMatch(nginx, /return 302 \/\$is_args\$args#validar;/i);
 });
 
 test("publica páginas legais e de ajuda", async () => {

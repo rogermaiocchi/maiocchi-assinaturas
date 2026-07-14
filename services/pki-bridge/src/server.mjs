@@ -279,7 +279,7 @@ export function createRequestHandler({
 
       const redirectId = publicIdFromPath(url.pathname, "/v/");
       if (request.method === "GET" && redirectId) {
-        response.writeHead(302, headers({ location: `/validar/?codigo=${encodeURIComponent(redirectId)}` }));
+        response.writeHead(302, headers({ location: `/validar?codigo=${encodeURIComponent(redirectId)}` }));
         return response.end();
       }
 

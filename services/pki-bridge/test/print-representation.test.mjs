@@ -9,7 +9,7 @@ test("gera folha A4 independente, de uma página e com metadados do escritório"
     originalSha256: "a".repeat(64),
     revision: 3,
     finalizedAt: "2026-07-12T12:00:00.000Z",
-    verifyUrl: "https://assinatura.maiocchi.adv.br/v/MAI-2026-1111-1111-1111-1111",
+    verifyUrl: "https://assinatura.maiocchi.adv.br/validar?codigo=MAI-2026-1111-1111-1111-1111",
   });
   assert.equal(bytes.subarray(0, 5).toString(), "%PDF-");
 

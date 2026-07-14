@@ -25,20 +25,21 @@ isso a composição visual corresponde ao PDF preparado para assinatura.
   da assinatura alinhados à esquerda e marca oficial ICP-Brasil à direita; só
   aparece no modo ICP-Brasil.
 - modalidade não ICP-Brasil: quadro neutro com a marca tipográfica PAdES no
-  lugar da marca ICP-Brasil, sem OID, link ITI ou texto que sugira certificação
-  ICP-Brasil.
+  lugar da marca ICP-Brasil, sem OID ou texto que sugira certificação
+  ICP-Brasil. GOV.BR reconhecido mantém o link oficial do ITI; assinatura
+  simples não o exibe.
 - `PAdES AD-RB`: identificação textual vinculada aos dados assinados, sem
   medalhão autodeclaratório; a marca oficial exibida decorre da infraestrutura
   confirmada pelo certificado.
 - selo: SVG-fonte e PNG `4096x835`, proporção do campo PAdES `453,55x92` pontos.
 - o campo da assinatura não recebe título externo; os rótulos redundantes de
   “Resumo visual da assinatura” foram removidos do editor e do renderer.
-- QR e Code 128: amostras do contrato canônico `/v/:publicId` e
+- QR e Code 128: amostras do contrato canônico `/validar?codigo=:publicId` e
   `MAI|<publicId>|R1`.
 - páginas originais: linha dourada superior e registro marginal com micro marca,
   código, SHA-256 e atestado ML-DSA-65; a folha final não repete esse registro.
 - validação externa: link visível e clicável para `https://validar.iti.gov.br/`
-  apenas no modo ICP-Brasil.
+  apenas nos modos ICP-Brasil e GOV.BR reconhecido.
 
 Para reconstruir o fundo 4K e a amostra composta:
 

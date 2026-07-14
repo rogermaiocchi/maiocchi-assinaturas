@@ -3,6 +3,7 @@ import {
   authenticityEnvelopeSha256,
   buildAuthenticityRecord,
   canonicalize,
+  portalVerificationUrl,
   publicIdFromRegistrationKey,
   sha256Hex,
   signAuthenticityRecord,
@@ -126,7 +127,7 @@ export async function registerGoldStandardDocument({
   if (!attestation || attestation.sha256 !== validationAttestationSha256) throw new TypeError("a trusted validation attestation is required");
   const attestationBytes = Buffer.from(validationAttestation);
   const publicId = idFactory({ registrationKey, year: new Date(finalTimestamp).getUTCFullYear() });
-  const verifyUrl = new URL(`/v/${publicId}`, baseUrl).toString();
+  const verifyUrl = portalVerificationUrl(publicId, baseUrl);
 
   const representation = await createAuthenticitySheet({
     publicId,

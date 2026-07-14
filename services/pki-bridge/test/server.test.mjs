@@ -92,7 +92,7 @@ test("expõe verificação, CORS restrito, redirect e bloqueio do original", asy
 
   const redirect = await fetch(`${base}/v/${publicId}`, { redirect: "manual" });
   assert.equal(redirect.status, 302);
-  assert.equal(redirect.headers.get("location"), `/validar/?codigo=${publicId}`);
+  assert.equal(redirect.headers.get("location"), `/validar?codigo=${publicId}`);
 
   const restricted = await fetch(`${base}/original/${publicId}.pdf`);
   assert.equal(restricted.status, 403);
