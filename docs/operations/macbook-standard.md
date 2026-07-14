@@ -15,6 +15,16 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 - Senhas, PINs, chaves privadas, tokens e credenciais SMTP ou Lacuna nunca entram no Git, em logs ou em documentação.
 - Segredos operacionais ficam no Keychain ou no mecanismo de secrets da VPS e são injetados somente no processo que os utiliza.
 
+## E-mail transacional pelo iCloud
+
+- O remetente canônico de códigos e alertas é `Maiocchi. Assinatura <roger@maiocchi.adv.br>`.
+- O transporte usa `smtp.mail.me.com:587`, autenticação SMTP e STARTTLS com verificação do certificado ativa. SMTPS implícito e TLS sem STARTTLS permanecem desativados.
+- O domínio mantém os registros Apple validados: MX `mx01.mail.icloud.com` e `mx02.mail.icloud.com`, SPF com `include:icloud.com`, DKIM `sig1._domainkey` delegado ao iCloud e DMARC em `p=quarantine`. Não alterar DNS durante rotação de credencial SMTP.
+- `SMTP_USERNAME` e `SMTP_PASSWORD` vivem exclusivamente em `/opt/docuseal/.env`, com proprietário `root`, grupo operacional do deploy e modo `0640` ou mais restritivo. A senha é específica de app, gerada no Apple Account; nunca é a senha principal da conta.
+- O compose versiona apenas referências às variáveis. Toda implantação falha antes de iniciar se uma delas estiver ausente.
+- Na rotação, gerar uma nova senha específica de app, atualizar o `.env` sem eco, recriar somente o container `docuseal`, confirmar saúde e envio real, e só então revogar a credencial anterior.
+- O aceite exige: handshake STARTTLS verificado a partir da VPS, autenticação aceita, resposta SMTP `250`, evento de entrega no DocuSeal e recebimento de uma mensagem de teste no endereço de destino. SPF, DKIM e DMARC devem ser conferidos no cabeçalho de uma mensagem recebida fora do domínio quando houver caixa de auditoria externa disponível.
+
 ## Ciclo obrigatório
 
 1. Confirmar `git status` e preservar mudanças preexistentes.
@@ -42,6 +52,27 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 
 ## Padrão visual e de interação
 
+- O portal publico `1.13.0` adota uma unica camada visual translucida: midia
+  institucional full-bleed, superficies com transparencia controlada, bordas
+  discretas, acento dourado e continuidade entre hero, operacoes, acesso,
+  validacao e fluxo. As imagens otimizadas permanecem em WebP e devem manter
+  dimensoes naturais suficientes para desktop de alta densidade.
+- A area profissional usa controle segmentado `Certificado`/`Senha` na propria
+  home. A senha e entregue ao DocuSeal pela mesma origem e por CSRF efemero. O
+  certificado usa relay POST com allowlist exata para
+  `certificado.assinatura.maiocchi.adv.br`; somente `state` pode atravessar o
+  handoff.
+- O host mTLS `certificado.assinatura.maiocchi.adv.br` fica isolado em TLS 1.2,
+  ECDHE e AES-GCM para compatibilidade com tokens A3 RSA que expõem assinatura
+  PKCS#1 v1.5, mas não RSA-PSS. A exceção nunca se aplica ao host principal,
+  que permanece habilitado para TLS 1.3. Qualquer retirada dessa restrição
+  exige prova física de `CertificateVerify` RSA-PSS no token homologado.
+- Certificado de primeiro uso e vinculado depois da autenticacao por senha. Um
+  bootstrap administrativo excepcional so e admitido quando um PAdES aprovado
+  e o relatorio oficial coincidem por SHA-256, a cadeia identifica o
+  certificado, ha uma unica conta-alvo e o login posterior ainda exige prova
+  de posse da chave privada por mTLS. Nunca vincular por texto de nome, CPF ou
+  e-mail.
 - A arquitetura nominal segue `Maiocchi. + atividade`: o produto chama-se **Maiocchi. Assinatura** e a marca compacta é `m.` em CSS, com fundo transparente e ponto em `#FFB800`; `public/icon-512.png` e os favicons reproduzem a mesma marca nas superfícies do navegador.
 - O hero inicial segue a hierarquia editorial `serviço + atividade`: **Serviço de apoio ao cliente** e **Assinatura digital**; a marca compacta `m.` permanece em evidência na barra superior, sem duplicação no hero ou no rodapé.
 - O menu superior usa controles iconográficos circulares, com Lucide, tooltip, foco visível e efeito de profundidade. Caixas quadradas não são usadas para envolver ícones; comandos textuais continuam rotulados quando a ação não for universalmente reconhecível.

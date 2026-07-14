@@ -11,6 +11,19 @@ services:
       HOST: assinatura.maiocchi.adv.br
       APP_URL: https://assinatura.maiocchi.adv.br
       EMAIL_HOST: assinatura.maiocchi.adv.br
+      SMTP_ADDRESS: smtp.mail.me.com
+      SMTP_PORT: "587"
+      SMTP_DOMAIN: maiocchi.adv.br
+      SMTP_USERNAME: "${SMTP_USERNAME:?defina SMTP_USERNAME em /opt/docuseal/.env}"
+      SMTP_PASSWORD: "${SMTP_PASSWORD:?defina SMTP_PASSWORD em /opt/docuseal/.env}"
+      SMTP_AUTHENTICATION: plain
+      SMTP_ENABLE_STARTTLS: "true"
+      SMTP_ENABLE_SSL: "false"
+      SMTP_ENABLE_TLS: "false"
+      SMTP_SSL_VERIFY: "true"
+      SMTP_OPEN_TIMEOUT: "15"
+      SMTP_READ_TIMEOUT: "25"
+      SMTP_FROM: "Maiocchi. Assinatura <roger@maiocchi.adv.br>"
       FORCE_SSL: "true"
       DEFAULT_LOCALE: pt
       DATABASE_URL: "postgresql://docuseal:${DB_PASS}@docuseal-db:5432/docuseal"

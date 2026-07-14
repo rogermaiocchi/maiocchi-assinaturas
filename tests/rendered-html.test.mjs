@@ -60,6 +60,10 @@ test("incorpora autenticação e reconduz páginas intermediárias à home", asy
   assert.match(dashboardPatch, /redirect_to.*#advogados/i);
   assert.match(traefik, /replacePath:[\s\S]*path: \/sign_in/i);
   assert.match(traefik, /sign-in-to-home/i);
+  assert.match(
+    traefik,
+    /maiocchi-icp-client-auth:[\s\S]*minVersion: VersionTLS12[\s\S]*maxVersion: VersionTLS12[\s\S]*TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256[\s\S]*TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384[\s\S]*clientAuthType: VerifyClientCertIfGiven/i,
+  );
   assert.match(nginx, /location = \/validar[\s\S]*try_files \/validar\/index[.]html =404;/i);
   assert.match(nginx, /location = \/validar\/[\s\S]*try_files \/validar\/index[.]html =404;/i);
   assert.match(nginx, /form-action 'self' https:\/\/certificado\.assinatura\.maiocchi\.adv\.br/i);
@@ -240,5 +244,18 @@ test("padroniza páginas inexistentes e redirecionamentos internos", async () =>
   assert.match(docuseal, /APP_URL: https:\/\/assinatura\.maiocchi\.adv\.br/i);
   assert.match(docuseal, /image: maiocchi\/docuseal:3\.0\.1-maiocchi\.3/i);
   assert.match(docuseal, /CERTIFICATE_AUTH_APP_HOST: assinatura\.maiocchi\.adv\.br/i);
+  assert.match(docuseal, /SMTP_ADDRESS: smtp\.mail\.me\.com/i);
+  assert.match(docuseal, /SMTP_PORT: "587"/i);
+  assert.match(docuseal, /SMTP_DOMAIN: maiocchi\.adv\.br/i);
+  assert.match(docuseal, /SMTP_USERNAME: "\$\{SMTP_USERNAME:\?/i);
+  assert.match(docuseal, /SMTP_PASSWORD: "\$\{SMTP_PASSWORD:\?/i);
+  assert.match(docuseal, /SMTP_AUTHENTICATION: plain/i);
+  assert.match(docuseal, /SMTP_ENABLE_STARTTLS: "true"/i);
+  assert.match(docuseal, /SMTP_ENABLE_SSL: "false"/i);
+  assert.match(docuseal, /SMTP_ENABLE_TLS: "false"/i);
+  assert.match(docuseal, /SMTP_SSL_VERIFY: "true"/i);
+  assert.match(docuseal, /SMTP_FROM: "Maiocchi\. Assinatura <roger@maiocchi\.adv\.br>"/i);
+  assert.equal(docuseal.match(/^\s*SMTP_PASSWORD:/gim)?.length, 1);
+  assert.match(docuseal, /^\s*SMTP_PASSWORD: "\$\{SMTP_PASSWORD:\?defina SMTP_PASSWORD em \/opt\/docuseal\/\.env\}"$/im);
   assert.doesNotMatch(docuseal, /documentos\.assinatura\.maiocchi\.adv\.br/i);
 });
