@@ -1,0 +1,172 @@
+From e0b548782b2bc600e9152f8a31f8911481bdeba0 Mon Sep 17 00:00:00 2001
+From: rogermaiocchi <roger.maiocchi@gmail.com>
+Date: Wed, 15 Jul 2026 09:30:43 -0300
+Subject: [PATCH] fix(auth): abra o dashboard sem etapa intermediaria
+
+---
+ .version                                      |  2 +-
+ Dockerfile                                    |  2 +-
+ .../certificate_auth/sessions_controller.rb   |  2 +-
+ app/controllers/sessions_controller.rb        |  2 +-
+ app/views/certificate_auth/handoff.html.erb   | 26 ++++++++++---------
+ deploy/compose.production.yml                 |  2 +-
+ spec/requests/certificate_auth_spec.rb        | 17 ++++++++++--
+ spec/requests/sessions_spec.rb                | 15 +++++++++++
+ 8 files changed, 49 insertions(+), 19 deletions(-)
+ create mode 100644 spec/requests/sessions_spec.rb
+
+diff --git a/.version b/.version
+index 775dae3..7ea3ac0 100644
+--- a/.version
++++ b/.version
+@@ -1 +1 @@
+-3.0.1-maiocchi.10
++3.0.1-maiocchi.12
+diff --git a/Dockerfile b/Dockerfile
+index d5cc186..99b8840 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -103,7 +103,7 @@ RUN mkdir -p /app/public/legal && \
+ ARG SOURCE_REVISION=unknown
+ LABEL org.opencontainers.image.title="Maiocchi. Assinatura" \
+       org.opencontainers.image.vendor="Maiocchi Advogado" \
+-      org.opencontainers.image.version="3.0.1-maiocchi.11" \
++      org.opencontainers.image.version="3.0.1-maiocchi.12" \
+       org.opencontainers.image.revision="${SOURCE_REVISION}" \
+       org.opencontainers.image.licenses="AGPL-3.0-only"
+ 
+diff --git a/app/controllers/certificate_auth/sessions_controller.rb b/app/controllers/certificate_auth/sessions_controller.rb
+index 793263c..4db6242 100644
+--- a/app/controllers/certificate_auth/sessions_controller.rb
++++ b/app/controllers/certificate_auth/sessions_controller.rb
+@@ -74,7 +74,7 @@ module CertificateAuth
+       user = identity.user
+       reset_session
+       sign_in(:user, user)
+-      redirect_to root_path, notice: 'Acesso realizado com certificado digital.'
++      redirect_to dashboard_index_path, notice: 'Acesso realizado com certificado digital.'
+     end
+   end
+ end
+diff --git a/app/controllers/sessions_controller.rb b/app/controllers/sessions_controller.rb
+index 2281d56..e3ecc31 100644
+--- a/app/controllers/sessions_controller.rb
++++ b/app/controllers/sessions_controller.rb
+@@ -31,7 +31,7 @@ class SessionsController < Devise::SessionsController
+       return params[:redir]
+     end
+ 
+-    super
++    dashboard_index_path
+   end
+ 
+   def configure_permitted_parameters
+diff --git a/app/views/certificate_auth/handoff.html.erb b/app/views/certificate_auth/handoff.html.erb
+index 93e2bbe..7a1a52b 100644
+--- a/app/views/certificate_auth/handoff.html.erb
++++ b/app/views/certificate_auth/handoff.html.erb
+@@ -1,15 +1,17 @@
+-<main class="min-h-[65vh] flex items-center justify-center px-4">
+-  <section class="w-full max-w-lg rounded-2xl border border-base-300 bg-base-100 p-6 md:p-8 shadow-sm">
++<main class="min-h-[65vh] flex items-center justify-center px-4" aria-live="polite">
++  <section class="w-full max-w-lg rounded-2xl border border-base-300 bg-base-100 p-6 md:p-8 shadow-sm text-center">
+     <p class="text-sm font-semibold tracking-wide text-primary">Maiocchi Advogado</p>
+-    <h1 class="text-3xl font-bold mt-2">Acesso seguro</h1>
+-    <p class="mt-3 text-base-content/75"><%= explanation %></p>
+-    <%= form_with url: destination, method: :post, authenticity_token: false,
+-                  html: { class: 'mt-6', data: { turbo: false } } do |form| %>
+-      <%= form.hidden_field token_name, value: handoff_code %>
+-      <%= form.submit button_text, class: 'base-button w-full' %>
+-    <% end %>
+-    <p class="mt-4 text-xs text-base-content/60">
+-      O código desta etapa é descartável, expira em dois minutos e nunca é colocado na URL.
+-    </p>
++    <h1 class="text-2xl font-bold mt-2">Concluindo autenticação</h1>
++    <p class="mt-3 text-base-content/75">Aguarde enquanto o ambiente profissional é aberto.</p>
++    <submit-form>
++      <%= form_with url: destination, method: :post, authenticity_token: false,
++                    html: { data: { turbo: false } } do |form| %>
++        <%= form.hidden_field token_name, value: handoff_code %>
++        <noscript>
++          <p class="mt-4 text-base-content/75"><%= explanation %></p>
++          <%= form.submit button_text, class: 'base-button w-full mt-6' %>
++        </noscript>
++      <% end %>
++    </submit-form>
+   </section>
+ </main>
+diff --git a/deploy/compose.production.yml b/deploy/compose.production.yml
+index 0618635..630df42 100644
+--- a/deploy/compose.production.yml
++++ b/deploy/compose.production.yml
+@@ -1,6 +1,6 @@
+ services:
+   docuseal:
+-    image: maiocchi/docuseal:3.0.1-maiocchi.11
++    image: maiocchi/docuseal:3.0.1-maiocchi.12
+     container_name: docuseal
+     restart: unless-stopped
+     mem_limit: 1g
+diff --git a/spec/requests/certificate_auth_spec.rb b/spec/requests/certificate_auth_spec.rb
+index 1530c2f..add34e3 100644
+--- a/spec/requests/certificate_auth_spec.rb
++++ b/spec/requests/certificate_auth_spec.rb
+@@ -26,6 +26,19 @@ RSpec.describe 'Certificate authentication' do
+     expect(CertificateAuthChallenge.count).to eq(0)
+   end
+ 
++  it 'submits the cross-host handoff automatically without exposing the token in the URL' do
++    post certificate_auth_login_start_path
++
++    document = Nokogiri::HTML5(response.body)
++    handoff = document.at_css('submit-form form')
++
++    expect(handoff).to be_present
++    expect(handoff['method']).to eq('post')
++    expect(handoff.at_css("input[name='state']")['value']).to be_present
++    expect(response.body).to include('<noscript>')
++    expect(response.body).not_to include('Acesso seguro')
++  end
++
+   it 'rejects certificate presentation on a host other than the dedicated mTLS host' do
+     _challenge, state = CertificateAuthChallenge.issue!(purpose: 'login')
+ 
+@@ -76,7 +89,7 @@ RSpec.describe 'Certificate authentication' do
+ 
+     host! app_host
+     post certificate_auth_login_complete_path, params: callback_params(callback_code)
+-    expect(response).to redirect_to(root_path)
++    expect(response).to redirect_to(dashboard_index_path)
+ 
+     post certificate_auth_login_complete_path, params: callback_params(callback_code)
+     expect(response).to have_http_status(:unprocessable_content)
+@@ -118,7 +131,7 @@ RSpec.describe 'Certificate authentication' do
+     host! app_host
+     post certificate_auth_login_complete_path, params: callback_params(login_code)
+ 
+-    expect(response).to redirect_to(root_path)
++    expect(response).to redirect_to(dashboard_index_path)
+     expect(identity.reload.last_used_at).to be_present
+   end
+ 
+diff --git a/spec/requests/sessions_spec.rb b/spec/requests/sessions_spec.rb
+new file mode 100644
+index 0000000..44e4969
+--- /dev/null
++++ b/spec/requests/sessions_spec.rb
+@@ -0,0 +1,15 @@
++# frozen_string_literal: true
++
++RSpec.describe 'User sessions' do
++  it 'opens the professional dashboard immediately after authentication' do
++    user = build(:user)
++    submitted_password = user.password
++    user.save!
++
++    post user_session_path(format: :html), params: {
++      user: { email: user.email, password: submitted_password }
++    }
++
++    expect(response).to redirect_to(dashboard_index_path)
++  end
++end

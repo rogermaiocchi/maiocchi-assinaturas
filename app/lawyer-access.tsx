@@ -16,8 +16,7 @@ type AccessState =
   | { kind: "idle" }
   | { kind: "loading"; message: string }
   | { kind: "otp"; message: string }
-  | { kind: "error"; message: string }
-  | { kind: "authenticated"; message: string };
+  | { kind: "error"; message: string };
 
 type AccessMethod = "certificate" | "password";
 
@@ -68,10 +67,11 @@ export function LawyerAccess() {
   const [showPassword, setShowPassword] = useState(false);
   const [state, setState] = useState<AccessState>({ kind: "idle" });
 
-  function confirmAccess() {
+  function enterProfessionalEnvironment() {
     setPassword("");
     setOtp("");
-    setState({ kind: "authenticated", message: "Identidade confirmada. O ambiente de gestão está liberado." });
+    setState({ kind: "loading", message: "Acesso confirmado. Abrindo o ambiente profissional..." });
+    window.location.replace("/dashboard");
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -81,7 +81,7 @@ export function LawyerAccess() {
     try {
       const session = await requestPortalSession("#new_user");
       if (session.kind === "authenticated") {
-        confirmAccess();
+        enterProfessionalEnvironment();
         return;
       }
       const { token } = session;
@@ -106,7 +106,7 @@ export function LawyerAccess() {
       const html = await response.text();
 
       if (isAuthenticatedRedirect(response)) {
-        confirmAccess();
+        enterProfessionalEnvironment();
         return;
       }
       if (html.includes("user_otp_attempt")) {
@@ -127,7 +127,7 @@ export function LawyerAccess() {
     try {
       const session = await requestPortalSession("form[action='/certificate_auth/login/start']");
       if (session.kind === "authenticated") {
-        confirmAccess();
+        enterProfessionalEnvironment();
         return;
       }
       const { token } = session;
@@ -185,7 +185,7 @@ export function LawyerAccess() {
   function selectAccessMethod(method: AccessMethod) {
     if (busy) return;
     setAccessMethod(method);
-    if (state.kind !== "authenticated") setState({ kind: "idle" });
+    setState({ kind: "idle" });
   }
 
   return (
@@ -202,34 +202,26 @@ export function LawyerAccess() {
       </div>
 
       <div className="lawyer-access__panel">
-        {state.kind === "authenticated" ? (
-          <div className="access-success" role="status">
-            <BadgeCheck aria-hidden="true" size={28} />
-            <div><strong>Acesso confirmado</strong><span>{state.message}</span></div>
-            <a className="button button--yellow" href="/dashboard"><span>Abrir ambiente de gestão</span><LogIn aria-hidden="true" size={17} /></a>
+        <div className="access-methods" role="tablist" aria-label="Método de acesso profissional">
+          <button id="certificate-access-tab" type="button" role="tab" aria-selected={accessMethod === "certificate"} aria-controls="certificate-access-panel" onClick={() => selectAccessMethod("certificate")}>
+            <IdCard aria-hidden="true" size={18} /><span>Certificado</span>
+          </button>
+          <button id="password-access-tab" type="button" role="tab" aria-selected={accessMethod === "password"} aria-controls="password-access-panel" onClick={() => selectAccessMethod("password")}>
+            <KeyRound aria-hidden="true" size={18} /><span>Senha</span>
+          </button>
+        </div>
+
+        {accessMethod === "certificate" ? (
+          <div className="access-method-panel" id="certificate-access-panel" role="tabpanel" aria-labelledby="certificate-access-tab">
+            <button className="certificate-access" type="button" onClick={startCertificateAccess} disabled={busy}>
+              <IdCard aria-hidden="true" size={22} />
+              <span><strong>Entrar com certificado digital</strong><small>Use o A1, A3 ou certificado em nuvem já vinculado ao seu perfil.</small></span>
+            </button>
+            <p className="certificate-enrollment">Primeiro acesso neste certificado? <button type="button" onClick={() => selectAccessMethod("password")}>Entre com senha para vinculá-lo</button>.</p>
           </div>
         ) : (
-          <>
-            <div className="access-methods" role="tablist" aria-label="Método de acesso profissional">
-              <button id="certificate-access-tab" type="button" role="tab" aria-selected={accessMethod === "certificate"} aria-controls="certificate-access-panel" onClick={() => selectAccessMethod("certificate")}>
-                <IdCard aria-hidden="true" size={18} /><span>Certificado</span>
-              </button>
-              <button id="password-access-tab" type="button" role="tab" aria-selected={accessMethod === "password"} aria-controls="password-access-panel" onClick={() => selectAccessMethod("password")}>
-                <KeyRound aria-hidden="true" size={18} /><span>Senha</span>
-              </button>
-            </div>
-
-            {accessMethod === "certificate" ? (
-              <div className="access-method-panel" id="certificate-access-panel" role="tabpanel" aria-labelledby="certificate-access-tab">
-                <button className="certificate-access" type="button" onClick={startCertificateAccess} disabled={busy}>
-                  <IdCard aria-hidden="true" size={22} />
-                  <span><strong>Entrar com certificado digital</strong><small>Use o A1, A3 ou certificado em nuvem já vinculado ao seu perfil.</small></span>
-                </button>
-                <p className="certificate-enrollment">Primeiro acesso neste certificado? <button type="button" onClick={() => selectAccessMethod("password")}>Entre com senha para vinculá-lo</button>.</p>
-              </div>
-            ) : (
-              <div className="access-method-panel" id="password-access-panel" role="tabpanel" aria-labelledby="password-access-tab">
-                <form className="credentials-form" onSubmit={submit} noValidate>
+          <div className="access-method-panel" id="password-access-panel" role="tabpanel" aria-labelledby="password-access-tab">
+            <form className="credentials-form" onSubmit={submit} noValidate>
                   <div className="access-field">
                     <label htmlFor="lawyer-email">E-mail</label>
                     <input
@@ -278,11 +270,9 @@ export function LawyerAccess() {
                     {busy ? <LoaderCircle className="spin" aria-hidden="true" size={18} /> : <LogIn aria-hidden="true" size={18} />}
                     <span>{busy ? "Confirmando..." : needsOtp ? "Confirmar código" : "Entrar"}</span>
                   </button>
-                </form>
-                <a className="access-help" href="/ajuda/">Recuperar ou solicitar acesso</a>
-              </div>
-            )}
-          </>
+            </form>
+            <a className="access-help" href="/ajuda/">Recuperar ou solicitar acesso</a>
+          </div>
         )}
 
         {(state.kind === "error" || state.kind === "otp" || state.kind === "loading") && (

@@ -58,7 +58,9 @@ test("incorpora autenticação e reconduz páginas intermediárias à home", asy
   assert.match(accessSource, /destination\.origin === window\.location\.origin/i);
   assert.match(accessSource, /destination\.pathname === "\/" \|\| destination\.pathname === "\/dashboard"/i);
   assert.match(accessSource, /if \(isAuthenticatedRedirect\(response\)\) return \{ kind: "authenticated" \}/i);
-  assert.match(accessSource, /if \(session\.kind === "authenticated"\)[\s\S]*confirmAccess\(\)/i);
+  assert.match(accessSource, /if \(session\.kind === "authenticated"\)[\s\S]*enterProfessionalEnvironment\(\)/i);
+  assert.match(accessSource, /window\.location\.replace\("\/dashboard"\)/i);
+  assert.doesNotMatch(accessSource, /Abrir ambiente de gestão|Acessar ambiente seguro/i);
   assert.doesNotMatch(accessSource, /response\.ok && destination === "\/" \|\| destination === "\/dashboard"/i);
   assert.match(accessSource, /role="tablist"/i);
   assert.match(accessSource, /aria-selected=\{accessMethod === "certificate"\}/i);
@@ -194,12 +196,13 @@ test("publica sem alteração a cadeia GOV.BR indicada na fonte oficial", async 
 });
 
 test("não expõe código no portal e conserva a fonte correspondente fora da raiz pública", async () => {
-  const [archive, redesignPatch, sourcePatch, emailPatch, certificatePatch, chromeSource, outputFiles] = await Promise.all([
-    readFile(new URL("../compliance/docuseal-maiocchi-3.0.1-maiocchi.11.tar.gz", import.meta.url)),
+  const [archive, redesignPatch, sourcePatch, emailPatch, certificatePatch, directAuthPatch, chromeSource, outputFiles] = await Promise.all([
+    readFile(new URL("../compliance/docuseal-maiocchi-3.0.1-maiocchi.12.tar.gz", import.meta.url)),
     readFile(new URL("../patches/docuseal/0002-institutional-signing-window.patch", import.meta.url), "utf8"),
     readFile(new URL("../patches/docuseal/0003-unified-contact-and-source-surface.patch", import.meta.url), "utf8"),
     readFile(new URL("../patches/docuseal/0004-unified-email-standard.patch", import.meta.url), "utf8"),
     readFile(new URL("../patches/docuseal/0005-certificate-header-compatibility.patch", import.meta.url), "utf8"),
+    readFile(new URL("../patches/docuseal/0006-direct-authentication-flow.patch", import.meta.url), "utf8"),
     readFile(new URL("../app/site-chrome.tsx", import.meta.url), "utf8"),
     readdir(outputRoot, { recursive: true }),
   ]);
@@ -207,7 +210,7 @@ test("não expõe código no portal e conserva a fonte correspondente fora da ra
   assert.ok(archive.length > 1_000_000, "o arquivo-fonte deve conter o fork completo e suas licenças");
   assert.equal(
     createHash("sha256").update(archive).digest("hex"),
-    "91d143ebfa9f37c6019094b7ba4e621e123431aa077e2cd10652439191016898",
+    "7e5ed20f6dfa29da021303fa4627acc155769db8a2ba64fd54f2ac1a799863e7",
   );
   await assert.rejects(
     stat(new URL("../public/codigo-fonte/docuseal-maiocchi-3.0.1.tar.gz", import.meta.url)),
@@ -218,6 +221,8 @@ test("não expõe código no portal e conserva a fonte correspondente fora da ra
     (error) => error?.code === "ENOENT",
   );
   assert.doesNotMatch(chromeSource, /codigo-fonte|Code2/i);
+  assert.match(directAuthPatch, /dashboard_index_path/i);
+  assert.match(directAuthPatch, /submit-form/i);
   const renderedHtml = await Promise.all(
     outputFiles.filter((file) => file.endsWith(".html")).map((file) => readFile(new URL(file, outputRoot), "utf8")),
   );
@@ -279,7 +284,7 @@ test("padroniza páginas inexistentes e redirecionamentos internos", async () =>
   assert.match(traefik, /documents-to-main:/i);
   assert.match(traefik, /replacement: 'https:\/\/assinatura\.maiocchi\.adv\.br\/\$\{1\}'/i);
   assert.match(docuseal, /APP_URL: https:\/\/assinatura\.maiocchi\.adv\.br/i);
-  assert.match(docuseal, /image: maiocchi\/docuseal:3\.0\.1-maiocchi\.11/i);
+  assert.match(docuseal, /image: maiocchi\/docuseal:3\.0\.1-maiocchi\.12/i);
   assert.match(docuseal, /DEFAULT_LOCALE: pt/i);
   assert.match(docuseal, /CERTIFICATE_AUTH_APP_HOST: assinatura\.maiocchi\.adv\.br/i);
   assert.match(docuseal, /PRIVATE_PADES_BRIDGE_URL: http:\/\/pki-bridge-internal:3401\/internal\/pades\/tickets/i);

@@ -6,7 +6,7 @@ Porta de entrada institucional para o ambiente de documentos e assinaturas do Ma
 
 - `assinatura.maiocchi.adv.br`: entrada única para o portal estático e para as rotas operacionais do DocuSeal.
 - As rotas de signatários (`/s`, `/d`, `/e` e `/p`) são encaminhadas ao DocuSeal no mesmo domínio.
-- A autenticação de advogados é iniciada na página inicial por endpoints internos de sessão; `/sign_in` e o `/dashboard` não autenticado reconduzem ao bloco `#advogados`. O dashboard operacional só é apresentado depois do login.
+- A autenticação de advogados é iniciada na página inicial por endpoints internos de sessão; senha, sessão existente e certificado digital convergem diretamente para `/dashboard`, sem confirmação ou página intermediária. `/sign_in` e o `/dashboard` não autenticado reconduzem ao bloco `#advogados`.
 - A validação Maiocchi usa a página canônica `/validar?codigo={id}`; `/validar/` preserva a mesma função e `/v/{id}` existe somente como redirecionamento legado.
 - O endereço `https://validar.iti.gov.br/` aparece no registro e no PDF somente para assinaturas ICP-Brasil ou GOV.BR reconhecidas pelo serviço oficial.
 - `documentos.assinatura.maiocchi.adv.br` existe somente para redirecionar links antigos ao domínio principal, preservando caminho e consulta.

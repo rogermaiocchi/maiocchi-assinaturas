@@ -119,7 +119,7 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 - O primeiro viewport prioriza uma única tarefa: abrir o documento pelo link ou código recebido.
 - O cabeçalho principal exibe apenas a marca `m.` e as âncoras Assinar, Validar e Advogados. Não se repete “Maiocchi” ao lado do símbolo.
 - Login, certificado digital, chave de autenticidade e VALIDAR ITI são iniciados na página inicial. `/sign_in`, `/dashboard` não autenticado e `/validar/` são compatibilidades de rota, não páginas públicas de navegação.
-- O dashboard operacional somente aparece depois da autenticação; credenciais são entregues ao DocuSeal na mesma origem, com CSRF efêmero, e não são processadas pelo portal estático.
+- O dashboard operacional somente aparece depois da autenticação e deve abrir automaticamente, sem botão de confirmação. Credenciais são entregues ao DocuSeal na mesma origem, com CSRF efêmero, e não são processadas pelo portal estático. O handoff mTLS entre subdomínios usa POST automático, código descartável fora da URL e fallback manual somente quando JavaScript estiver desativado.
 - O e-mail público aparece somente na Central de ajuda. Demais páginas apontam para essa central, sem repetição do endereço.
 - “Informações, modalidades e políticas” usa três grupos identificados, com descrição curta e links institucionais; não é uma lista plana.
 - O padrão do portal principal preservado na VPS é a referência visual: hero editorial full-bleed, imagem de alta resolução, header transparente que se materializa no scroll, carvão, branco e dourado `#FFB800`.
