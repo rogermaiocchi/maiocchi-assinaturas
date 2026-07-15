@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
       args:
         SOURCE_REVISION: "${SOURCE_REVISION:-unknown}"
-    image: maiocchi/assinatura-portal:1.14.9
+    image: maiocchi/assinatura-portal:1.14.10
     container_name: assinatura-portal
     restart: unless-stopped
     read_only: true

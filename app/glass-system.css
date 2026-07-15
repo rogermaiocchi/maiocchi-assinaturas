@@ -53,27 +53,38 @@
 
 /* Home hero */
 .hero--institutional {
-  height: clamp(700px, 92svh, 920px);
-  min-height: 700px;
-  background: #e8e8e7;
+  height: max(780px, 100svh);
+  min-height: 780px;
+  isolation: isolate;
+  background: var(--paper);
 }
 .hero--institutional::after {
-  height: 190px;
-  background: linear-gradient(to bottom, transparent 0%, rgba(245, 245, 247, 0.38) 45%, var(--paper) 100%);
+  bottom: -1px;
+  height: clamp(220px, 28svh, 340px);
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(245, 245, 243, 0.14) 28%,
+    rgba(245, 245, 243, 0.64) 70%,
+    var(--paper) 100%
+  );
 }
 .hero--institutional .hero__media {
-  inset: -38px;
-  background-color: #e8e8e7;
-  background-image: url("/hero-roger-maiocchi-hd.webp");
-  background-position: 77% 19%;
-  background-size: auto 134%;
-  filter: saturate(0.78) contrast(1.04);
-  transform: translate3d(calc(var(--depth-x) * -7px), calc(var(--depth-y) * -5px), 0) scale(1.014);
+  inset: -30px;
+  overflow: hidden;
+  background-color: #e5e5e3;
+  background-image: none;
+  filter: saturate(0.82) contrast(1.035);
+  transform: translate3d(calc(var(--depth-x) * -7px), calc(var(--depth-y) * -5px), 0) scale(1.018);
+}
+.hero--institutional .hero__image {
+  object-fit: cover;
+  object-position: center 46%;
 }
 .hero--institutional .hero__shade {
   background:
-    linear-gradient(180deg, rgba(10, 10, 11, 0.42) 0%, rgba(10, 10, 11, 0.05) 31%, rgba(10, 10, 11, 0.08) 67%, rgba(10, 10, 11, 0.28) 100%),
-    linear-gradient(90deg, rgba(10, 10, 11, 0.94) 0%, rgba(10, 10, 11, 0.82) 34%, rgba(10, 10, 11, 0.48) 54%, rgba(10, 10, 11, 0.08) 78%, transparent 100%);
+    linear-gradient(180deg, rgba(10, 10, 11, 0.4) 0%, rgba(10, 10, 11, 0.08) 30%, rgba(10, 10, 11, 0.05) 66%, rgba(10, 10, 11, 0.2) 100%),
+    linear-gradient(90deg, rgba(10, 10, 11, 0.96) 0%, rgba(10, 10, 11, 0.86) 32%, rgba(10, 10, 11, 0.56) 52%, rgba(10, 10, 11, 0.16) 74%, rgba(10, 10, 11, 0.04) 100%);
 }
 .hero--institutional .hero__content { padding-top: 118px; padding-bottom: 112px; }
 .hero--institutional .hero-copy { width: min(100%, 670px); }
@@ -366,7 +377,7 @@ footer {
 .footer-bottom { border-top-color: rgba(255, 255, 255, 0.08); }
 
 @media (max-width: 1100px) {
-  .hero--institutional .hero__media { background-position: 82% 18%; }
+  .hero--institutional .hero__image { object-position: center 44%; }
   .portal-band--workspace {
     background-image:
       linear-gradient(180deg, var(--paper) 0%, rgba(245, 245, 247, 0.16) 16%, rgba(245, 245, 247, 0.1) 82%, var(--paper) 100%),
@@ -380,12 +391,12 @@ footer {
 }
 
 @media (max-width: 900px) {
-  .hero--institutional { height: 820px; }
-  .hero--institutional .hero__media { background-position: 72% 16%; background-size: auto 122%; }
+  .hero--institutional { height: max(820px, 100svh); }
+  .hero--institutional .hero__image { object-position: center 42%; }
   .hero--institutional .hero__shade {
     background:
-      linear-gradient(180deg, rgba(9, 9, 10, 0.44), rgba(9, 9, 10, 0.08) 32%, rgba(9, 9, 10, 0.25) 70%, rgba(9, 9, 10, 0.86)),
-      linear-gradient(90deg, rgba(9, 9, 10, 0.82), rgba(9, 9, 10, 0.28) 74%, transparent);
+      linear-gradient(180deg, rgba(9, 9, 10, 0.42), rgba(9, 9, 10, 0.08) 31%, rgba(9, 9, 10, 0.24) 68%, rgba(9, 9, 10, 0.84)),
+      linear-gradient(90deg, rgba(9, 9, 10, 0.9), rgba(9, 9, 10, 0.4) 70%, rgba(9, 9, 10, 0.08));
   }
   .operation-rail { margin-top: -22px; }
   .portal-band--workspace {
@@ -408,12 +419,11 @@ footer {
   .brand,
   .brand__mark { width: 50px; min-width: 50px; height: 50px; min-height: 50px; }
   .brand__mark { font-size: 39px; }
-  .hero--institutional { height: 780px; min-height: 720px; max-height: none; }
+  .hero--institutional { height: max(800px, 100svh); min-height: 800px; max-height: none; }
   .hero--institutional .hero__media {
     inset: -20px;
-    background-position: 63% 12%;
-    background-size: auto 112%;
   }
+  .hero--institutional .hero__image { object-position: center 42%; }
   .hero--institutional .hero__shade {
     background: linear-gradient(0deg, rgba(9, 9, 10, 0.96) 0%, rgba(9, 9, 10, 0.78) 48%, rgba(9, 9, 10, 0.2) 76%, rgba(9, 9, 10, 0.18) 100%);
   }

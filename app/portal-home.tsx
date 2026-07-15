@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, PointerEvent, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowDown,
@@ -80,7 +81,17 @@ export function PortalHome() {
       <SiteHeader />
       <main id="conteudo-principal">
         <section className="hero hero--institutional" onPointerMove={moveHero} onPointerLeave={resetHero}>
-          <div className="hero__media" aria-hidden="true" />
+          <div className="hero__media" aria-hidden="true">
+            <Image
+              className="hero__image"
+              src="/hero-home-maiocchi.webp"
+              alt=""
+              fill
+              priority
+              sizes="100vw"
+              quality={90}
+            />
+          </div>
           <div className="hero__shade" aria-hidden="true" />
           <div className="shell hero__content">
             <div className="hero-copy">

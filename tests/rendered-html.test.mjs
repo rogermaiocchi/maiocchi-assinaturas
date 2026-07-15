@@ -83,6 +83,7 @@ test("aplica o sistema visual translúcido com imagens responsivas em alta resol
     readFile(new URL("../app/glass-system.css", import.meta.url), "utf8"),
     readFile(new URL("index.html", outputRoot), "utf8"),
     ...[
+      "hero-home-maiocchi.webp",
       "hero-roger-maiocchi-hd.webp",
       "hero-access-professional.webp",
       "hero-validation-glass.webp",
@@ -92,6 +93,9 @@ test("aplica o sistema visual translúcido com imagens responsivas em alta resol
 
   assert.match(layout, /import "[.]\/glass-system[.]css"/i);
   assert.match(theme, /--glass-blur: blur\(24px\) saturate\(118%\)/i);
+  assert.match(home, /src="\/hero-home-maiocchi[.]webp"/i);
+  assert.match(theme, /hero--institutional[\s\S]*height: max\(780px, 100svh\)/i);
+  assert.match(theme, /hero--institutional \.hero__image[\s\S]*object-fit: cover/i);
   assert.match(theme, /url\("\/hero-roger-maiocchi-hd[.]webp"\)/i);
   assert.match(theme, /url\("\/hero-access-professional[.]webp"\)/i);
   assert.match(theme, /url\("\/hero-validation-glass[.]webp"\)/i);
