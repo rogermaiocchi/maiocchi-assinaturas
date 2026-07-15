@@ -1,13 +1,14 @@
 {
   "name": "@maiocchi/pki-bridge",
-  "version": "1.3.20",
+  "version": "1.3.21",
   "private": true,
   "type": "module",
   "engines": {
     "node": ">=24.18.0"
   },
   "scripts": {
-    "start": "node src/server.mjs"
+    "start": "node src/server.mjs",
+    "retention": "node src/retention-cli.mjs"
   },
   "dependencies": {
     "@pdf-lib/fontkit": "^1.1.1",

@@ -28,10 +28,12 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 - O remetente canônico de códigos e alertas é `Maiocchi. Assinatura <roger@maiocchi.adv.br>`.
 - O transporte usa `smtp.mail.me.com:587`, autenticação SMTP e STARTTLS com verificação do certificado ativa. SMTPS implícito e TLS sem STARTTLS permanecem desativados.
 - O domínio mantém os registros Apple validados: MX `mx01.mail.icloud.com` e `mx02.mail.icloud.com`, SPF com `include:icloud.com`, DKIM `sig1._domainkey` delegado ao iCloud e DMARC em `p=quarantine`. Não alterar DNS durante rotação de credencial SMTP.
+- `SMTP_USERNAME` é o endereço primário da caixa iCloud, não o alias do domínio personalizado. `SMTP_FROM`, `From`, `Reply-To`, suporte e destino continuam exclusivamente em `roger@maiocchi.adv.br`; a identidade de autenticação nunca é exposta na mensagem.
 - `SMTP_USERNAME` e `SMTP_PASSWORD` vivem exclusivamente em `/opt/docuseal/.env`, com proprietário `root`, grupo operacional do deploy e modo `0640` ou mais restritivo. A senha é específica de app, gerada no Apple Account; nunca é a senha principal da conta.
 - O compose versiona apenas referências às variáveis. Toda implantação falha antes de iniciar se uma delas estiver ausente.
 - O endereço `roger@maiocchi.adv.br` é a única identidade institucional de suporte e envio no portal, no DocuSeal, nas traduções, páginas de erro e mensagens transacionais. Endereços legados ou do fornecedor não podem aparecer em superfícies renderizadas.
 - Na rotação, gerar uma nova senha específica de app, atualizar o `.env` sem eco, recriar somente o container `docuseal`, confirmar saúde e envio real, e só então revogar a credencial anterior.
+- Diante de `535 5.7.8`, provar separadamente a senha específica e as identidades SMTP. Se a senha for aceita com a caixa iCloud primária, corrigir apenas `SMTP_USERNAME`; não rotacionar um segredo válido nem usar o alias personalizado para autenticação.
 - O aceite exige: handshake STARTTLS verificado a partir da VPS, autenticação aceita, resposta SMTP `250`, evento de entrega no DocuSeal e recebimento de uma mensagem de teste no endereço de destino. SPF, DKIM e DMARC devem ser conferidos no cabeçalho de uma mensagem recebida fora do domínio quando houver caixa de auditoria externa disponível.
 
 ## Ciclo obrigatório
@@ -45,6 +47,28 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 7. Verificar container saudável, rotas HTTPS, headers, conteúdo e links críticos.
 8. Em falha, executar `scripts/rollback-vps.sh` com o backup selecionado e repetir a verificação.
 9. Para o `pki-bridge`, confirmar também migrações, integridade dos artifacts, chave pública, CORS, HMAC bidirecional e cadeia dos eventos internos.
+
+## Backup, retenção e restauração
+
+- O backup diário interrompe brevemente os escritores DocuSeal e PKI, gera dois
+  `pg_dump` e três árvores de arquivos sem escrita concorrente e cifra cada
+  fluxo diretamente com `age`. A identidade privada permanece somente no
+  MacBook.
+- A VPS publica atomicamente para o usuário SSH apenas sete arquivos cifrados e
+  `SHA256SUMS`. `scripts/pull-signature-backup-macbook.sh` valida os hashes,
+  decripta somente o manifesto em memória e confirma à VPS o mesmo ID.
+- A retenção física falha fechada sem backup de até 30 horas e sem a confirmação
+  externa correspondente. O `pki-bridge` é parado enquanto a fila é processada;
+  o CLI não aceita apagar bytes fora desse runner governado.
+- Tombstones `pending`, `deleted` e `retained` permanecem no PostgreSQL. Uma
+  restauração reapresenta a fila e nunca considera a simples volta dos bytes
+  como autorização para reativar dados saneados.
+- `scripts/manage-signature-legal-hold-vps.sh enable` suspende toda limpeza e
+  rotação na VPS e no MacBook. `disable` exige decisão profissional registrada;
+  novos backups continuam sendo criados durante a preservação.
+- O conjunto cifrado tem janela de 35 dias em cada domínio de falha. O teste
+  trimestral deve decriptar em streaming, validar os dumps e confirmar que os
+  artefatos referenciados existem antes de liberar o ambiente restaurado.
 
 ## Separação de responsabilidades
 

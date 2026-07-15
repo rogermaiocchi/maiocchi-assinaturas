@@ -8,6 +8,7 @@ const privateProviderSchema = await readFile(new URL("../db/003_private_pades_pr
 const remoteProviderSchema = await readFile(new URL("../db/004_remote_pades_sessions.sql", import.meta.url), "utf8");
 const evidenceSchema = await readFile(new URL("../db/005_embedded_pades_evidence.sql", import.meta.url), "utf8");
 const replaySchema = await readFile(new URL("../db/006_internal_request_nonces.sql", import.meta.url), "utf8");
+const retentionSchema = await readFile(new URL("../db/007_retention_queue.sql", import.meta.url), "utf8");
 
 test("schema persiste hashes, idempotência e estado remoto cifrado", () => {
   assert.match(schema, /provider_state_ciphertext bytea NOT NULL/i);
@@ -47,6 +48,18 @@ test("schema interno registra nonce único com expiração", () => {
   assert.match(replaySchema, /nonce char\(32\) PRIMARY KEY/i);
   assert.match(replaySchema, /expires_at timestamptz NOT NULL/i);
   assert.doesNotMatch(replaySchema, /payload|body|secret|api_key|private_key|pin\s+/i);
+});
+
+test("schema de retenção usa fila mínima sem apagar evidência por cascata", () => {
+  assert.match(retentionSchema, /CREATE TABLE artifact_deletion_queue/i);
+  assert.match(retentionSchema, /id bigserial PRIMARY KEY/i);
+  assert.match(retentionSchema, /storage_key text NOT NULL/i);
+  assert.match(retentionSchema, /source_ticket_id uuid NOT NULL/i);
+  assert.match(retentionSchema, /status IN \('pending', 'deleted', 'retained'\)/i);
+  assert.match(retentionSchema, /WHERE status = 'pending'/i);
+  assert.match(retentionSchema, /resolved_at timestamptz/i);
+  assert.match(retentionSchema, /attempts integer NOT NULL DEFAULT 0/i);
+  assert.doesNotMatch(retentionSchema, /ON DELETE CASCADE|document_name|token_sha256|certificate/i);
 });
 
 test("schema impede exclusão em cascata da trilha criptográfica", () => {

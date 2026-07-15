@@ -14,6 +14,8 @@ Esta baseline fixa o transporte de códigos e alertas do portal
 - Porta: `587`.
 - Segurança: STARTTLS obrigatório e verificação da cadeia TLS ativa.
 - Autenticação: SMTP `plain` dentro do canal TLS.
+- Identidade SMTP: endereço primário da caixa iCloud; o alias do domínio
+  personalizado não é usado para autenticação.
 - Remetente: `Maiocchi. Assinatura <roger@maiocchi.adv.br>`.
 - Segredo: senha específica de app Apple, somente em `/opt/docuseal/.env`.
 - DNS: MX Apple, SPF iCloud, DKIM Apple e DMARC `p=quarantine` confirmados antes da implantação.
@@ -37,9 +39,23 @@ Esta baseline fixa o transporte de códigos e alertas do portal
 - Cabeçalhos da mensagem OTP recebida: `SPF=pass`, `DKIM=pass` e `DMARC=pass`.
 - Nenhuma credencial foi impressa, versionada ou gravada em log; o `.env` remoto permanece `0600`, `root:root`.
 
+## Correção operacional de 15/07/2026
+
+- [V] Uma prova com `raise_delivery_errors` revelou `535 5.7.8` que a
+  configuração comum ocultava. A senha específica de app permanecia válida.
+- [V] O iCloud rejeitou o alias `@maiocchi.adv.br` como identidade SMTP e
+  aceitou a caixa iCloud primária com código `235`.
+- [V] Somente `SMTP_USERNAME` foi corrigido. `From`, `Reply-To`, destinatário e
+  identidade pública permaneceram em `roger@maiocchi.adv.br`.
+- [V] O DocuSeal foi recriado saudável. O SMTP aceitou a mensagem multipart
+  real `Configuração de e-mail concluída`, e a caixa iCloud confirmou seu
+  recebimento em 15/07/2026 às 03:14 BRT.
+- [V] O estado anterior foi preservado em backup com identificador
+  `20260715T061346Z`; nenhum segredo foi impresso ou versionado.
+
 ## Referência oficial
 
 A configuração segue os [ajustes oficiais de servidor do iCloud Mail publicados
 pela Apple](https://support.apple.com/pt-br/102525): `smtp.mail.me.com`, porta
-`587`, SSL/TLS, autenticação obrigatória, endereço completo como usuário e
-senha específica de app.
+`587`, SSL/TLS, autenticação obrigatória, endereço iCloud primário completo
+como usuário e senha específica de app.

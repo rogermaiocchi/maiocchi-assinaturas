@@ -1,0 +1,35 @@
+[Unit]
+Description=Maiocchi Signature bounded retention
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+Environment=LOCK_FILE=/run/maiocchi-signature-retention/retention.lock
+Environment=BACKUP_ROOT=/var/backups/assinatura-cifrada
+Environment=LAST_SUCCESS_FILE=/var/backups/assinatura-cifrada/.last-success
+Environment=OFFSITE_SUCCESS_FILE=/var/lib/maiocchi-signature-backup-export/.offsite-success
+Environment=LEGAL_HOLD_FILE=/var/backups/assinatura-cifrada/.legal-hold
+Environment=BACKUP_MAX_AGE_HOURS=30
+Environment=PKI_PROJECT_ROOT=/opt/pki-bridge
+Environment=PKI_COMPOSE_FILE=/opt/pki-bridge/docker-compose.yml
+Environment=PKI_ENV_FILE=/opt/pki-bridge/.env
+Environment=PKI_RETENTION_DAYS=30
+Environment=PKI_RETENTION_LIMIT=100
+Environment=PKI_RETENTION_QUEUE_GRACE_HOURS=24
+Environment=PKI_RETENTION_DRY_RUN=false
+ExecStart=/usr/local/sbin/maiocchi-signature-retention
+RuntimeDirectory=maiocchi-signature-retention
+RuntimeDirectoryMode=0700
+UMask=0077
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/run/maiocchi-signature-retention /run/docker.sock
+TimeoutStartSec=30m

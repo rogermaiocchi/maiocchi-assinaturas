@@ -119,6 +119,16 @@ export class FileArtifactStore {
     return bytes;
   }
 
+  async delete(storageKey) {
+    try {
+      await unlink(this.resolve(storageKey));
+      return true;
+    } catch (error) {
+      if (error.code === "ENOENT") return false;
+      throw error;
+    }
+  }
+
   async encryptLegacy(storageKey) {
     if (!this.encryptionKey) throw new Error("artifact encryption key is unavailable");
     const destination = this.resolve(storageKey);

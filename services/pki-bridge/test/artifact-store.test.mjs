@@ -57,3 +57,15 @@ test("migra artefato legado sem alterar a chave de conteúdo", async (context) =
   assert.deepEqual(await new FileArtifactStore(root, { encryptionKey: Buffer.alloc(32, 5) }).get(artifact.storageKey), body);
   await assert.rejects(legacy.get(artifact.storageKey), /encryption key is unavailable/i);
 });
+
+test("exclui somente chave válida e trata ausência como idempotente", async (context) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "maiocchi-deleted-artifacts-"));
+  context.after(() => rm(root, { recursive: true, force: true }));
+  const store = new FileArtifactStore(root);
+  const artifact = await store.put(Buffer.from("temporario"), { extension: "pdf" });
+
+  assert.equal(await store.delete(artifact.storageKey), true);
+  assert.equal(await store.delete(artifact.storageKey), false);
+  await assert.rejects(store.get(artifact.storageKey), { code: "ENOENT" });
+  await assert.rejects(store.delete("../../fora.pdf"), /storage key is invalid/i);
+});

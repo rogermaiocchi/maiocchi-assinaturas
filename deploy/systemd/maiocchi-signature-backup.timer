@@ -1,0 +1,12 @@
+[Unit]
+Description=Run Maiocchi Signature encrypted backup daily
+
+[Timer]
+OnCalendar=*-*-* 04:05:00 UTC
+Persistent=true
+RandomizedDelaySec=10m
+AccuracySec=1m
+Unit=maiocchi-signature-backup.service
+
+[Install]
+WantedBy=timers.target

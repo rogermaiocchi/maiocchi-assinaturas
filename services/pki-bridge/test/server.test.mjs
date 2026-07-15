@@ -92,7 +92,7 @@ test("expõe verificação, CORS restrito, redirect e bloqueio do original", asy
 
   const health = await (await fetch(`${base}/healthz`)).json();
   assert.equal(health.service, "pki-bridge");
-  assert.equal(health.version, "1.3.20");
+  assert.equal(health.version, "1.3.21");
   assert.equal(health.localA3Signing, "disabled");
   assert.equal(health.remoteSigning, "disabled");
 

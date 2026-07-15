@@ -1,0 +1,37 @@
+[Unit]
+Description=Maiocchi Signature encrypted backup
+After=docker.service
+Requires=docker.service
+ConditionPathExists=/root/.secrets/backup-age.pub
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+Environment=BACKUP_ROOT=/var/backups/assinatura-cifrada
+Environment=AGE_RECIPIENT_FILE=/root/.secrets/backup-age.pub
+Environment=RETENTION_DAYS=35
+Environment=LEGAL_HOLD_FILE=/var/backups/assinatura-cifrada/.legal-hold
+Environment=LAST_SUCCESS_FILE=/var/backups/assinatura-cifrada/.last-success
+Environment=EXPORT_ROOT=/var/lib/maiocchi-signature-backup-export
+Environment=EXPORT_OWNER=hostinger
+Environment=EXPORT_GROUP=hostinger
+Environment=EXPORT_RETENTION_DAYS=7
+Environment=PORTAL_ROOT=/opt/assinatura-portal
+Environment=DOCUSEAL_ROOT=/opt/docuseal
+Environment=PKI_ROOT=/opt/pki-bridge
+Environment=TRAEFIK_ROOT=/opt/traefik
+ExecStart=/usr/local/sbin/maiocchi-signature-backup
+UMask=0077
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+StateDirectory=maiocchi-signature-backup-export
+StateDirectoryMode=0700
+ReadWritePaths=/var/backups /run/docker.sock
+CapabilityBoundingSet=CAP_CHOWN CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH CAP_FOWNER
+TimeoutStartSec=1h

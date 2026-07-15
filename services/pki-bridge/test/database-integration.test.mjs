@@ -13,8 +13,16 @@ import { registerGoldStandardDocument } from "../src/authenticity-service.mjs";
 import { PostgresInternalReplayGuard } from "../src/internal-replay-guard.mjs";
 import { buildValidationAttestationClaims, signValidationAttestation } from "../src/validation-attestation.mjs";
 import { PostgresPrivateSigningRepository } from "../src/private-signing-repository.mjs";
+import { PostgresRetentionRepository, runRetention } from "../src/retention-service.mjs";
 
-const databaseUrl = process.env.PKI_TEST_DATABASE_URL;
+const databaseConfiguration = process.env.PKI_TEST_DATABASE_URL ? {
+  connectionString: process.env.PKI_TEST_DATABASE_URL,
+} : process.env.PKI_TEST_DATABASE_HOST ? {
+  host: process.env.PKI_TEST_DATABASE_HOST,
+  port: Number(process.env.PKI_TEST_DATABASE_PORT || 5432),
+  database: process.env.PKI_TEST_DATABASE_NAME || "pki_test",
+  user: process.env.PKI_TEST_DATABASE_USER || "postgres",
+} : null;
 
 async function resetTestData(pool) {
   const result = await pool.query(
@@ -27,8 +35,8 @@ async function resetTestData(pool) {
   if (tables.length) await pool.query(`TRUNCATE TABLE ${tables.join(", ")} RESTART IDENTITY CASCADE`);
 }
 
-test("substitui sessão PAdES preparada somente com compare-and-swap", { skip: !databaseUrl }, async (context) => {
-  const pool = new Pool({ connectionString: databaseUrl, max: 2 });
+test("substitui sessão PAdES preparada somente com compare-and-swap", { skip: !databaseConfiguration }, async (context) => {
+  const pool = new Pool({ ...databaseConfiguration, max: 2 });
   context.after(async () => pool.end());
   await applyMigrations(pool);
   await resetTestData(pool);
@@ -70,8 +78,8 @@ test("substitui sessão PAdES preparada somente com compare-and-swap", { skip: !
   assert.deepEqual(events.rows, [{ event_type: "signature_reprepared", outcome: "success" }]);
 });
 
-test("migra e persiste a trilha de autenticidade no PostgreSQL", { skip: !databaseUrl }, async (context) => {
-  const pool = new Pool({ connectionString: databaseUrl, max: 3 });
+test("migra e persiste a trilha de autenticidade no PostgreSQL", { skip: !databaseConfiguration }, async (context) => {
+  const pool = new Pool({ ...databaseConfiguration, max: 3 });
   const root = await mkdtemp(path.join(os.tmpdir(), "maiocchi-pg-artifacts-"));
   context.after(async () => {
     await pool.end();
@@ -89,6 +97,7 @@ test("migra e persiste a trilha de autenticidade no PostgreSQL", { skip: !databa
     "004_remote_pades_sessions.sql",
     "005_embedded_pades_evidence.sql",
     "006_internal_request_nonces.sql",
+    "007_retention_queue.sql",
   ]);
 
   const replayGuard = new PostgresInternalReplayGuard(pool);
@@ -252,4 +261,68 @@ test("migra e persiste a trilha de autenticidade no PostgreSQL", { skip: !databa
     pool.query("UPDATE authenticity_documents SET public_id = 'MAI-2026-2222-2222-2222-2222' WHERE id = $1", [entry.document_id]),
     /append-only/i,
   );
+});
+
+test("retenção remove somente ticket expirado e artefato sem referência", { skip: !databaseConfiguration }, async (context) => {
+  const pool = new Pool({ ...databaseConfiguration, max: 2 });
+  const root = await mkdtemp(path.join(os.tmpdir(), "maiocchi-retention-artifacts-"));
+  context.after(async () => {
+    await pool.end();
+    await rm(root, { recursive: true, force: true });
+  });
+  await applyMigrations(pool);
+  await resetTestData(pool);
+
+  const store = new FileArtifactStore(root);
+  const expiredArtifact = await store.put(Buffer.from("expirado"), { extension: "pdf" });
+  const completedArtifact = await store.put(Buffer.from("concluido"), { extension: "pdf" });
+  const expiredTicketId = randomUUID();
+  const completedTicketId = randomUUID();
+  await pool.query(
+    `INSERT INTO pades_private_tickets
+      (id, token_sha256, document_name, source_pdf_sha256, source_pdf_storage_key,
+       source_pdf_size, status, expires_at, created_at, updated_at)
+     VALUES ($1, $2, 'expirado.pdf', $3, $4, $5, 'failed',
+             now() - interval '39 days', now() - interval '40 days', now() - interval '39 days')`,
+    [expiredTicketId, Buffer.alloc(32, 21), Buffer.from(expiredArtifact.sha256, "hex"),
+      expiredArtifact.storageKey, expiredArtifact.size],
+  );
+  await pool.query(
+    `INSERT INTO pades_private_ticket_events
+      (ticket_id, event_type, outcome, correlation_id)
+     VALUES ($1, 'signature_failed', 'failure', $2)`,
+    [expiredTicketId, randomUUID()],
+  );
+  await pool.query(
+    `INSERT INTO pades_private_tickets
+      (id, token_sha256, document_name, source_pdf_sha256, source_pdf_storage_key,
+       source_pdf_size, status, signed_pdf_sha256, signed_pdf_storage_key,
+       validation_report, expires_at, completed_at, created_at, updated_at)
+     VALUES ($1, $2, 'concluido.pdf', $3, $4, $5, 'completed', $3, $4,
+             '{"status":"valid"}'::jsonb, now() - interval '39 days',
+             now() - interval '39 days', now() - interval '40 days', now() - interval '39 days')`,
+    [completedTicketId, Buffer.alloc(32, 22), Buffer.from(completedArtifact.sha256, "hex"),
+      completedArtifact.storageKey, completedArtifact.size],
+  );
+
+  const result = await runRetention({
+    repository: new PostgresRetentionRepository(pool),
+    artifactStore: store,
+    cutoff: new Date(Date.now() - 30 * 86_400_000),
+    queueCutoff: new Date(Date.now() + 60_000),
+    limit: 10,
+    allowArtifactDeletion: true,
+  });
+
+  assert.equal(result.tickets, 1);
+  assert.equal(result.artifactsDeleted, 1);
+  assert.equal(result.errors, 0);
+  assert.equal((await pool.query("SELECT count(*)::int AS count FROM pades_private_tickets")).rows[0].count, 1);
+  const tombstones = await pool.query("SELECT storage_key, status, resolved_at FROM artifact_deletion_queue");
+  assert.equal(tombstones.rowCount, 1);
+  assert.equal(tombstones.rows[0].storage_key, expiredArtifact.storageKey);
+  assert.equal(tombstones.rows[0].status, "deleted");
+  assert.ok(tombstones.rows[0].resolved_at instanceof Date);
+  await assert.rejects(store.get(expiredArtifact.storageKey), { code: "ENOENT" });
+  assert.deepEqual(await store.get(completedArtifact.storageKey), Buffer.from("concluido"));
 });
