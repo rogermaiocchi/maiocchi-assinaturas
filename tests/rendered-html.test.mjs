@@ -208,11 +208,12 @@ test("oferece somente o artefato operacional validado da extensão PAdES", async
 });
 
 test("não expõe código no portal e conserva a fonte correspondente fora da raiz pública", async () => {
-  const [archive, redesignPatch, sourcePatch, emailPatch, certificatePatch, directAuthPatch, chromeSource, outputFiles] = await Promise.all([
-    readFile(new URL("../compliance/docuseal-maiocchi-3.0.1-maiocchi.13.tar.gz", import.meta.url)),
+  const [archive, redesignPatch, sourcePatch, emailPatch, simplifiedEmailPatch, certificatePatch, directAuthPatch, chromeSource, outputFiles] = await Promise.all([
+    readFile(new URL("../compliance/docuseal-maiocchi-3.0.1-maiocchi.14.tar.gz", import.meta.url)),
     readFile(new URL("../patches/docuseal/0002-institutional-signing-window.patch", import.meta.url), "utf8"),
     readFile(new URL("../patches/docuseal/0003-unified-contact-and-source-surface.patch", import.meta.url), "utf8"),
     readFile(new URL("../patches/docuseal/0004-unified-email-standard.patch", import.meta.url), "utf8"),
+    readFile(new URL("../patches/docuseal/0008-simplified-email-standard.patch", import.meta.url), "utf8"),
     readFile(new URL("../patches/docuseal/0005-certificate-header-compatibility.patch", import.meta.url), "utf8"),
     readFile(new URL("../patches/docuseal/0006-direct-authentication-flow.patch", import.meta.url), "utf8"),
     readFile(new URL("../app/site-chrome.tsx", import.meta.url), "utf8"),
@@ -222,7 +223,7 @@ test("não expõe código no portal e conserva a fonte correspondente fora da ra
   assert.ok(archive.length > 1_000_000, "o arquivo-fonte deve conter o fork completo e suas licenças");
   assert.equal(
     createHash("sha256").update(archive).digest("hex"),
-    "130fa587f08bc681056956fbe2ecf3a8b8bc4de4deec29a00a04080960281155",
+    "191a90896ad73f85182d42a35fbb614733d054ec3feaf1a7f8f4b21ca55bec6a",
   );
   await assert.rejects(
     stat(new URL("../public/codigo-fonte/docuseal-maiocchi-3.0.1.tar.gz", import.meta.url)),
@@ -254,10 +255,16 @@ test("não expõe código no portal e conserva a fonte correspondente fora da ra
   assert.match(redesignPatch, /^-\s*radial-gradient/m);
   assert.doesNotMatch(redesignPatch, /^\+\s*radial-gradient/m);
   assert.match(emailPatch, /data-maiocchi-email-standard/i);
-  assert.match(emailPatch, /border-top:3pt solid #ffc400/i);
-  assert.match(emailPatch, /Advogado Roger Maiocchi/i);
   assert.match(emailPatch, /data-automatic-email-notice/i);
   assert.match(emailPatch, /MaiocchiBrand::SUPPORT_EMAIL/i);
+  const simplifiedEmailAddedLines = simplifiedEmailPatch
+    .split("\n")
+    .filter((line) => line.startsWith("+") && !line.startsWith("+++") && !line.includes("expect("))
+    .join("\n");
+  assert.match(simplifiedEmailAddedLines, /data-automatic-email-icon/i);
+  assert.match(simplifiedEmailAddedLines, /LAWYER_SIGNATURE = 'Roger Maiocchi'/i);
+  assert.doesNotMatch(simplifiedEmailAddedLines, /border-top:3pt solid #ffc400/i);
+  assert.doesNotMatch(simplifiedEmailAddedLines, /Advogado Roger Maiocchi/i);
   assert.match(certificatePatch, /Base64\.strict_decode64/i);
   assert.match(certificatePatch, /decode_percent_escapes_preserving_plus/i);
   assert.match(certificatePatch, /raw Base64 certificate in a Traefik chain/i);
@@ -296,7 +303,7 @@ test("padroniza páginas inexistentes e redirecionamentos internos", async () =>
   assert.match(traefik, /documents-to-main:/i);
   assert.match(traefik, /replacement: 'https:\/\/assinatura\.maiocchi\.adv\.br\/\$\{1\}'/i);
   assert.match(docuseal, /APP_URL: https:\/\/assinatura\.maiocchi\.adv\.br/i);
-  assert.match(docuseal, /image: maiocchi\/docuseal:3\.0\.1-maiocchi\.13/i);
+  assert.match(docuseal, /image: maiocchi\/docuseal:3\.0\.1-maiocchi\.14/i);
   assert.match(docuseal, /DEFAULT_LOCALE: pt/i);
   assert.match(docuseal, /CERTIFICATE_AUTH_APP_HOST: assinatura\.maiocchi\.adv\.br/i);
   assert.match(docuseal, /PRIVATE_PADES_BRIDGE_URL: http:\/\/pki-bridge-internal:3401\/internal\/pades\/tickets/i);

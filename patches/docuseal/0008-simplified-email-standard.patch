@@ -1,0 +1,106 @@
+diff --git a/.version b/.version
+index 263b24a..40a8695 100644
+--- a/.version
++++ b/.version
+@@ -1 +1 @@
+-3.0.1-maiocchi.13
++3.0.1-maiocchi.14
+diff --git a/Dockerfile b/Dockerfile
+index a19cbd8..4efd49a 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -103,7 +103,7 @@ RUN mkdir -p /app/public/legal && \
+ ARG SOURCE_REVISION=unknown
+ LABEL org.opencontainers.image.title="Maiocchi. Assinatura" \
+       org.opencontainers.image.vendor="Maiocchi Advogado" \
+-      org.opencontainers.image.version="3.0.1-maiocchi.13" \
++      org.opencontainers.image.version="3.0.1-maiocchi.14" \
+       org.opencontainers.image.revision="${SOURCE_REVISION}" \
+       org.opencontainers.image.licenses="AGPL-3.0-only"
+ 
+diff --git a/app/views/layouts/mailer.html.erb b/app/views/layouts/mailer.html.erb
+index e223f92..046336a 100644
+--- a/app/views/layouts/mailer.html.erb
++++ b/app/views/layouts/mailer.html.erb
+@@ -20,14 +20,6 @@
+       <tr>
+         <td class="maiocchi-shell" align="center" style="padding:24px 12px;">
+           <table data-maiocchi-email-standard="1" role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#ffffff;border-collapse:collapse;max-width:640px;width:100%;">
+-            <tr>
+-              <td aria-hidden="true" style="border-top:3pt solid #ffc400;font-size:0;height:0;line-height:0;padding:0;width:100%;">&nbsp;</td>
+-            </tr>
+-            <tr>
+-              <td align="left" style="padding:1pt;">
+-                <span data-plain-text-ignore="1" aria-label="Maiocchi" style="color:#111111;display:inline-block;font-size:28px;font-weight:800;line-height:1;">m<span style="color:#ffc400;">.</span></span>
+-              </td>
+-            </tr>
+             <tr>
+               <td class="maiocchi-body" style="padding:22px 32px 28px;">
+                 <p data-email-salutation="1" style="font-size:15px;line-height:1.6;margin:0 0 16px;"><%= MaiocchiBrand::EMAIL_SALUTATION %></p>
+@@ -41,14 +33,7 @@
+                 <table data-automatic-email-notice="1" role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;margin-top:24px;width:100%;">
+                   <tr>
+                     <td valign="top" width="30" style="color:#6b6250;padding:1px 10px 0 0;width:30px;">
+-                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Mensagem automática">
+-                        <path d="M12 8V4H8"></path>
+-                        <rect width="16" height="12" x="4" y="8" rx="2"></rect>
+-                        <path d="M2 14h2"></path>
+-                        <path d="M20 14h2"></path>
+-                        <path d="M15 13v2"></path>
+-                        <path d="M9 13v2"></path>
+-                      </svg>
++                      <span data-automatic-email-icon="1" data-plain-text-ignore="1" aria-label="Maiocchi" style="color:#111111;display:inline-block;font-size:20px;font-weight:800;line-height:1;">m<span style="color:#ffc400;">.</span></span>
+                     </td>
+                     <td valign="top" style="color:#6b6250;font-size:12px;line-height:1.5;padding:0;">
+                       <%= MaiocchiBrand::AUTOMATED_EMAIL_NOTICE %>
+diff --git a/lib/maiocchi_brand.rb b/lib/maiocchi_brand.rb
+index 7a50fdd..662477f 100644
+--- a/lib/maiocchi_brand.rb
++++ b/lib/maiocchi_brand.rb
+@@ -6,7 +6,7 @@ module MaiocchiBrand
+   SUPPORT_EMAIL = 'roger@maiocchi.adv.br'
+   CANONICAL_FROM = %("#{PRODUCT_NAME}" <#{SUPPORT_EMAIL}>).freeze
+   EMAIL_SALUTATION = 'Prezado(a),'
+-  LAWYER_SIGNATURE = 'Advogado Roger Maiocchi'
++  LAWYER_SIGNATURE = 'Roger Maiocchi'
+   AUTOMATED_EMAIL_NOTICE =
+     'Não responda a esta mensagem. Este e-mail foi produzido automaticamente pelo Portal de Assinatura ' \
+     'do escritório Maiocchi Advogado.'
+diff --git a/spec/mailers/settings_mailer_maiocchi_standard_spec.rb b/spec/mailers/settings_mailer_maiocchi_standard_spec.rb
+index 52988a2..01ad157 100644
+--- a/spec/mailers/settings_mailer_maiocchi_standard_spec.rb
++++ b/spec/mailers/settings_mailer_maiocchi_standard_spec.rb
+@@ -14,13 +14,16 @@ RSpec.describe SettingsMailer do
+     expect(html.scan('data-email-salutation="1"').size).to eq(1)
+     expect(html.scan('data-email-signature="1"').size).to eq(1)
+     expect(html.scan('data-automatic-email-notice="1"').size).to eq(1)
+-    expect(html).to include('border-top:3pt solid #ffc400')
+-    expect(html).to include('padding:1pt')
+-    expect(html).to include('aria-label="Mensagem automática"')
++    expect(html.scan('data-automatic-email-icon="1"').size).to eq(1)
++    expect(html).not_to include('border-top:3pt solid #ffc400')
++    expect(html).not_to include('aria-label="Mensagem automática"')
++    expect(html).not_to include('<svg')
+     expect(html).to include(MaiocchiBrand::EMAIL_SALUTATION)
+     expect(html).to include('Respeitosamente,')
+     expect(html).to include(MaiocchiBrand::LAWYER_SIGNATURE)
++    expect(html).not_to include('Advogado Roger Maiocchi')
+     expect(html).to include(MaiocchiBrand::AUTOMATED_EMAIL_NOTICE)
++    expect(html.index('data-email-salutation="1"')).to be < html.index('data-automatic-email-icon="1"')
+   end
+ 
+   it 'does not expose source links or attach documents' do
+@@ -39,8 +42,11 @@ RSpec.describe SettingsMailer do
+     expect(text).to start_with(MaiocchiBrand::EMAIL_SALUTATION)
+     expect(text).not_to include('body {')
+     expect(text).not_to include('.maiocchi-content')
+-    expect(normalized_text).to include('Respeitosamente,')
+-    expect(normalized_text).to include(MaiocchiBrand::LAWYER_SIGNATURE)
++    expect(normalized_text).to start_with(
++      'Prezado(a), O envio de códigos e alertas do portal foi configurado com sucesso. ' \
++      'Respeitosamente, Roger Maiocchi'
++    )
++    expect(normalized_text).not_to include('Advogado Roger Maiocchi')
+     expect(normalized_text).to include(MaiocchiBrand::AUTOMATED_EMAIL_NOTICE)
+   end
+ 
