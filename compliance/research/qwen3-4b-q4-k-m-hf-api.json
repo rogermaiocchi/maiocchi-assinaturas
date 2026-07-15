@@ -1,0 +1,16 @@
+{
+  "architecture": "qwen3",
+  "artifact": {
+    "filename": "Qwen3-4B-Q4_K_M.gguf",
+    "lfsSha256": "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
+    "sizeBytes": 2497280256
+  },
+  "contextLength": 40960,
+  "evidenceType": "huggingface-model-api",
+  "license": "apache-2.0",
+  "modelId": "Qwen/Qwen3-4B-GGUF",
+  "pipelineTag": "text-generation",
+  "retrievedAt": "2026-07-15T08:18:17Z",
+  "revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
+  "source": "https://huggingface.co/api/models/Qwen/Qwen3-4B-GGUF/revision/bc640142c66e1fdd12af0bd68f40445458f3869b?blobs=true"
+}

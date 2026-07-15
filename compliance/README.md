@@ -9,6 +9,8 @@ os SBOMs CycloneDX, os relatórios brutos do Grype e a declaração OpenVEX.
 - `sbom/`: inventário CycloneDX JSON gerado pelo Syft para cada imagem.
 - `vulnerability/`: resultado bruto e não suprimido do Grype.
 - `vex/`: avaliação de alcançabilidade em OpenVEX; não altera o relatório bruto.
+- `research/`: evidência reduzida de APIs oficiais usada em decisões de arquitetura.
+- `releases/`: manifestos imutáveis das releases históricas.
 - `docuseal-*.tar.gz`: código-fonte correspondente do fork DocuSeal.
 - `SHA256SUMS`: integridade dos artefatos da release corrente.
 

@@ -1,0 +1,267 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "urn:uuid:5272d00a-9a86-42f2-a0d9-585b1965280c",
+  "author": "Maiocchi Advogado",
+  "role": "Fornecedor do produto",
+  "version": 1,
+  "statements": [
+    {
+      "vulnerability": {
+        "name": "CVE-2023-52356"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/docuseal@3.0.1-maiocchi.10?repository_url=maiocchi%2Fdocuseal",
+          "subcomponents": [
+            {
+              "@id": "pkg:apk/alpine/tiff@4.7.1-r0?arch=x86_64&distro=alpine-3.24.1"
+            }
+          ]
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "O relatório bruto é uma correspondência CPE sem restrição de versão. O registro CNA limita a versão upstream afetada a versões anteriores a 4.6.0; a imagem contém 4.7.1-r0.",
+      "justification": "vulnerable_code_not_present",
+      "impact_statement": "Além da versão não afetada, o portal identifica o MIME pelos bytes e rejeita image/tiff antes do decoder libvips.",
+      "timestamp": "2026-07-15T05:45:10Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2023-6277"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/docuseal@3.0.1-maiocchi.10?repository_url=maiocchi%2Fdocuseal",
+          "subcomponents": [
+            {
+              "@id": "pkg:apk/alpine/tiff@4.7.1-r0?arch=x86_64&distro=alpine-3.24.1"
+            }
+          ]
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "A exploração exige que TIFFOpen processe um TIFF manipulado; esse formato não integra a allowlist do portal.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "ImageUtils detecta o MIME real antes do libvips e o teste automatizado prova que image/tiff é recusado mesmo quando o Content-Type declarado é permitido.",
+      "timestamp": "2026-07-15T05:45:10Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-4775"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/docuseal@3.0.1-maiocchi.10?repository_url=maiocchi%2Fdocuseal",
+          "subcomponents": [
+            {
+              "@id": "pkg:apk/alpine/tiff@4.7.1-r0?arch=x86_64&distro=alpine-3.24.1"
+            }
+          ]
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "A exploração exige um TIFF YCbCr manipulado; o Alpine ainda não oferece libtiff 4.7.2, e o portal mantém o caminho fail-closed para TIFF.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "ImageUtils detecta o MIME real antes do libvips, recusa image/tiff e é coberto por regressão automatizada. VIPS_BLOCK_UNTRUSTED=1 adiciona defesa em profundidade.",
+      "timestamp": "2026-07-15T05:45:10Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2023-6228"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/docuseal@3.0.1-maiocchi.10?repository_url=maiocchi%2Fdocuseal",
+          "subcomponents": [
+            {
+              "@id": "pkg:apk/alpine/tiff@4.7.1-r0?arch=x86_64&distro=alpine-3.24.1"
+            }
+          ]
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "O achado afeta o utilitário tiffcp, que não é instalado na imagem de produção; entradas TIFF também são rejeitadas pela aplicação.",
+      "justification": "vulnerable_code_not_present",
+      "impact_statement": "A imagem contém a biblioteca transitiva exigida pelo vips, mas não contém o subpacote tiff-tools nem o binário tiffcp.",
+      "timestamp": "2026-07-15T05:45:10Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2023-37769"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/docuseal@3.0.1-maiocchi.10?repository_url=maiocchi%2Fdocuseal",
+          "subcomponents": [
+            {
+              "@id": "pkg:apk/alpine/pixman@0.46.4-r0?arch=x86_64&distro=alpine-3.24.1"
+            }
+          ]
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "O registro descreve uma falha no executável stress-test de um commit de desenvolvimento, não na biblioteca runtime distribuída pelo pacote Alpine.",
+      "justification": "vulnerable_code_not_present",
+      "impact_statement": "A imagem runtime não contém nem executa o stress-test referido pelo CVE.",
+      "timestamp": "2026-07-15T05:45:10Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-60876"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/docuseal@3.0.1-maiocchi.10?repository_url=maiocchi%2Fdocuseal",
+          "subcomponents": [
+            {
+              "@id": "pkg:apk/alpine/busybox@1.37.0-r31?arch=x86_64&distro=alpine-3.24.1"
+            },
+            {
+              "@id": "pkg:apk/alpine/busybox-binsh@1.37.0-r31?arch=x86_64&distro=alpine-3.24.1&upstream=busybox"
+            },
+            {
+              "@id": "pkg:apk/alpine/ssl_client@1.37.0-r31?arch=x86_64&distro=alpine-3.24.1&upstream=busybox"
+            }
+          ]
+        },
+        {
+          "@id": "pkg:oci/assinatura-portal@1.14.4?repository_url=maiocchi%2Fassinatura-portal",
+          "subcomponents": [
+            {
+              "@id": "pkg:apk/alpine/busybox@1.37.0-r30?arch=x86_64&distro=alpine-3.23.5"
+            },
+            {
+              "@id": "pkg:apk/alpine/busybox-binsh@1.37.0-r30?arch=x86_64&distro=alpine-3.23.5&upstream=busybox"
+            },
+            {
+              "@id": "pkg:apk/alpine/ssl_client@1.37.0-r30?arch=x86_64&distro=alpine-3.23.5&upstream=busybox"
+            }
+          ]
+        },
+        {
+          "@id": "pkg:oci/pki-bridge@1.3.20?repository_url=maiocchi%2Fpki-bridge",
+          "subcomponents": [
+            {
+              "@id": "pkg:apk/alpine/busybox@1.37.0-r31?arch=x86_64&distro=alpine-3.24.1"
+            },
+            {
+              "@id": "pkg:apk/alpine/busybox-binsh@1.37.0-r31?arch=x86_64&distro=alpine-3.24.1&upstream=busybox"
+            },
+            {
+              "@id": "pkg:apk/alpine/ssl_client@1.37.0-r31?arch=x86_64&distro=alpine-3.24.1&upstream=busybox"
+            }
+          ]
+        },
+        {
+          "@id": "pkg:oci/pades-provider@1.2.5?repository_url=maiocchi%2Fpades-provider",
+          "subcomponents": [
+            {
+              "@id": "pkg:apk/alpine/busybox@1.37.0-r30?arch=x86_64&distro=alpine-3.23.5"
+            },
+            {
+              "@id": "pkg:apk/alpine/busybox-binsh@1.37.0-r30?arch=x86_64&distro=alpine-3.23.5&upstream=busybox"
+            },
+            {
+              "@id": "pkg:apk/alpine/ssl_client@1.37.0-r30?arch=x86_64&distro=alpine-3.23.5&upstream=busybox"
+            }
+          ]
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "A exploração depende de uma URL controlada pelo adversário entregue ao applet wget. Nenhuma aplicação das quatro imagens chama wget com dados do usuário.",
+      "justification": "vulnerable_code_cannot_be_controlled_by_adversary",
+      "impact_statement": "As requisições são tratadas por NGINX, Puma, Node ou Java. O BusyBox permanece somente como ferramenta de base e não compõe o caminho HTTP da aplicação.",
+      "timestamp": "2026-07-15T05:45:10Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-58055"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/docuseal@3.0.1-maiocchi.10?repository_url=maiocchi%2Fdocuseal",
+          "subcomponents": [
+            {
+              "@id": "pkg:apk/alpine/nghttp2-libs@1.69.0-r0?arch=x86_64&distro=alpine-3.24.1&upstream=nghttp2"
+            }
+          ]
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "O CVE afeta o proxy nghttpx. A imagem contém apenas nghttp2-libs; o executável nghttpx não está instalado nem é o proxy da aplicação.",
+      "justification": "vulnerable_code_not_present",
+      "impact_statement": "O tráfego público termina no Traefik e chega ao Puma; não existe processo ou binário nghttpx no container.",
+      "timestamp": "2026-07-15T05:45:10Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-5745"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/docuseal@3.0.1-maiocchi.10?repository_url=maiocchi%2Fdocuseal",
+          "subcomponents": [
+            {
+              "@id": "pkg:apk/alpine/libarchive@3.8.7-r0?arch=x86_64&distro=alpine-3.24.1"
+            }
+          ]
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "A exploração exige o parser de ACL do libarchive. O fluxo de arquivos ZIP usa rubyzip 3.2.2 e a imagem não contém bsdtar.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "libarchive é uma dependência transitiva; a aplicação não invoca sua API nem ferramentas para processar arquivos enviados pelo usuário.",
+      "timestamp": "2026-07-15T05:45:10Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-49112"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/docuseal@3.0.1-maiocchi.10?repository_url=maiocchi%2Fdocuseal",
+          "subcomponents": [
+            {
+              "@id": "pkg:apk/alpine/redis@8.8.0-r0?arch=x86_64&distro=alpine-3.24.1"
+            }
+          ]
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "O registro refere-se ao Valkey até 8.1.1; o scanner associou por CPE desconhecido o pacote Redis 8.8.0-r0.",
+      "justification": "vulnerable_code_not_present",
+      "impact_statement": "A versão e o produto descritos pelo CVE não correspondem ao servidor Redis 8.8.0 da imagem.",
+      "timestamp": "2026-07-15T05:45:10Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2016-2781"
+      },
+      "products": [
+        {
+          "@id": "pkg:oci/pades-provider@1.2.5?repository_url=maiocchi%2Fpades-provider",
+          "subcomponents": [
+            {
+              "@id": "pkg:apk/alpine/coreutils@9.8-r1?arch=x86_64&distro=alpine-3.23.5"
+            },
+            {
+              "@id": "pkg:apk/alpine/coreutils-env@9.8-r1?arch=x86_64&distro=alpine-3.23.5&upstream=coreutils"
+            },
+            {
+              "@id": "pkg:apk/alpine/coreutils-fmt@9.8-r1?arch=x86_64&distro=alpine-3.23.5&upstream=coreutils"
+            },
+            {
+              "@id": "pkg:apk/alpine/coreutils-sha512sum@9.8-r1?arch=x86_64&distro=alpine-3.23.5&upstream=coreutils"
+            }
+          ]
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "O CVE exige execução local de chroot com --userspec e um terminal controlável. O provider inicia exclusivamente o JAR como UID/GID 10001, sem shell interativo ou TTY, e seu código não invoca chroot.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "impact_statement": "O binário /usr/sbin/chroot está presente como dependência da imagem, mas não é executado pelo serviço Java nem é alcançável por requisição HTTP.",
+      "timestamp": "2026-07-15T05:45:10Z"
+    }
+  ],
+  "timestamp": "2026-07-15T05:45:10Z"
+}

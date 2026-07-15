@@ -29,6 +29,10 @@ API do Hugging Face confirmou o artefato, a revisao, a licenca, o tamanho e o
 SHA-256 acima; baixar o mesmo arquivo sem consumidor real aumentaria uso de
 disco, memoria e superficie de ataque sem melhorar a assinatura.
 
+A resposta relevante da API, sem campos volateis ou template de chat, foi
+persistida em `compliance/research/qwen3-4b-q4-k-m-hf-api.json` e integra o
+manifesto de integridade da release.
+
 ## Gate de ativacao
 
 Antes de baixar ou iniciar o runtime, todos os itens devem estar satisfeitos:
