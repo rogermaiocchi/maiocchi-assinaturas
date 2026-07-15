@@ -8,12 +8,14 @@ AGE_IDENTITY_FILE="${AGE_IDENTITY_FILE:-$HOME/.config/age/maiocchi-signature-bac
 PORTAL_ARCHIVE_ROOT="${PORTAL_ARCHIVE_ROOT:-assinatura-portal}"
 DOCUSEAL_ARCHIVE_ROOT="${DOCUSEAL_ARCHIVE_ROOT:-docuseal}"
 PKI_ARCHIVE_ROOT="${PKI_ARCHIVE_ROOT:-pki-bridge}"
+ARCHIVE_MAX_ENTRIES="${ARCHIVE_MAX_ENTRIES:-200000}"
 backup_id="${1:-}"
 
 for command_name in age docker shasum tar; do
   command -v "$command_name" >/dev/null
 done
 [[ -s "$AGE_IDENTITY_FILE" ]]
+[[ "$ARCHIVE_MAX_ENTRIES" =~ ^[1-9][0-9]*$ ]]
 if [[ -z "$backup_id" ]]; then
   backup_id="$(awk -F= '$1 == "BACKUP_ID" { print $2; exit }' "$LOCAL_BACKUP_ROOT/.last-success")"
 fi
@@ -32,8 +34,20 @@ cleanup() {
 trap cleanup EXIT
 
 restore_archive() {
-  local encrypted="$1" destination="$2" expected_path="$3"
+  local encrypted="$1" destination="$2" expected_path="$3" listing entry_count archive_types entry
   mkdir -p "$destination"
+  listing="$tmpdir/$(basename "$destination").entries"
+  age --decrypt -i "$AGE_IDENTITY_FILE" "$encrypted" | tar -tzf - > "$listing"
+  entry_count="$(wc -l < "$listing" | tr -d ' ')"
+  [[ "$entry_count" =~ ^[1-9][0-9]*$ ]] && (( entry_count <= ARCHIVE_MAX_ENTRIES ))
+  while IFS= read -r entry; do
+    [[ -n "$entry" && "$entry" != /* ]]
+    case "/$entry/" in
+      *"/../"*) return 1 ;;
+    esac
+  done < "$listing"
+  archive_types="$(age --decrypt -i "$AGE_IDENTITY_FILE" "$encrypted" | tar -tvzf - | cut -c1 | sort -u | tr -d '\n')"
+  [[ "$archive_types" == "-" || "$archive_types" == "d" || "$archive_types" == "-d" ]]
   age --decrypt -i "$AGE_IDENTITY_FILE" "$encrypted" | tar -xzf - -C "$destination"
   [[ -e "$destination/$expected_path" ]]
 }

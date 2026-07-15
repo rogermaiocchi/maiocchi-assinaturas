@@ -17,7 +17,7 @@ PKI_RETENTION_LIMIT="${PKI_RETENTION_LIMIT:-100}"
 PKI_RETENTION_QUEUE_GRACE_HOURS="${PKI_RETENTION_QUEUE_GRACE_HOURS:-24}"
 PKI_RETENTION_DRY_RUN="${PKI_RETENTION_DRY_RUN:-false}"
 
-for command_name in docker flock sha256sum stat; do
+for command_name in date docker flock sha256sum stat; do
   command -v "$command_name" >/dev/null
 done
 for integer in "$BACKUP_MAX_AGE_HOURS" "$PKI_RETENTION_DAYS" "$PKI_RETENTION_LIMIT" "$PKI_RETENTION_QUEUE_GRACE_HOURS"; do
@@ -61,16 +61,22 @@ offsite_id="$(marker_value "$OFFSITE_SUCCESS_FILE" BACKUP_ID)"
   printf '{"event":"signature_retention","status":"deferred","reason":"offsite_backup_not_current"}\n' >&2
   exit 78
 }
+queue_cutoff="${backup_id:0:4}-${backup_id:4:2}-${backup_id:6:2}T${backup_id:9:2}:${backup_id:11:2}:${backup_id:13:2}Z"
+now_epoch="$(date +%s)"
 last_success_epoch="$(stat -c %Y "$LAST_SUCCESS_FILE")"
-(( $(date +%s) - last_success_epoch <= BACKUP_MAX_AGE_HOURS * 3600 )) || {
+backup_epoch="$(date -u -d "$queue_cutoff" +%s)"
+(( now_epoch - last_success_epoch <= BACKUP_MAX_AGE_HOURS * 3600 )) || {
   printf '{"event":"signature_retention","status":"deferred","reason":"backup_stale"}\n' >&2
+  exit 78
+}
+(( now_epoch - backup_epoch >= -300 && now_epoch - backup_epoch <= BACKUP_MAX_AGE_HOURS * 3600 )) || {
+  printf '{"event":"signature_retention","status":"deferred","reason":"backup_id_stale_or_future"}\n' >&2
   exit 78
 }
 backup_path="$BACKUP_ROOT/$backup_id"
 [[ -d "$backup_path" ]] || { printf 'current backup directory is missing\n' >&2; exit 78; }
 (cd "$backup_path" && sha256sum --check SHA256SUMS >/dev/null)
 
-queue_cutoff="${backup_id:0:4}-${backup_id:4:2}-${backup_id:6:2}T${backup_id:9:2}:${backup_id:11:2}:${backup_id:13:2}Z"
 [[ -r "$PKI_COMPOSE_FILE" && -r "$PKI_ENV_FILE" ]]
 
 # Both retention domains are destructive; the shared backup gate above must pass first.

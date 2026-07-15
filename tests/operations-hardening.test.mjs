@@ -42,18 +42,21 @@ test("retenção exige legal hold livre, backup externo atual e bridge quiescido
   const hold = retention.indexOf('[[ -e "$LEGAL_HOLD_FILE" ]]');
   const offsiteMatch = retention.indexOf('"$offsite_id" == "$backup_id"');
   const hashes = retention.indexOf("sha256sum --check SHA256SUMS");
+  const intrinsicTimestamp = retention.indexOf('date -u -d "$queue_cutoff" +%s');
   const docusealPrune = retention.indexOf("maiocchi:prune_certificate_auth_challenges");
   const stop = retention.indexOf("docker stop --time 45 pki-bridge");
   const authorization = retention.indexOf("RETENTION_ARTIFACT_DELETE_ALLOWED=true");
   assert.ok(
     hold > 0 &&
       hold < offsiteMatch &&
-      offsiteMatch < hashes &&
+      offsiteMatch < intrinsicTimestamp &&
+      intrinsicTimestamp < hashes &&
       hashes < docusealPrune &&
       docusealPrune < stop &&
       stop < authorization,
   );
   assert.match(retention, /sha256sum --check SHA256SUMS/);
+  assert.match(retention, /backup_id_stale_or_future/);
   assert.match(retention, /docker exec -w \/app docuseal \/app\/bin\/bundle exec rails/);
   assert.match(retention, /RETENTION_QUEUE_CUTOFF=\$queue_cutoff/);
   assert.match(retentionService, /OFFSITE_SUCCESS_FILE=.*signature-backup-export\/\.offsite-success/);
@@ -65,6 +68,9 @@ test("restore drill extrai e valida os quatro arquivos cifrados antes de aprovar
     assert.match(restore, new RegExp(`restore_archive .*${archive}\\.tar\\.gz\\.age`));
   }
   assert.match(restore, /\[\[ -d "\$tmpdir\/traefik\/dynamic" \]\]/);
+  assert.match(restore, /entry_count <= ARCHIVE_MAX_ENTRIES/);
+  assert.match(restore, /\*"\/\.\.\/"\*\) return 1/);
+  assert.match(restore, /archive_types.*"-d"/);
   assert.match(restore, /portalFiles/);
   assert.match(restore, /docusealFiles/);
   assert.match(restore, /pkiFiles/);
