@@ -64,6 +64,36 @@ validação fechada das mutações semânticas. Foram tratados os dois apontamen
 2. a expansão do perfil ICC passou a limitar a entrada comprimida a `64 KiB` e
    a saída do próprio `zlib` a `1 MiB`, com regressão para carga expansiva.
 
+## Validação em produção
+
+- `[V]` Backup anterior à implantação: `20260715T193441Z`.
+- `[V]` Commit implantado: `b1dae8a50a34c76e645b9c8c61191aad8d13eab1`.
+- `[V]` Portal `1.14.9`, bridge `1.3.26` e provider `1.2.6` permaneceram
+  saudáveis; o health check declarou o provider e a assinatura A3 local como
+  `ready`.
+- `[V]` Uma assinatura A3 real foi concluída pelo agente do MacBook no ticket
+  `MAI-2026-2HW5-MY1C-NA5W-P097`; a interface retornou `PAdES concluído e
+  validado`, sem reproduzir `signed_document_mismatch`.
+- `[V]` O registro imutável permaneceu em `completed` e gravou, em ordem, os
+  eventos `ticket_created`, `evidence_embedded`, `signature_prepared` e
+  `signature_completed`, todos com resultado `success`.
+- `[V]` SHA-256 do PDF-fonte:
+  `2bae891e279dd30a261801ce94a3f17cb0f5236119403b202ca484c87ff88feb`.
+- `[V]` SHA-256 da apresentação congelada:
+  `d5373af9b4fb0bbde2205752822cf5ee834841d494e01b1925840e57c3ab277f`.
+- `[V]` SHA-256 do PDF assinado, idêntico no download, banco e verificador
+  público: `298941d5d544097ff19a846f81e546825d0721d1c73d4acfee5b22488519c9a3`.
+- `[V]` O DSS registrou integridade criptográfica e confiança como verdadeiras,
+  indicação `TOTAL_PASSED`, política `2.16.76.1.7.1.11.1.3` e um signatário.
+- `[V]` O `pdfsig` confirmou `ETSI.CAdES.detached`, SHA-256, cobertura integral
+  e `Signature is Valid`.
+- `[V]` O endpoint público retornou `documentStatus: active`,
+  `proofVerified: true`, perfil `AD-RB`, `docMdp: valid` e atestado final
+  ML-DSA-65.
+- `[V]` As duas páginas foram renderizadas a `150 dpi`: a página original
+  preservou conteúdo e recebeu somente a linha superior e a inscrição lateral;
+  a página de evidências permaneceu legível, sem corte ou sobreposição.
+
 ## Fontes rastreáveis
 
 - [Release DSS 6.4](https://github.com/esig/dss/releases/tag/6.4)
