@@ -42,6 +42,7 @@ test("retenção exige legal hold livre, backup externo atual e bridge quiescido
   const authorization = retention.indexOf("RETENTION_ARTIFACT_DELETE_ALLOWED=true");
   assert.ok(hold > 0 && hold < offsiteMatch && offsiteMatch < stop && stop < authorization);
   assert.match(retention, /sha256sum --check SHA256SUMS/);
+  assert.match(retention, /docker exec -w \/app docuseal bin\/rails/);
   assert.match(retention, /RETENTION_QUEUE_CUTOFF=\$queue_cutoff/);
   assert.match(retentionService, /OFFSITE_SUCCESS_FILE=.*signature-backup-export\/\.offsite-success/);
   assert.match(retentionTimer, /OnCalendar=hourly/);

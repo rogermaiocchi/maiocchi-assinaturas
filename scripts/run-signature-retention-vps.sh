@@ -34,10 +34,10 @@ if [[ -e "$LEGAL_HOLD_FILE" ]]; then
 fi
 
 if [[ "$PKI_RETENTION_DRY_RUN" == "true" ]]; then
-  docker exec docuseal bin/rails runner \
+  docker exec -w /app docuseal bin/rails runner \
     'puts({ event: "certificate_auth_retention", dry_run: true, candidates: CertificateAuthChallenge.where(expires_at: ...CertificateAuthChallenge::RETENTION_GRACE_PERIOD.ago).count }.to_json)'
 else
-  docker exec docuseal bin/rails maiocchi:prune_certificate_auth_challenges
+  docker exec -w /app docuseal bin/rails maiocchi:prune_certificate_auth_challenges
 fi
 
 marker_value() {
