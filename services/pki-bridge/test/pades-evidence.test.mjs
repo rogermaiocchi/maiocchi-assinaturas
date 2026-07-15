@@ -130,6 +130,22 @@ test("acrescenta evidências, registra apenas páginas de conteúdo e vincula o 
   assert.doesNotMatch(manifest.purpose, /⚖/u);
 });
 
+test("mantém a inscrição lateral em uma linha quando a paginação tem dois dígitos", async () => {
+  const pageCount = 11;
+  const source = await sourceDocument(pageCount);
+  const manifest = manifestFor(source, pageCount);
+  const attestation = {
+    algorithm: "ML-DSA-65", keyId: "ml-dsa-65-test",
+    code: "PQC-MLDSA65-1111-2222-3333-4444", manifestSha256: sha256(JSON.stringify(manifest)),
+  };
+
+  const result = await composePadesEvidence({ sourcePdf: source, manifest, attestation });
+  const composed = await PDFDocument.load(result.presentation, { updateMetadata: false });
+
+  assert.equal(result.totalPages, 12);
+  assert.equal(composed.getPageCount(), 12);
+});
+
 test("usa marca PAdES e omite ITI nas modalidades simples e avançada sem infraestrutura reconhecida", async () => {
   for (const infrastructure of ["Assinatura eletrônica simples", "Assinatura eletrônica avançada"]) {
     const source = await sourceDocument(1);

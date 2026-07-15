@@ -222,7 +222,7 @@ test("não expõe código no portal e conserva a fonte correspondente fora da ra
   assert.ok(archive.length > 1_000_000, "o arquivo-fonte deve conter o fork completo e suas licenças");
   assert.equal(
     createHash("sha256").update(archive).digest("hex"),
-    "befba1ecdd99c447ca0b44926020bcd0b7a3803ec5c1c851db8212181bd5ea89",
+    "130fa587f08bc681056956fbe2ecf3a8b8bc4de4deec29a00a04080960281155",
   );
   await assert.rejects(
     stat(new URL("../public/codigo-fonte/docuseal-maiocchi-3.0.1.tar.gz", import.meta.url)),
