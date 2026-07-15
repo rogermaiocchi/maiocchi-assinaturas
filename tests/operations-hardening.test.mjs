@@ -7,6 +7,11 @@ const offsite = await readFile(new URL("../scripts/pull-signature-backup-macbook
 const retention = await readFile(new URL("../scripts/run-signature-retention-vps.sh", import.meta.url), "utf8");
 const retentionService = await readFile(new URL("../deploy/systemd/maiocchi-signature-retention.service", import.meta.url), "utf8");
 const retentionTimer = await readFile(new URL("../deploy/systemd/maiocchi-signature-retention.timer", import.meta.url), "utf8");
+const portalDockerfile = await readFile(new URL("../Dockerfile", import.meta.url), "utf8");
+
+test("build do portal mantém telemetria Next.js desabilitada", () => {
+  assert.match(portalDockerfile, /ENV NEXT_TELEMETRY_DISABLED=1/);
+});
 
 test("backup quiesce escritores antes dos dumps e publica sucesso somente após reinício", () => {
   const stop = backup.indexOf('docker stop --time 45');

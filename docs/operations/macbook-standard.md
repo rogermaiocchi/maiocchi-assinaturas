@@ -57,6 +57,10 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 - A VPS publica atomicamente para o usuário SSH apenas sete arquivos cifrados e
   `SHA256SUMS`. `scripts/pull-signature-backup-macbook.sh` valida os hashes,
   decripta somente o manifesto em memória e confirma à VPS o mesmo ID.
+- O LaunchAgent `br.adv.maiocchi.signature-backup-offsite` executa essa cópia no
+  login e a cada seis horas. O binário instalado fica em
+  `~/.local/bin/maiocchi-signature-backup-offsite`; logs ficam em
+  `~/.local/state/maiocchi-signature/` sem conteúdo de documentos.
 - A retenção física falha fechada sem backup de até 30 horas e sem a confirmação
   externa correspondente. O `pki-bridge` é parado enquanto a fila é processada;
   o CLI não aceita apagar bytes fora desse runner governado.
@@ -67,8 +71,10 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
   rotação na VPS e no MacBook. `disable` exige decisão profissional registrada;
   novos backups continuam sendo criados durante a preservação.
 - O conjunto cifrado tem janela de 35 dias em cada domínio de falha. O teste
-  trimestral deve decriptar em streaming, validar os dumps e confirmar que os
-  artefatos referenciados existem antes de liberar o ambiente restaurado.
+  trimestral usa `scripts/verify-signature-backup-restore-macbook.sh`: restaura
+  os bancos em container efêmero, decripta a árvore somente em streaming e
+  confirma que os artefatos referenciados existem antes de liberar o ambiente
+  restaurado.
 
 ## Separação de responsabilidades
 
