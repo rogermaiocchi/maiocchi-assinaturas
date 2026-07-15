@@ -2,7 +2,8 @@
 
 Este diretório conserva os artefatos verificáveis da cadeia de suprimentos do
 portal. O manifesto `SHA256SUMS` cobre a release DocuSeal, o patch institucional,
-os SBOMs CycloneDX, os relatórios brutos do Grype e a declaração OpenVEX.
+os SBOMs CycloneDX, os relatórios brutos do Grype, a declaração OpenVEX e os
+scripts/configurações críticos de backup, retenção e mTLS.
 
 ## Estrutura
 
