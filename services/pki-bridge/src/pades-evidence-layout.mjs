@@ -41,7 +41,7 @@ export const PAGE_CHROME = Object.freeze({
   sideMarkTop: 8,
   sideRegistryGap: 8,
   sideRegistryFontSize: 5.2,
-  sideRegistryMinimumFontSize: 3.8,
+  sideRegistryMinimumFontSize: 2.2,
   sideRegistryRight: 15.5,
 });
 

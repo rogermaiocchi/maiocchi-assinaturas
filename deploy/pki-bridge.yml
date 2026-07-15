@@ -5,7 +5,7 @@ services:
       dockerfile: services/pki-bridge/Dockerfile
       args:
         SOURCE_REVISION: "${SOURCE_REVISION:-unknown}"
-    image: maiocchi/pki-bridge:1.3.24
+    image: maiocchi/pki-bridge:1.3.25
     container_name: pki-bridge
     restart: unless-stopped
     mem_limit: 384m

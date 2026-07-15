@@ -130,9 +130,16 @@ test("acrescenta evidências, registra apenas páginas de conteúdo e vincula o 
   assert.doesNotMatch(manifest.purpose, /⚖/u);
 });
 
-test("mantém a inscrição lateral em uma linha quando a paginação tem dois dígitos", async () => {
+test("mantém a inscrição lateral em uma linha em paginação extensa com página compacta", async () => {
   const pageCount = 11;
-  const source = await sourceDocument(pageCount);
+  const pdf = await PDFDocument.create();
+  const font = await pdf.embedFont(StandardFonts.Helvetica);
+  for (let index = 0; index < pageCount; index += 1) {
+    const size = index === 9 ? [288, 432] : [595.28, 841.89];
+    const page = pdf.addPage(size);
+    page.drawText(`Conteudo original ${index + 1}`, { x: 32, y: size[1] - 72, font, size: 12 });
+  }
+  const source = Buffer.from(await pdf.save({ useObjectStreams: false }));
   const manifest = manifestFor(source, pageCount);
   const attestation = {
     algorithm: "ML-DSA-65", keyId: "ml-dsa-65-test",
