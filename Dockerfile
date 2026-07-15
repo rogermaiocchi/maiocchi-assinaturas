@@ -21,8 +21,8 @@ FROM nginxinc/nginx-unprivileged:1.30.3-alpine3.23-slim@sha256:3b24c4bfb2b9f6035
 ARG SOURCE_REVISION=unknown
 LABEL org.opencontainers.image.title="Maiocchi. Assinatura" \
       org.opencontainers.image.vendor="Maiocchi Advogado" \
-      org.opencontainers.image.version="1.14.3" \
-      org.opencontainers.image.source="https://github.com/rogermaiocchi/maiocchi-assinaturas/tree/portal-v1.14.3" \
+      org.opencontainers.image.version="1.14.4" \
+      org.opencontainers.image.source="https://github.com/rogermaiocchi/maiocchi-assinaturas/tree/portal-v1.14.4" \
       org.opencontainers.image.revision="${SOURCE_REVISION}"
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/out /usr/share/nginx/html

@@ -23,6 +23,25 @@ test("falha fechado sem configuração obrigatória ou HTTPS", () => {
   assert.throws(() => new RestPkiCoreClient({ endpoint: "https://pki.example.test", apiKey: "credential", securityContextId: "context" }), /UUID/);
 });
 
+test("confirma disponibilidade pelo endpoint oficial de informações do sistema", async () => {
+  let request;
+  const client = clientWith(async (url, options) => {
+    request = { url: String(url), options };
+    return jsonResponse({ productName: "Rest PKI Core", productVersion: "2.5.1" });
+  });
+  assert.deepEqual(await client.healthCheck(), {
+    ready: true,
+    provider: "rest-pki-core",
+    productName: "Rest PKI Core",
+    version: "2.5.1",
+  });
+  assert.equal(request.url, "https://pki.example.test/api/system/info");
+  assert.equal(request.options.method, "GET");
+
+  const invalid = clientWith(async () => jsonResponse({ productName: "Outro produto", productVersion: "1.0" }));
+  await assert.rejects(() => invalid.healthCheck(), (error) => error instanceof PkiProviderError && error.status === 502);
+});
+
 test("prepara PAdES conforme o contrato oficial sem expor credencial", async () => {
   let request;
   const client = clientWith(async (url, options) => {
@@ -121,4 +140,34 @@ test("bloqueia retorno inseguro e sessão remota incompleta", async () => {
     pdf: Buffer.from("pdf"), name: "doc.pdf", returnUrl: "http://portal.example.test/callback", callbackArgument: "ticket-id",
   }), /HTTPS/);
   await assert.rejects(() => client.signedPdfFromSession({ status: "UserCancelled", documents: [] }), /not complete/);
+});
+
+test("bloqueia redirect PSC fora da allowlist e aceita origin explicitamente autorizado", async () => {
+  const response = {
+    sessionId: "77777777-7777-4777-8777-777777777777",
+    redirectUrl: "https://assinador.psc.example/authorize",
+  };
+  const blocked = clientWith(async () => jsonResponse(response));
+  await assert.rejects(() => blocked.createSignatureSession({
+    pdf: Buffer.from("%PDF-source"), name: "doc.pdf",
+    returnUrl: "https://assinatura.example.test/assinar-icp/", callbackArgument: "ticket-id",
+  }), /invalid signature session/);
+
+  const allowed = new RestPkiCoreClient({
+    endpoint: "https://pki.example.test",
+    apiKey: "credential",
+    securityContextId: "11111111-1111-4111-8111-111111111111",
+    redirectOrigins: ["https://assinador.psc.example"],
+    fetchImpl: async () => jsonResponse(response),
+  });
+  const result = await allowed.createSignatureSession({
+    pdf: Buffer.from("%PDF-source"), name: "doc.pdf",
+    returnUrl: "https://assinatura.example.test/assinar-icp/", callbackArgument: "ticket-id",
+  });
+  assert.equal(result.redirectUrl, response.redirectUrl);
+  assert.throws(() => new RestPkiCoreClient({
+    endpoint: "https://pki.example.test", apiKey: "credential",
+    securityContextId: "11111111-1111-4111-8111-111111111111",
+    redirectOrigins: ["https://assinador.psc.example/path"],
+  }), /HTTPS origin/);
 });

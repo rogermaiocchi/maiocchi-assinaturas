@@ -4,7 +4,7 @@ Camada fail-closed entre o workflow DocuSeal, o provider PAdES privado e o regis
 
 ## Estado operacional
 
-O provider privado usa DSS 6.4 no servidor. Há duas modalidades: sessão remota em PSC ICP-Brasil, sem software no computador, e agente Swift/CryptoTokenKit para um A3 físico local. Sem trust store ICP-Brasil, política AD-RB e credenciais válidas do provider escolhido, a geração correspondente permanece desabilitada. O verificador de autenticidade não transforma um PDF em PAdES e não simula validação ICP-Brasil.
+O provider privado usa DSS 6.4 no servidor. A modalidade pública padrão é a sessão remota em PSC ICP-Brasil, sem software no computador. O agente Swift/CryptoTokenKit para A3 físico local permanece como contingência explicitamente desabilitada. Sem trust store ICP-Brasil, política AD-RB e credenciais válidas do provider escolhido, a geração correspondente permanece desabilitada. O verificador de autenticidade não transforma um PDF em PAdES e não simula validação ICP-Brasil.
 
 Arquitetura e gates: [`docs/architecture/private-pades-provider.md`](../../docs/architecture/private-pades-provider.md).
 
@@ -38,7 +38,7 @@ O download temporário retornado pelo REST PKI Core só é aceito no mesmo host 
 - O resumo e o relatório exigem atestado de chave pública presente no keyring do validador.
 - Todas as cadeias devem ser válidas e todas as revogações devem retornar `good`.
 - `AD-RT` exige carimbo de tempo válido.
-- A rota interna usa `timestamp.HMAC-SHA256` com janela de cinco minutos e não é publicada pelo Traefik.
+- A rota interna usa `timestamp.nonce.HMAC-SHA256`, vinculado a método, destino e SHA-256 do corpo. Cada nonce é consumido uma única vez no PostgreSQL; a resposta é ligada ao nonce, ao hash da requisição, ao status HTTP e ao próprio corpo.
 - Registro repetido do mesmo pacote é idempotente; conteúdo divergente no mesmo workflow retorna conflito.
 - A folha é representação; o envelope Ed25519 é prova do registro; somente o PAdES é a assinatura do documento.
 - O hash impresso na página incorporada identifica o conteúdo recebido. O SHA-256 do PDF PAdES final é calculado somente depois da assinatura e exibido pelo verificador; o PDF não tenta conter o próprio hash.
@@ -55,20 +55,25 @@ O download temporário retornado pelo REST PKI Core só é aceito no mesmo host 
 - `GET /validar?codigo=:id` (endereço canônico público servido pelo portal)
 - `GET /v/:id` (compatibilidade: redireciona para o endereço canônico)
 - `GET /verificacao/:id`
-- `POST /verificacao/:id/evento`
 - `GET /folha/:id.pdf`
 - `GET /original/:id.pdf`
 - `GET /chaves/:keyId.pem`
 - `GET /chaves-pqc/:keyId.pem`
 - `POST /internal/authenticity/records`
+- `POST /internal/evidence/compose`
+- `POST /internal/evidence/verify`
+- `POST /internal/evidence/finalize`
+- `POST /internal/pades/tickets`
 
 ## Configuração
 
-`DATABASE_URL`, `ARTIFACT_ROOT`, `ARTIFACT_ENCRYPTION_KEY_FILE`, `AUTHENTICITY_PRIVATE_KEY_FILE`, `AUTHENTICITY_ML_DSA_PRIVATE_KEY_FILE`, `AUTHENTICITY_KEY_ID` e `AUTHENTICITY_INTERNAL_HMAC_KEY` são obrigatórios em produção. A chave ML-DSA deve ser `ml-dsa-65`; tipo divergente interrompe o serviço. A chave de artefatos contém exatamente 32 bytes e habilita AES-256-GCM com nonce aleatório e a chave de storage como AAD. `PUBLIC_BASE_URL` fixa os links canônicos. `ALLOWED_ORIGINS` recebe uma lista separada por vírgulas apenas para previews autorizados. `AUTHENTICITY_PUBLIC_KEYS_DIR` mantém arquivos históricos `{keyId}.pub.pem`; a chave ativa é sempre derivada do arquivo privado montado. `VALIDATOR_PUBLIC_KEYS_DIR` contém chaves públicas e `keyring.json`; diretório sem manifesto mantém a API de registro bloqueada.
+`DATABASE_URL`, `ARTIFACT_ROOT`, `ARTIFACT_ENCRYPTION_KEY_FILE`, `AUTHENTICITY_PRIVATE_KEY_FILE`, `AUTHENTICITY_ML_DSA_PRIVATE_KEY_FILE`, `AUTHENTICITY_KEY_ID` e `AUTHENTICITY_INTERNAL_HMAC_KEY_FILE` são obrigatórios em produção. `AUTHENTICITY_INTERNAL_HMAC_KEY` permanece apenas como fallback de desenvolvimento e não pode coexistir com o arquivo. O Compose adiciona somente o GID suplementar `3400`; o arquivo montado usa `root:3400`, modo `0440`, dentro de diretório `0750`. A chave ML-DSA deve ser `ml-dsa-65`; tipo divergente interrompe o serviço. A chave de artefatos contém exatamente 32 bytes e habilita AES-256-GCM com nonce aleatório e a chave de storage como AAD. `PUBLIC_BASE_URL` fixa os links canônicos. `ALLOWED_ORIGINS` recebe uma lista separada por vírgulas apenas para previews autorizados. `AUTHENTICITY_PUBLIC_KEYS_DIR` mantém os arquivos Ed25519 históricos `{keyId}.pub.pem`. `AUTHENTICITY_ML_DSA_PUBLIC_KEYS_DIR` mantém, em diretório separado, as chaves ML-DSA-65 históricas `{keyId}.pub.pem`; o nome deve corresponder ao fingerprint derivado e a chave ativa é sempre incluída no keyring. `VALIDATOR_PUBLIC_KEYS_DIR` contém chaves públicas e `keyring.json`; diretório sem manifesto mantém a API de registro bloqueada.
 
 Todo registro novo aponta para `https://assinatura.maiocchi.adv.br/validar?codigo=<ID>`. O endereço oficial `https://validar.iti.gov.br/` é publicado na folha e no JSON somente quando a infraestrutura validada for exatamente ICP-Brasil ou GOV.BR reconhecido. O rótulo genérico “assinatura avançada” não libera esse link.
 
-Assinatura remota só é anunciada quando `REST_PKI_CORE_ENDPOINT`, `REST_PKI_CORE_API_KEY` e `REST_PKI_CORE_SECURITY_CONTEXT_ID` estão todos presentes. Configuração parcial interrompe a inicialização. O ticket do portal nunca é enviado ao PSC: a sessão é vinculada por UUID interno e o retorno só é aceito após conferência do `callbackArgument`, download do PDF, inspeção PAdES e validação de todos os signatários.
+Assinatura remota só é anunciada quando `REST_PKI_CORE_ENDPOINT`, `REST_PKI_CORE_API_KEY` e `REST_PKI_CORE_SECURITY_CONTEXT_ID` estão todos presentes. Configuração parcial interrompe a inicialização. `REST_PKI_CORE_REDIRECT_ORIGINS` autoriza, por origin HTTPS exata, eventuais hosts de autorização distintos do endpoint; qualquer redirect fora da allowlist é rejeitado. O ticket do portal nunca é enviado ao PSC: a sessão é vinculada por UUID interno e o retorno só é aceito após conferência do `callbackArgument`, download do PDF, inspeção PAdES e validação de todos os signatários.
+
+`ENABLE_LOCAL_A3_SIGNING` permanece `false` por padrão. Ativá-la não elimina a necessidade de bridge instalada no computador que contém o token USB; apenas libera as rotas locais já protegidas. Produção sem bridge homologada deve manter esse valor desabilitado.
 
 Antes de ativar a chave de artefatos em instalação existente, execute uma vez:
 
@@ -82,7 +87,7 @@ Arquitetura e ativação: [`docs/architecture/remote-signing-no-install.md`](../
 
 O manifesto segue `validator-keyring.example.json`. Uma chave `retired` ou `revoked` nunca autoriza registro novo, mesmo que o arquivo público permaneça arquivado.
 
-`POST /verificacao/:id/evento` recebe somente `match`/`mismatch`. O evento é rotulado `untrusted_client_observation`, não entra na cadeia probatória e é amostrado atomicamente uma vez por documento, resultado e janela de dez minutos; rotas GET não têm efeito colateral.
+Rotas públicas de verificação são somente leitura. A comparação SHA-256 acontece no navegador e não escreve na trilha probatória. O listener público ocupa `:3400` e recusa `/internal`; o listener interno ocupa `:3401`, faz bind apenas no endereço da rede Docker `signature-internal` e recusa rotas públicas. Requisições internas usam nonce persistido, HMAC-SHA-256 e correlação criptográfica bidirecional; o proxy público não alcança o listener interno.
 
 ## Teste
 

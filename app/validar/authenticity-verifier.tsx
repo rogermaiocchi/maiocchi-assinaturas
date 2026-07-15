@@ -195,16 +195,6 @@ export function AuthenticityVerifier({ officialValidatorMode = "external" }: { o
       const digest = await fileSha256(file);
       const result = digest === lookup.value.envelope.record.document.hash.value ? "match" : "mismatch";
       setFileResult(result);
-      const record = lookup.value.envelope.record;
-      const eventPath = record.signature.infrastructure === "ICP-Brasil"
-        ? `/verificacao/${encodeURIComponent(record.document.id)}/evento`
-        : `/evidencias/${encodeURIComponent(record.document.id)}/eventos`;
-      void fetch(`${apiBase}${eventPath}`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ result }),
-        keepalive: true,
-      }).catch(() => undefined);
     } catch {
       setFileResult("error");
     } finally {

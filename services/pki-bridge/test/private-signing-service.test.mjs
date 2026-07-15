@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import test from "node:test";
 import { PDFDocument } from "pdf-lib";
 import { PrivateSigningService } from "../src/private-signing-service.mjs";
+import { simulatedSignedPdf } from "./helpers/signed-pdf-fixture.mjs";
 
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 const policyOid = "2.16.76.1.7.1.11.1.3";
@@ -152,13 +153,29 @@ test("compõe evidência simples no mesmo padrão visual com atestado ML-DSA-65"
   assert.equal(result.itiValidatorUrl, null);
   assert.equal(result.manifest.signers[0].name, "Cliente identificado");
   assert.match(result.attestation.code, /^PQC-MLDSA65(?:-[0-9A-HJKMNP-TV-Z]{4}){4}$/);
+  const finalized = service.finalizeEvidence({
+    manifest: result.manifest,
+    attestation: result.attestation,
+    finalPdfSha256: "f".repeat(64),
+    finalPdfSize: result.presentation.length,
+    finalizedAt: "2026-07-15T03:00:00.000Z",
+  });
+  assert.equal(finalized.manifest.finalPdf.sha256, "f".repeat(64));
+  assert.equal(finalized.manifest.embeddedManifestSha256, result.attestation.manifestSha256);
+  assert.throws(() => service.finalizeEvidence({
+    manifest: result.manifest,
+    attestation: result.attestation,
+    finalPdfSha256: "invalid",
+    finalPdfSize: result.presentation.length,
+    finalizedAt: "2026-07-15T03:00:00.000Z",
+  }), /SHA-256/);
 });
 
 test("ticket privado vincula PDF, certificado, tarefa e resultado validado", async () => {
   const repository = new MemoryRepository();
   const artifactStore = new MemoryArtifacts();
   const sourcePdf = await onePagePdf();
-  const signedPdf = Buffer.from("%PDF-1.7\nsigned");
+  let signedPdf;
   const certificateFingerprint = "a".repeat(64);
   const provider = {
     async prepare({ pdf, reason, signerRole }) {
@@ -166,6 +183,7 @@ test("ticket privado vincula PDF, certificado, tarefa e resultado validado", asy
       assert.equal((await PDFDocument.load(pdf)).getPageCount(), 2);
       assert.equal(reason, "Documento eletrônico");
       assert.equal(signerRole, "Signatário ICP-Brasil");
+      signedPdf = await simulatedSignedPdf(pdf);
       return {
         sessionId: "22222222-2222-4222-8222-222222222222",
         toBeSignedBase64: Buffer.from("dtbs").toString("base64"), digestAlgorithm: "SHA-256",
@@ -200,7 +218,10 @@ test("ticket privado vincula PDF, certificado, tarefa e resultado validado", asy
       };
     },
   };
-  const service = new PrivateSigningService({ repository, artifactStore, provider, postQuantumSigner, baseUrl: "https://assinatura.maiocchi.adv.br" });
+  const service = new PrivateSigningService({
+    repository, artifactStore, provider, localSigningEnabled: true, postQuantumSigner,
+    baseUrl: "https://assinatura.maiocchi.adv.br",
+  });
   const created = await service.createTicket({ pdf: sourcePdf, documentName: "Contrato cliente.pdf", ttlSeconds: 600 });
   assert.match(created.url, /^https:\/\/assinatura\.maiocchi\.adv\.br\/assinar-icp#ticket=[A-Za-z0-9_-]{43}$/);
   assert.equal(created.sourcePdfSha256, sha256(sourcePdf));
@@ -255,7 +276,10 @@ test("bloqueia certificado diferente do preparado", async () => {
         certificateFingerprintSha256: "b".repeat(64), expiresAt: new Date(Date.now() + 120_000).toISOString() };
     },
   };
-  const service = new PrivateSigningService({ repository, artifactStore, provider, postQuantumSigner, baseUrl: "https://assinatura.maiocchi.adv.br" });
+  const service = new PrivateSigningService({
+    repository, artifactStore, provider, localSigningEnabled: true, postQuantumSigner,
+    baseUrl: "https://assinatura.maiocchi.adv.br",
+  });
   const created = await service.createTicket({ pdf, ttlSeconds: 600 });
   const token = new URL(created.url).hash.slice("#ticket=".length);
   await service.prepare(token, { certificateBase64: "certificate" });
@@ -292,7 +316,7 @@ test("retoma a mesma tarefa depois de cancelamento na confirmação local", asyn
     },
   };
   const service = new PrivateSigningService({
-    repository, artifactStore, provider, postQuantumSigner,
+    repository, artifactStore, provider, localSigningEnabled: true, postQuantumSigner,
     baseUrl: "https://assinatura.maiocchi.adv.br",
   });
   const created = await service.createTicket({ pdf: await onePagePdf(), ttlSeconds: 600 });
@@ -333,7 +357,7 @@ test("substitui atomicamente uma sessão preparada que expirou no provider", asy
     },
   };
   const service = new PrivateSigningService({
-    repository, artifactStore, provider, postQuantumSigner,
+    repository, artifactStore, provider, localSigningEnabled: true, postQuantumSigner,
     baseUrl: "https://assinatura.maiocchi.adv.br",
   });
   const created = await service.createTicket({ pdf: await onePagePdf(), ttlSeconds: 600 });
@@ -354,14 +378,20 @@ test("assina em PSC remoto sem agente local e valida antes de liberar", async ()
   const repository = new MemoryRepository();
   const artifactStore = new MemoryArtifacts();
   const sourcePdf = await onePagePdf();
-  const signedPdf = Buffer.from("%PDF-1.7\nremote-signed");
+  let signedPdf;
   const sessionId = "77777777-7777-4777-8777-777777777777";
+  let healthChecks = 0;
   const remoteProvider = {
+    async healthCheck() {
+      healthChecks += 1;
+      return { ready: true, provider: "rest-pki-core", version: "test" };
+    },
     async createSignatureSession({ pdf, returnUrl, callbackArgument }) {
       assert.notDeepEqual(pdf, sourcePdf);
       assert.equal((await PDFDocument.load(pdf)).getPageCount(), 2);
       assert.equal(returnUrl, "https://assinatura.maiocchi.adv.br/assinar-icp/");
       assert.equal(callbackArgument, repository.ticket.id);
+      signedPdf = await simulatedSignedPdf(pdf);
       return { sessionId, redirectUrl: "https://psc.example.test/authorize" };
     },
     async getSignatureSession(id) {
@@ -384,9 +414,11 @@ test("assina em PSC remoto sem agente local e valida antes de liberar", async ()
   });
   const created = await service.createTicket({ pdf: sourcePdf, ttlSeconds: 600 });
   const token = new URL(created.url).hash.slice("#ticket=".length);
+  await service.remoteSigningHealth();
   assert.equal((await service.status(token)).remoteSigningAvailable, true);
   assert.equal((await service.status(token)).localSigningAvailable, false);
   assert.equal((await service.startRemote(token)).redirectUrl, "https://psc.example.test/authorize");
+  assert.equal(healthChecks, 1);
   const completed = await service.completeRemote(token, { signatureSessionId: sessionId });
   assert.equal(completed.status, "completed");
   assert.equal(completed.signedPdfSha256, sha256(signedPdf));
@@ -398,6 +430,7 @@ test("permite nova sessão remota após cancelamento", async () => {
   const artifactStore = new MemoryArtifacts();
   let attempt = 0;
   const remoteProvider = {
+    async healthCheck() { return { ready: true, provider: "rest-pki-core", version: "test" }; },
     async createSignatureSession() {
       attempt += 1;
       return {
@@ -415,9 +448,10 @@ test("permite nova sessão remota após cancelamento", async () => {
   });
   const created = await service.createTicket({ pdf: await onePagePdf(), ttlSeconds: 600 });
   const token = new URL(created.url).hash.slice("#ticket=".length);
+  assert.equal((await service.status(token)).localSigningAvailable, false);
   const first = await service.startRemote(token);
   assert.equal((await service.completeRemote(token, { signatureSessionId: first.sessionId })).status, "cancelled");
-  await assert.rejects(() => service.prepare(token, { certificateBase64: "certificate" }), (error) => error.status === 409);
+  await assert.rejects(() => service.prepare(token, { certificateBase64: "certificate" }), (error) => error.status === 503);
   const second = await service.startRemote(token);
   assert.notEqual(second.sessionId, first.sessionId);
 });
@@ -426,12 +460,17 @@ test("encerra sessão PSC que devolve PAdES fora da política", async () => {
   const repository = new MemoryRepository();
   const artifactStore = new MemoryArtifacts();
   const sessionId = "99999999-9999-4999-8999-999999999999";
+  let signedPdf;
   const remoteProvider = {
-    async createSignatureSession() { return { sessionId, redirectUrl: "https://psc.example.test/authorize" }; },
+    async healthCheck() { return { ready: true, provider: "rest-pki-core", version: "test" }; },
+    async createSignatureSession({ pdf }) {
+      signedPdf = await simulatedSignedPdf(pdf);
+      return { sessionId, redirectUrl: "https://psc.example.test/authorize" };
+    },
     async getSignatureSession() {
       return { id: sessionId, status: "Completed", callbackArgument: repository.ticket.id, documents: [{}] };
     },
-    async signedPdfFromSession() { return { pdf: Buffer.from("%PDF-1.7\nsigned") }; },
+    async signedPdfFromSession() { return { pdf: signedPdf }; },
     async inspectPdf() {
       return { success: true, signers: [{ signaturePolicy: { oid: "1.2.3" }, validationResults: { passed: true } }] };
     },
@@ -445,4 +484,46 @@ test("encerra sessão PSC que devolve PAdES fora da política", async () => {
   await service.startRemote(token);
   await assert.rejects(() => service.completeRemote(token, { signatureSessionId: sessionId }), (error) => error.status === 422);
   assert.equal(repository.remoteSession.status, "failed");
+});
+
+test("bloqueia sessão remota quando o PSC configurado não responde", async () => {
+  const repository = new MemoryRepository();
+  const artifactStore = new MemoryArtifacts();
+  const remoteProvider = {
+    async healthCheck() { throw new Error("upstream unavailable"); },
+    async createSignatureSession() { throw new Error("must not create session"); },
+  };
+  const service = new PrivateSigningService({
+    repository, artifactStore, remoteProvider, postQuantumSigner, allowedPolicyOids,
+    baseUrl: "https://assinatura.maiocchi.adv.br",
+  });
+  const created = await service.createTicket({ pdf: await onePagePdf(), ttlSeconds: 600 });
+  const token = new URL(created.url).hash.slice("#ticket=".length);
+  assert.equal((await service.status(token)).remoteSigningAvailable, false);
+  await assert.rejects(() => service.startRemote(token), (error) => error.status === 503);
+});
+
+test("status não aguarda uma sondagem PSC lenta no caminho da requisição", async () => {
+  const repository = new MemoryRepository();
+  const artifactStore = new MemoryArtifacts();
+  let releaseHealth;
+  const remoteProvider = {
+    healthCheck() {
+      return new Promise((resolve) => { releaseHealth = resolve; });
+    },
+  };
+  const service = new PrivateSigningService({
+    repository, artifactStore, remoteProvider, postQuantumSigner, allowedPolicyOids,
+    baseUrl: "https://assinatura.maiocchi.adv.br",
+  });
+  const created = await service.createTicket({ pdf: await onePagePdf(), ttlSeconds: 600 });
+  const token = new URL(created.url).hash.slice("#ticket=".length);
+  const status = await Promise.race([
+    service.status(token),
+    new Promise((_, reject) => setTimeout(() => reject(new Error("status blocked on remote health")), 100)),
+  ]);
+  assert.equal(status.remoteSigningAvailable, false);
+  releaseHealth({ ready: true, provider: "rest-pki-core", version: "test" });
+  await service.remoteSigningHealth();
+  assert.equal((await service.status(token)).remoteSigningAvailable, true);
 });

@@ -1,9 +1,10 @@
 services:
   docuseal:
-    image: maiocchi/docuseal:3.0.1-maiocchi.9
+    image: maiocchi/docuseal:3.0.1-maiocchi.10
     container_name: docuseal
     restart: unless-stopped
     mem_limit: 1g
+    group_add: ["${SIGNATURE_SECRET_GID:-3400}"]
     depends_on:
       docuseal-db:
         condition: service_healthy
@@ -31,18 +32,21 @@ services:
       CERTIFICATE_AUTH_ENABLED: "${CERTIFICATE_AUTH_ENABLED:-false}"
       CERTIFICATE_AUTH_HOST: certificado.assinatura.maiocchi.adv.br
       CERTIFICATE_AUTH_APP_HOST: assinatura.maiocchi.adv.br
+      CERTIFICATE_AUTH_TRUST_BUNDLE_FILE: /run/icp-trust/icp-client-roots.crt
       MAIOCCHI_HOME_URL: https://assinatura.maiocchi.adv.br
       MAIOCCHI_LICENSE_URL: https://assinatura.maiocchi.adv.br/legal/LICENSE.txt
-      PRIVATE_PADES_BRIDGE_URL: http://pki-bridge:3400/internal/pades/tickets
-      PRIVATE_EVIDENCE_COMPOSER_URL: http://pki-bridge:3400/internal/evidence/compose
-      AUTHENTICITY_INTERNAL_HMAC_KEY: "${AUTHENTICITY_INTERNAL_HMAC_KEY:?defina AUTHENTICITY_INTERNAL_HMAC_KEY em /opt/docuseal/.env}"
+      PRIVATE_PADES_BRIDGE_URL: http://pki-bridge-internal:3401/internal/pades/tickets
+      PRIVATE_EVIDENCE_COMPOSER_URL: http://pki-bridge-internal:3401/internal/evidence/compose
+      AUTHENTICITY_INTERNAL_HMAC_KEY_FILE: /run/signature-secrets/internal-hmac.key
     volumes:
       - "${DOCUSEAL_DATA_DIR:-./data}:/data"
+      - "${SIGNATURE_SECRET_DIR:-/opt/signature-secrets}:/run/signature-secrets:ro"
+      - "${ICP_TRUST_DIR:-./icp-trust}:/run/icp-trust:ro"
     security_opt:
       - no-new-privileges:true
     cap_drop:
       - ALL
-    networks: [traefik-net, docuseal-internal]
+    networks: [traefik-net, signature-internal, docuseal-internal]
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/up"]
       interval: 30s
@@ -73,5 +77,8 @@ networks:
   traefik-net:
     external: true
     name: traefik-net
+  signature-internal:
+    external: true
+    name: signature-internal
   docuseal-internal:
     driver: bridge

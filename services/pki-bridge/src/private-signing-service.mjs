@@ -1,11 +1,13 @@
 import { createHash, randomBytes, randomInt } from "node:crypto";
 import { canonicalize, generatePublicId, portalVerificationUrl } from "./authenticity-contract.mjs";
 import { buildEvidenceManifest, composePadesEvidence, inspectUnsignedPdf } from "./pades-evidence.mjs";
+import { assertSignedPdfBoundToPresentation } from "./signed-pdf-binding.mjs";
 
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const MAX_PDF_BYTES = 40 * 1024 * 1024;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const ICP_BRASIL_SIGNER_ROLE = "Signatário ICP-Brasil";
+const REMOTE_HEALTH_CACHE_MS = 30_000;
 
 function sha256(value) { return createHash("sha256").update(value).digest("hex"); }
 
@@ -211,7 +213,16 @@ function finalEvidenceMatches(ticket) {
 }
 
 export class PrivateSigningService {
-  constructor({ repository, artifactStore, provider = null, remoteProvider = null, postQuantumSigner, allowedPolicyOids = new Set(), baseUrl }) {
+  constructor({
+    repository,
+    artifactStore,
+    provider = null,
+    remoteProvider = null,
+    localSigningEnabled = false,
+    postQuantumSigner,
+    allowedPolicyOids = new Set(),
+    baseUrl,
+  }) {
     if (!postQuantumSigner?.attest || !postQuantumSigner?.verify || !postQuantumSigner?.keyId) {
       throw new TypeError("ML-DSA-65 evidence signer is required");
     }
@@ -219,6 +230,9 @@ export class PrivateSigningService {
     this.artifactStore = artifactStore;
     this.provider = provider;
     this.remoteProvider = remoteProvider;
+    this.localSigningEnabled = Boolean(localSigningEnabled && provider);
+    this.remoteHealthCache = null;
+    this.remoteHealthPromise = null;
     this.postQuantumSigner = postQuantumSigner;
     this.allowedPolicyOids = allowedPolicyOids;
     if (this.remoteProvider && this.allowedPolicyOids.size === 0) {
@@ -273,9 +287,46 @@ export class PrivateSigningService {
     return { ...composed, manifest, attestation };
   }
 
+  verifyEvidence(manifest, attestation) {
+    const verified = Boolean(
+      manifest && typeof manifest === "object"
+      && attestation && typeof attestation === "object"
+      && this.postQuantumSigner.verify(manifest, attestation),
+    );
+    return {
+      verified,
+      algorithm: verified ? "ML-DSA-65" : null,
+      keyId: verified ? attestation.keyId : null,
+      manifestSha256: verified ? attestation.manifestSha256 : null,
+    };
+  }
+
+  finalizeEvidence({ manifest, attestation, finalPdfSha256, finalPdfSize, finalizedAt }) {
+    const embedded = this.verifyEvidence(manifest, attestation);
+    if (!embedded.verified) throw Object.assign(new Error("embedded evidence did not pass ML-DSA-65 verification"), { status: 422 });
+    if (!SHA256_PATTERN.test(finalPdfSha256 || "")) throw new TypeError("final PDF SHA-256 is invalid");
+    const size = Number(finalPdfSize);
+    if (!Number.isSafeInteger(size) || size < 5 || size > MAX_PDF_BYTES * 2) throw new TypeError("final PDF size is invalid");
+    const finalized = new Date(finalizedAt);
+    if (Number.isNaN(finalized.getTime()) || finalized.toISOString() !== finalizedAt) throw new TypeError("finalization timestamp is invalid");
+    const finalManifest = {
+      schema: "https://assinatura.maiocchi.adv.br/schemas/final-evidence-manifest-v1.json",
+      version: "1.0.0",
+      embeddedManifestSha256: attestation.manifestSha256,
+      finalPdf: { mediaType: "application/pdf", size, sha256: finalPdfSha256 },
+      finalizedAt,
+    };
+    const finalAttestation = this.postQuantumSigner.attest(finalManifest);
+    if (!this.postQuantumSigner.verify(finalManifest, finalAttestation)) {
+      throw Object.assign(new Error("final evidence verification failed"), { status: 503 });
+    }
+    return { manifest: finalManifest, attestation: finalAttestation };
+  }
+
   async status(token) {
     const ticket = await this.repository.findByTokenHash(tokenHash(token));
     assertActive(ticket);
+    const remoteHealth = this.remoteSigningStatus();
     return {
       status: ticket.status,
       documentName: ticket.document_name,
@@ -287,9 +338,43 @@ export class PrivateSigningService {
       documentNumber: ticket.document_number,
       postQuantumCode: ticket.pqc_code || null,
       finalPostQuantumCode: ticket.final_pqc_code || null,
-      localSigningAvailable: Boolean(this.provider),
-      remoteSigningAvailable: Boolean(this.remoteProvider),
+      localSigningAvailable: this.localSigningEnabled,
+      remoteSigningAvailable: remoteHealth.ready,
     };
+  }
+
+  async remoteSigningHealth() {
+    if (!this.remoteProvider || typeof this.remoteProvider.healthCheck !== "function") {
+      return { ready: false, provider: null };
+    }
+    if (this.remoteHealthCache?.expiresAt > Date.now()) return this.remoteHealthCache.value;
+    if (this.remoteHealthPromise) return this.remoteHealthPromise;
+    this.remoteHealthPromise = (async () => {
+      try {
+        const health = await this.remoteProvider.healthCheck();
+        const value = health?.ready === true
+          ? { ready: true, provider: health.provider || "remote-psc", version: health.version || null }
+          : { ready: false, provider: health?.provider || null };
+        this.remoteHealthCache = { value, expiresAt: Date.now() + REMOTE_HEALTH_CACHE_MS };
+        return value;
+      } catch {
+        const value = { ready: false, provider: null };
+        this.remoteHealthCache = { value, expiresAt: Date.now() + REMOTE_HEALTH_CACHE_MS };
+        return value;
+      } finally {
+        this.remoteHealthPromise = null;
+      }
+    })();
+    return this.remoteHealthPromise;
+  }
+
+  remoteSigningStatus() {
+    if (!this.remoteProvider || typeof this.remoteProvider.healthCheck !== "function") {
+      return { ready: false, provider: null };
+    }
+    if (this.remoteHealthCache?.expiresAt > Date.now()) return this.remoteHealthCache.value;
+    void this.remoteSigningHealth();
+    return this.remoteHealthCache?.value || { ready: false, provider: "rest-pki-core" };
   }
 
   async ensurePresentation(ticket, { clientMetadata, observedIp, modality }) {
@@ -330,9 +415,11 @@ export class PrivateSigningService {
   }
 
   async startRemote(token, { clientMetadata, observedIp } = {}) {
-    if (!this.remoteProvider) throw Object.assign(new Error("remote signing provider is unavailable"), { status: 503 });
     let ticket = await this.repository.findByTokenHash(tokenHash(token));
     assertActive(ticket);
+    if (!(await this.remoteSigningHealth()).ready) {
+      throw Object.assign(new Error("remote signing provider is unavailable"), { status: 503 });
+    }
     if (ticket.status !== "pending") throw Object.assign(new Error("ticket is not pending"), { status: 409 });
     if (await this.repository.findRemoteSession(ticket.id)) {
       throw Object.assign(new Error("remote signature session already exists"), { status: 409 });
@@ -371,9 +458,12 @@ export class PrivateSigningService {
     if (session.status !== "Completed") throw Object.assign(new Error("remote signature session is not complete"), { status: 409 });
     try {
       const { pdf } = await this.remoteProvider.signedPdfFromSession(session);
+      const presentation = await this.artifactStore.get(ticket.presentation_pdf_storage_key);
+      const binding = await assertSignedPdfBoundToPresentation({ presentation, signedPdf: pdf });
       const inspection = await this.remoteProvider.inspectPdf(pdf);
       const signers = Array.isArray(inspection.signers) ? inspection.signers : [];
-      const validationPassed = inspection.success && signers.length > 0 && signers.every((signer) => signer?.validationResults?.passed === true);
+      const validationPassed = inspection.success && signers.length === binding.signatureCount &&
+        signers.every((signer) => signer?.validationResults?.passed === true);
       const policyPassed = signers.every((signer) => this.allowedPolicyOids.has(remotePolicyOid(signer)));
       if (!validationPassed || !policyPassed) throw Object.assign(new Error("remote PAdES did not pass policy validation"), { status: 422 });
       const signedArtifact = await this.artifactStore.put(pdf, { extension: "pdf" });
@@ -399,7 +489,9 @@ export class PrivateSigningService {
   }
 
   async prepare(token, { certificateBase64, chainBase64 = [], clientMetadata, observedIp }) {
-    if (!this.provider) throw Object.assign(new Error("local signing provider is unavailable"), { status: 503 });
+    if (!this.localSigningEnabled || !this.provider) {
+      throw Object.assign(new Error("local signing provider is unavailable"), { status: 503 });
+    }
     let ticket = await this.repository.findByTokenHash(tokenHash(token));
     assertActive(ticket);
     if (ticket.status === "prepared") {
@@ -483,7 +575,9 @@ export class PrivateSigningService {
   }
 
   async complete(token, { signatureBase64, certificateFingerprintSha256 }) {
-    if (!this.provider) throw Object.assign(new Error("local signing provider is unavailable"), { status: 503 });
+    if (!this.localSigningEnabled || !this.provider) {
+      throw Object.assign(new Error("local signing provider is unavailable"), { status: 503 });
+    }
     const ticket = await this.repository.findByTokenHash(tokenHash(token));
     assertActive(ticket);
     if (ticket.status !== "prepared") throw Object.assign(new Error("ticket is not prepared"), { status: 409 });
@@ -491,6 +585,8 @@ export class PrivateSigningService {
     if (certificateFingerprintSha256 !== expectedFingerprint) throw Object.assign(new Error("certificate binding mismatch"), { status: 409 });
     const result = await this.provider.complete({ sessionId: ticket.provider_session_id, signatureBase64 });
     if (sha256(result.pdf) !== result.signedPdfSha256) throw Object.assign(new Error("signed PDF hash mismatch"), { status: 502 });
+    const presentation = await this.artifactStore.get(ticket.presentation_pdf_storage_key);
+    await assertSignedPdfBoundToPresentation({ presentation, signedPdf: result.pdf });
     if (result.validation?.cryptographicIntegrity !== true || result.validation?.trusted !== true) {
       throw Object.assign(new Error("PAdES did not pass trusted validation"), { status: 422 });
     }

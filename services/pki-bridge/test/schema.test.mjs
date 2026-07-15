@@ -7,6 +7,7 @@ const authenticitySchema = await readFile(new URL("../db/002_authenticity_gold_s
 const privateProviderSchema = await readFile(new URL("../db/003_private_pades_provider.sql", import.meta.url), "utf8");
 const remoteProviderSchema = await readFile(new URL("../db/004_remote_pades_sessions.sql", import.meta.url), "utf8");
 const evidenceSchema = await readFile(new URL("../db/005_embedded_pades_evidence.sql", import.meta.url), "utf8");
+const replaySchema = await readFile(new URL("../db/006_internal_request_nonces.sql", import.meta.url), "utf8");
 
 test("schema persiste hashes, idempotência e estado remoto cifrado", () => {
   assert.match(schema, /provider_state_ciphertext bytea NOT NULL/i);
@@ -39,6 +40,13 @@ test("schema de evidência vincula página final, ML-DSA e identificadores imut�
   assert.match(evidenceSchema, /private PAdES final result is immutable/i);
   assert.match(evidenceSchema, /PQC|pqc_code/i);
   assert.doesNotMatch(evidenceSchema, /private_key|api_key|pin\s+/i);
+});
+
+test("schema interno registra nonce único com expiração", () => {
+  assert.match(replaySchema, /CREATE TABLE internal_request_nonces/i);
+  assert.match(replaySchema, /nonce char\(32\) PRIMARY KEY/i);
+  assert.match(replaySchema, /expires_at timestamptz NOT NULL/i);
+  assert.doesNotMatch(replaySchema, /payload|body|secret|api_key|private_key|pin\s+/i);
 });
 
 test("schema impede exclusão em cascata da trilha criptográfica", () => {

@@ -139,10 +139,10 @@ export function PrivatePadesPanel() {
     setMessage(currentTicket.status === "completed"
       ? "PAdES concluído e validado."
       : currentTicket.remoteSigningAvailable
-        ? "Documento confirmado. A assinatura em nuvem dispensa instalação."
+        ? "Documento confirmado. A autorização no PSC dispensa instalação."
         : currentTicket.localSigningAvailable
-          ? "Documento confirmado. A assinatura com token local permanece disponível."
-          : "Nenhuma modalidade de assinatura está disponível para este documento.");
+          ? "Documento confirmado. O token USB será operado pelo bridge local autorizado."
+          : "A assinatura qualificada não está habilitada para este documento.");
     return currentTicket;
   }, []);
 
@@ -181,7 +181,7 @@ export function PrivatePadesPanel() {
     void initialize();
   }, [refresh]);
 
-  function signDocument() {
+  function signWithLocalToken() {
     if (!token || !ticket?.localSigningAvailable || ticket.status !== "pending") return;
     window.location.assign(`${agentBase}/v1/authorize#ticket=${token}`);
   }
@@ -236,8 +236,8 @@ export function PrivatePadesPanel() {
   const completed = ticket?.status === "completed";
   const invalid = !busy && !hasTicket && Boolean(error);
   const modality = ticket?.remoteSigningAvailable
-    ? (ticket.localSigningAvailable ? "Nuvem ou token" : "Certificado em nuvem")
-    : ticket?.localSigningAvailable ? "Token local" : "Indisponível";
+    ? (ticket.localSigningAvailable ? "Nuvem ou token USB" : "Certificado em nuvem")
+    : ticket?.localSigningAvailable ? "Token USB" : "Indisponível";
 
   return (
     <section className="pades-workspace" aria-labelledby="private-pades-title">
@@ -255,7 +255,7 @@ export function PrivatePadesPanel() {
 
       <ol className="pades-progress" aria-label="Etapas da assinatura">
         <li className={hasTicket ? "is-complete" : ""}><span>{hasTicket ? <Check aria-hidden="true" size={15} /> : "1"}</span><strong>Documento</strong><small>{hasTicket ? "Conferido" : "Aguardando link"}</small></li>
-        <li className={completed ? "is-complete" : hasTicket ? "is-current" : ""}><span>{completed ? <Check aria-hidden="true" size={15} /> : "2"}</span><strong>Certificado</strong><small>{completed ? "Aplicado" : hasTicket ? "Escolha a modalidade" : "Aguardando"}</small></li>
+        <li className={completed ? "is-complete" : hasTicket ? "is-current" : ""}><span>{completed ? <Check aria-hidden="true" size={15} /> : "2"}</span><strong>Certificado</strong><small>{completed ? "Aplicado" : hasTicket ? "Autorize no PSC" : "Aguardando"}</small></li>
         <li className={completed ? "is-complete" : ""}><span>{completed ? <Check aria-hidden="true" size={15} /> : "3"}</span><strong>Resultado</strong><small>{completed ? "Disponível" : "Aguardando"}</small></li>
       </ol>
 
@@ -275,7 +275,7 @@ export function PrivatePadesPanel() {
 
         <aside className="pades-action-pane" aria-labelledby="pades-action-title">
           <div className="pades-pane-heading"><KeyRound aria-hidden="true" size={24} /><div><p>Modalidade disponível</p><h3 id="pades-action-title">{modality}</h3></div></div>
-          <p className="pades-action-pane__description">{!ticket ? "O acesso depende de um link individual e válido." : ticket.remoteSigningAvailable ? "A assinatura em nuvem ocorre no prestador de confiança e não exige instalação." : "O token conectado é acessado pelo agente local protegido."}</p>
+          <p className="pades-action-pane__description">{!ticket ? "O acesso depende de um link individual e válido." : ticket.remoteSigningAvailable ? "A chave em nuvem permanece no PSC e dispensa instalação. Quando habilitado, o token USB usa exclusivamente o bridge local autorizado." : ticket.localSigningAvailable ? "O token USB exige o bridge local instalado no computador que contém o dispositivo; o PIN nunca é enviado ao portal." : "A modalidade qualificada permanece bloqueada até que um PSC credenciado ou bridge local homologado esteja disponível."}</p>
 
           {error && <p className="icp-message icp-message--error" role="alert"><ShieldAlert aria-hidden="true" size={17} /><span>{error}</span></p>}
           {ticket?.remoteSigningAvailable && !completed && <p className="icp-message"><MapPin aria-hidden="true" size={17} /><span>A localização é opcional e a recusa não impede a assinatura.</span></p>}
@@ -287,8 +287,8 @@ export function PrivatePadesPanel() {
               </button>
             ) : (
               <>
-                {ticket?.remoteSigningAvailable && <button className="button button--yellow" type="button" onClick={() => void signRemotely()} disabled={busy || ticket.status !== "pending"}>{busy ? <LoaderCircle className="spin" aria-hidden="true" size={17} /> : <Cloud aria-hidden="true" size={17} />}<span>Assinar sem instalar</span></button>}
-                {ticket?.localSigningAvailable && <button className={ticket.remoteSigningAvailable ? "button button--outline" : "button button--yellow"} type="button" onClick={signDocument} disabled={busy || ticket.status !== "pending"}>{ticket.remoteSigningAvailable ? <Usb aria-hidden="true" size={17} /> : <KeyRound aria-hidden="true" size={17} />}<span>Usar token local</span></button>}
+                {ticket?.remoteSigningAvailable && <button className="button button--yellow" type="button" onClick={() => void signRemotely()} disabled={busy || ticket.status !== "pending"}>{busy ? <LoaderCircle className="spin" aria-hidden="true" size={17} /> : <Cloud aria-hidden="true" size={17} />}<span>Autorizar no PSC</span></button>}
+                {ticket?.localSigningAvailable && <button className={ticket.remoteSigningAvailable ? "button button--outline" : "button button--yellow"} type="button" onClick={signWithLocalToken} disabled={busy || ticket.status !== "pending"}><Usb aria-hidden="true" size={17} /><span>Usar token USB</span></button>}
               </>
             )}
             <button className="pades-refresh" type="button" onClick={() => token && void refresh(token)} disabled={busy || !token} title="Atualizar estado da assinatura"><RefreshCw aria-hidden="true" size={17} /><span>Atualizar estado</span></button>

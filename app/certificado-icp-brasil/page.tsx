@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import { BadgeCheck, FileKey, KeyRound, ShieldCheck } from "lucide-react";
+import { BadgeCheck, Cloud, KeyRound, ShieldCheck } from "lucide-react";
 import { FlowMap } from "../flow-map";
 import { LegalPage } from "../legal-page";
-import { PrivateAgentPanel } from "./private-agent-panel";
 
 export const metadata: Metadata = { title: "Certificado ICP-Brasil" };
 
@@ -10,32 +9,32 @@ export default function IcpBrasilCertificatePage() {
   return (
     <LegalPage
       title="Certificado ICP-Brasil"
-      lead="Use o token ou certificado local para autenticação e preparação da assinatura qualificada quando o documento exigir essa modalidade."
+      lead="Autorize a assinatura qualificada em uma sessão remota protegida. Certificados em nuvem dispensam instalação."
       currentPath="/certificado-icp-brasil/"
     >
       <FlowMap
-        eyebrow="Fluxo habilitado"
-        title="O token assina localmente. O portal só recebe o resultado."
-        description="A chave privada permanece no dispositivo do titular. O navegador lista o certificado, assina o hash preparado e devolve a assinatura para fechamento PAdES."
+        eyebrow="Assinatura remota"
+        title="A chave permanece no PSC. O portal recebe apenas o resultado."
+        description="O gateway prepara o PDF e redireciona o titular ao prestador de serviço de confiança. A autorização ocorre no ambiente protegido do PSC e o portal valida o PAdES antes de liberar o arquivo."
         ariaLabel="Fluxo de uso de certificado digital ICP-Brasil no portal"
         steps={[
-          { title: "Detectar", description: "O agente privado identifica certificados disponíveis no CryptoTokenKit.", icon: FileKey },
-          { title: "Escolher", description: "O titular seleciona conscientemente o certificado correto para o documento.", icon: BadgeCheck },
-          { title: "Autorizar", description: "O PIN é digitado apenas no componente local seguro do certificado.", icon: KeyRound, tone: "yellow" },
-          { title: "Fechar PAdES", description: "O bridge monta o PDF assinado e valida cadeia, integridade e revogação.", icon: ShieldCheck, href: "/#validar", linkLabel: "Validar depois" },
+          { title: "Preparar", description: "O gateway congela o PDF, calcula evidências e abre uma sessão de assinatura remota.", icon: Cloud },
+          { title: "Identificar", description: "O prestador apresenta os certificados compatíveis vinculados ao titular.", icon: BadgeCheck },
+          { title: "Autorizar", description: "O titular confirma a operação no mecanismo forte oferecido pelo PSC.", icon: KeyRound, tone: "yellow" },
+          { title: "Validar PAdES", description: "O gateway confere cadeia, política, integridade e revogação antes de liberar o PDF.", icon: ShieldCheck, href: "/#validar", linkLabel: "Validar depois" },
         ]}
       />
 
-      <PrivateAgentPanel />
-
       <h2>Como usar</h2>
-      <p>Conecte o token e mantenha o agente Maiocchi ativo. A assinatura documental começa exclusivamente pelo link de uso único emitido para o PDF congelado.</p>
-      <h2>Limite técnico</h2>
-      <p>A autenticação por certificado comprova uma sessão. A assinatura qualificada de documento exige a etapa PAdES, preparada no serviço PKI, assinada no token e fechada no arquivo PDF final.</p>
+      <p>Abra o link individual do documento, confira os dados e selecione <strong>Autorizar no PSC</strong>. Com certificado em nuvem, o redirecionamento protegido permite confirmar a assinatura sem extensão, aplicativo ou agente instalado.</p>
+      <h2>Requisito do certificado</h2>
+      <p>O percurso sem instalação exige certificado ICP-Brasil A3 em nuvem ativo em um PSC credenciado e conectado ao gateway. Um certificado guardado apenas em token USB continua no computador do titular e exige uma ponte local autorizada pelo prestador; a VPS não consegue acessar fisicamente esse dispositivo.</p>
       <h2>Proteção da credencial</h2>
-      <p>O Maiocchi Advogado não solicita arquivo A1, PIN, senha do token ou chave privada. O PIN deve aparecer somente na janela segura do certificado ou do componente local autorizado.</p>
-      <h2>Fonte técnica</h2>
-      <p>O agente usa as APIs nativas `Security.framework` e CryptoTokenKit do macOS. O motor PAdES utiliza o DSS da Comissão Europeia em serviço privado isolado.</p>
+      <p>O Maiocchi Advogado não solicita arquivo A1, PIN, senha ou chave privada. A credencial de autorização deve ser informada somente na página oficial do PSC exibida após o redirecionamento.</p>
+      <h2>Arquitetura</h2>
+      <p>A VPS opera como gateway de assinatura remota e mantém trilha de auditoria, evidências e validação PAdES. A custódia da chave e a autorização do titular permanecem no PSC credenciado.</p>
+      <h2>Fonte oficial</h2>
+      <p>Consulte a <a href="https://www.gov.br/iti/pt-br/assuntos/icp-brasil/lista-de-prestadores-de-servico-de-confianca-psc" target="_blank" rel="noreferrer">lista de prestadores de serviço de confiança credenciados pelo ITI</a>.</p>
     </LegalPage>
   );
 }

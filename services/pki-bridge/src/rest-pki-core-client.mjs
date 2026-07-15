@@ -3,6 +3,7 @@ import { PkiConfigurationError, PkiProviderError } from "./errors.mjs";
 import { SIGNATURE_BOX } from "./pades-evidence-layout.mjs";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
+const HEALTH_TIMEOUT_MS = 1_500;
 const MAX_REMOTE_FILE_BYTES = 40 * 1024 * 1024;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -21,6 +22,14 @@ function endpointUrl(value, allowInsecureLocalhost) {
   }
   endpoint.pathname = endpoint.pathname.replace(/\/$/, "");
   return endpoint;
+}
+
+function redirectOrigin(value) {
+  const url = new URL(requireValue(value, "REST PKI Core redirect origin"));
+  if (url.protocol !== "https:" || url.username || url.password || url.hash || url.search || !["", "/"].includes(url.pathname)) {
+    throw new PkiConfigurationError("REST PKI Core redirect origin must be an HTTPS origin");
+  }
+  return url.origin;
 }
 
 function requireUuid(value, name) {
@@ -86,15 +95,25 @@ function padesSignatureOptions() {
 }
 
 export class RestPkiCoreClient {
-  constructor({ endpoint, apiKey, securityContextId, fetchImpl = fetch, timeoutMs = DEFAULT_TIMEOUT_MS, allowInsecureLocalhost = false }) {
+  constructor({
+    endpoint,
+    apiKey,
+    securityContextId,
+    redirectOrigins = [],
+    fetchImpl = fetch,
+    timeoutMs = DEFAULT_TIMEOUT_MS,
+    allowInsecureLocalhost = false,
+  }) {
     this.endpoint = endpointUrl(endpoint, allowInsecureLocalhost);
     this.apiKey = requireValue(apiKey, "REST PKI Core API key");
     this.securityContextId = requireUuid(securityContextId, "REST PKI Core security context ID");
     this.fetch = fetchImpl;
     this.timeoutMs = timeoutMs;
+    if (!Array.isArray(redirectOrigins)) throw new PkiConfigurationError("REST PKI Core redirect origins must be a list");
+    this.redirectOrigins = new Set([this.endpoint.origin, ...redirectOrigins.map(redirectOrigin)]);
   }
 
-  async request(path, { method = "POST", body } = {}) {
+  async request(path, { method = "POST", body, timeoutMs = this.timeoutMs } = {}) {
     const response = await this.fetch(new URL(path, this.endpoint), {
       method,
       headers: {
@@ -104,7 +123,7 @@ export class RestPkiCoreClient {
         "x-api-key": this.apiKey,
       },
       body: body === undefined ? undefined : JSON.stringify(body),
-      signal: AbortSignal.timeout(this.timeoutMs),
+      signal: AbortSignal.timeout(timeoutMs),
     });
     const data = await responseJson(response);
     if (!response.ok) {
@@ -117,6 +136,24 @@ export class RestPkiCoreClient {
       throw new PkiProviderError("REST PKI Core returned an invalid JSON response", { status: response.status });
     }
     return data;
+  }
+
+  async healthCheck() {
+    try {
+      const info = await this.request("/api/system/info", {
+        method: "GET",
+        timeoutMs: Math.min(this.timeoutMs, HEALTH_TIMEOUT_MS),
+      });
+      const productName = typeof info.productName === "string" ? info.productName.trim() : "";
+      const version = typeof info.productVersion === "string" ? info.productVersion.trim() : "";
+      if (!/rest\s*pki\s*core/i.test(productName) || version === "") {
+        throw new PkiProviderError("REST PKI Core returned an invalid system information response", { status: 502 });
+      }
+      return { ready: true, provider: "rest-pki-core", productName, version };
+    } catch (error) {
+      if (error instanceof PkiProviderError) throw error;
+      throw new PkiProviderError("REST PKI Core health check failed", { status: 503 });
+    }
   }
 
   async preparePdfSignature({ pdf, name, certificate }) {
@@ -171,7 +208,8 @@ export class RestPkiCoreClient {
     } catch {
       throw new PkiProviderError("REST PKI Core returned an invalid signature session");
     }
-    if (!UUID_PATTERN.test(result.sessionId || "") || redirectUrl.protocol !== "https:" || redirectUrl.username || redirectUrl.password || redirectUrl.hash) {
+    if (!UUID_PATTERN.test(result.sessionId || "") || redirectUrl.protocol !== "https:" || redirectUrl.username || redirectUrl.password ||
+        redirectUrl.hash || !this.redirectOrigins.has(redirectUrl.origin)) {
       throw new PkiProviderError("REST PKI Core returned an invalid signature session");
     }
     return { sessionId: result.sessionId, redirectUrl: redirectUrl.toString() };

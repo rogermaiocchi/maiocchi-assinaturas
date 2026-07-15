@@ -2,6 +2,8 @@
 
 Data: 2026-07-12
 
+Atualizacao: 2026-07-14
+
 ## Direcao
 
 Encontrar uma solucao real para retirar a geracao PAdES pelo navegador do estado `fail-closed`, sem fingir assinatura quando faltarem licenca, security context, homologacao ou provider criptografico.
@@ -104,3 +106,37 @@ Nenhum provider pode promover documento para `pki_completed` sem:
 Enquanto nao houver licenca e security context reais da Lacuna ou provider equivalente homologado, o estado correto continua sendo `fail-closed`.
 
 A solucao tecnica existe. O bloqueio remanescente nao e de codigo puro: e contratual, de distribuicao do agente/browser bridge, politica de assinatura e homologacao criptografica.
+
+## Atualizacao - token fisico e PIN no acesso
+
+A nova rodada de pesquisa confirmou que nao ha projeto de navegador puro capaz
+de operar genericamente um token ICP-Brasil conectado ao computador do usuario.
+As implementacoes funcionais atravessam a fronteira do navegador com software
+local:
+
+- `PJeOffice Pro` e um assinador instalado e sua integracao externa atual e
+  limitada oficialmente a dominios `*.jus.br`, `*.mp.br`, `*.gov.br` e
+  `*.def.br`; portanto nao e integravel ao dominio do escritorio sem autorizacao
+  do CNJ;
+- `signer4j-pje` e um projeto nao oficial. E uma boa referencia de PKCS#11 e de
+  solicitacao de PIN, mas nao deve ser incorporado como dependencia de producao;
+- `web-eid/web-eid-app` confirma a arquitetura de extensao mais native host,
+  porem os perfis suportados sao cartoes europeus e nao ICP-Brasil;
+- `PeculiarVentures/webcrypto-local` fornece uma ponte generica para PKCS#11 por
+  `webcrypto-socket`, mas ainda exige instalacao local, empacotamento, assinatura
+  de codigo e homologacao especifica dos tokens brasileiros;
+- `Lacuna Web PKI` permanece o caminho comercial maduro para A3 local: lista o
+  certificado e assina o hash preparado, mas exige componente e licenca por
+  dominio em producao.
+
+O portal mantem, por isso, dois contratos independentes: `remote-psc`, sem
+instalacao e com A3 em nuvem; e `local-a3`, desabilitado por padrao e permitido
+somente quando houver bridge local assinada e explicitamente autorizada.
+
+Fontes adicionais:
+
+- https://docs.pje.jus.br/servicos-negociais/pjeoffice-pro/
+- https://github.com/l3onardo-oliv3ira/signer4j
+- https://github.com/web-eid/web-eid-app
+- https://github.com/PeculiarVentures/webcrypto-local
+- https://docs.lacunasoftware.com/en-US/articles/web-pki/get-started.html

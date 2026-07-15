@@ -165,7 +165,7 @@ erDiagram
   }
 ```
 
-Documentos, registros, estados, assinaturas, hashes, auditorias e observações rejeitam `UPDATE` e `DELETE` por trigger. Status evolui somente pela inserção de novo estado encadeado; identidade e ID público nunca mudam. A auditoria crítica possui cadeia SHA-256 sob lock transacional. `match`/`mismatch` declarados pelo navegador ficam em tabela separada, com `trust_level=untrusted_client_observation`, não integram a prova e são deduplicados por documento, resultado e janela de dez minutos. `authenticity_hashes` fixa cinco artifacts: original PAdES, relatório, atestado do validador, folha e envelope.
+Documentos, registros, estados, assinaturas, hashes, auditorias e observações rejeitam `UPDATE` e `DELETE` por trigger. Status evolui somente pela inserção de novo estado encadeado; identidade e ID público nunca mudam. A auditoria crítica possui cadeia SHA-256 sob lock transacional. A tabela histórica de observações não integra a prova e não recebe eventos da API pública; uma futura telemetria exigirá autenticação e política de retenção próprias. `authenticity_hashes` fixa cinco artifacts: original PAdES, relatório, atestado do validador, folha e envelope.
 
 # 4. Formato exato da chave
 
@@ -266,13 +266,13 @@ As chaves de objeto são ordenadas por código Unicode, sem espaços. O JWS comp
 | `GET /validar?codigo={id}` | endereço canônico do QR e da chave textual | pública |
 | `GET /v/{id}` | compatibilidade; redireciona para `/validar?codigo={id}` | pública |
 | `GET /verificacao/{id}` | devolve status e envelope verificado | pública |
-| `POST /verificacao/{id}/evento` | registra somente `match` ou `mismatch` | pública, limitada |
 | `GET /folha/{id}.pdf` | entrega a representação impressa | pública |
 | `GET /original/{id}.pdf` | entrega apenas quando `disclosure=public` | restrita por padrão |
 | `GET /chaves/{keyId}.pem` | chave pública do envelope | pública |
 | `POST /internal/authenticity/records` | registra pacote validado com HMAC e janela temporal | rede interna |
+| `POST /internal/evidence/verify` | verifica o atestado ML-DSA-65 do manifesto incorporado | rede interna |
 
-Rotas GET não escrevem telemetria. O POST de comparação registra apenas uma observação não confiável, amostrada uma vez por resultado em cada janela de dez minutos. O endpoint interno recebe `timestamp.HMAC-SHA256(timestamp + "." + corpo bruto)` no cabeçalho `X-Maiocchi-Signature`. Além do HMAC e da janela de cinco minutos, o corpo deve conter `validationAttestation`, um JWS de chave autorizada. O mesmo pacote é idempotente; pacote divergente para o mesmo workflow recebe `409`. O Traefik não publica a rota `/internal`.
+As rotas públicas de verificação são estritamente somente leitura; a comparação local de hash não altera a trilha probatória. O endpoint interno recebe `timestamp.HMAC-SHA256(timestamp + "." + corpo bruto)` no cabeçalho `X-Maiocchi-Signature` e devolve o mesmo tipo de autenticação em `X-Maiocchi-Response-Signature`, calculado sobre o corpo exato da resposta. Além do HMAC e da janela de cinco minutos, o corpo de registro deve conter `validationAttestation`, um JWS de chave autorizada. O mesmo pacote é idempotente; pacote divergente para o mesmo workflow recebe `409`. O Traefik não publica a rota `/internal`, e DocuSeal e gateway compartilham somente a rede Docker dedicada `signature-internal` para essa comunicação.
 
 O link do portal existe em todas as modalidades. O link `https://validar.iti.gov.br/` é incluído somente quando o registro comprova infraestrutura ICP-Brasil ou GOV.BR reconhecida pelo serviço oficial. Assinatura simples e classificação avançada sem infraestrutura reconhecida permanecem fail-closed, sem link ITI.
 

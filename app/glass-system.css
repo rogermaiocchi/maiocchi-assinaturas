@@ -200,7 +200,11 @@
   text-align: center;
 }
 .certificate-enrollment button {
-  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin: -13px -4px;
+  padding: 13px 4px;
   border: 0;
   border-bottom: 1px solid currentColor;
   color: var(--ink);

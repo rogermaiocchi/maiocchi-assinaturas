@@ -15,6 +15,14 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 - Senhas, PINs, chaves privadas, tokens e credenciais SMTP ou Lacuna nunca entram no Git, em logs ou em documentação.
 - Segredos operacionais ficam no Keychain ou no mecanismo de secrets da VPS e são injetados somente no processo que os utiliza.
 
+### Canal DocuSeal ↔ gateway
+
+- DocuSeal e `pki-bridge` usam exclusivamente a rede Docker externa `signature-internal` e o alias `pki-bridge-internal`; a rede do Traefik não é usada pelo cliente interno.
+- O HMAC compartilhado é montado em `/run/signature-secrets/internal-hmac.key`, somente leitura. O arquivo de origem fica em `/opt/signature-secrets/internal-hmac.key`, com proprietário `root`, GID suplementar dedicado `3400` e modo `0440`; o diretório usa `0750`. O valor não permanece como variável do container.
+- Em instalação anterior, executar `sudo scripts/migrate-internal-hmac-secret.sh /opt/docuseal/.env /opt/signature-secrets 3400` e criar uma vez `signature-internal` antes de recriar os serviços. O script não imprime o segredo e faz substituição atômica.
+- Requisições e respostas internas carregam HMAC-SHA-256 com timestamp sobre o corpo bruto. Resposta ausente, expirada ou divergente interrompe a composição e a emissão de ticket.
+- As rotas públicas de verificação são somente leitura. A comparação de hash no navegador nunca acrescenta eventos à trilha probatória.
+
 ## E-mail transacional pelo iCloud
 
 - O remetente canônico de códigos e alertas é `Maiocchi. Assinatura <roger@maiocchi.adv.br>`.
@@ -36,7 +44,7 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 6. Publicar uma tag imutável de imagem, sem reutilizar tags anteriores.
 7. Verificar container saudável, rotas HTTPS, headers, conteúdo e links críticos.
 8. Em falha, executar `scripts/rollback-vps.sh` com o backup selecionado e repetir a verificação.
-9. Para o `pki-bridge`, confirmar também migrações, integridade dos artifacts, chave pública, CORS e cadeia dos eventos.
+9. Para o `pki-bridge`, confirmar também migrações, integridade dos artifacts, chave pública, CORS, HMAC bidirecional e cadeia dos eventos internos.
 
 ## Separação de responsabilidades
 
@@ -44,7 +52,7 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 - O portal e os e-mails não publicam página, menu, chamada editorial nem arquivo estático para download do código. Enquanto o fork DocuSeal permanecer sob AGPLv3, somente a oferta de fonte correspondente exigida pela seção 13 permanece nas atribuições das interfaces interativas do próprio motor, apontando para o artefato imutável da versão; sua remoção integral exige licença comercial compatível ou substituição do componente.
 - O DocuSeal administra modelos, participantes, evidências de fluxo e arquivos nas rotas operacionais do mesmo domínio `assinatura.maiocchi.adv.br`.
 - O subdomínio `documentos.assinatura.maiocchi.adv.br` é somente compatibilidade e redireciona de forma permanente, preservando caminho e consulta.
-- O `pki-bridge` é um serviço separado e fail-closed para PAdES/ICP-Brasil. O provider privado DSS + agente CryptoTokenKit está ativo; o registro de autenticidade só opera depois de receber validação estruturada.
+- O `pki-bridge` é um serviço separado e fail-closed para PAdES/ICP-Brasil. O DSS interno permanece ativo para composição e validação; a assinatura local com CryptoTokenKit fica desabilitada por padrão. A modalidade qualificada pública só aparece quando a sondagem real confirma um PSC remoto disponível, ou quando uma bridge local assinada e autorizada for habilitada explicitamente.
 - O PDF PAdES final é imutável. Antes da assinatura, o bridge carimba todas as páginas e acrescenta uma página A4 final com ID, hash da entrada, QR, Code 128, metadados e área do signatário. O hash binário final permanece externo porque um arquivo não pode conter o próprio hash sem alterá-lo.
 - A página final apresenta os atributos opcionais ITI como sinais físicos separados em incorporados, condicionais de ACT e contextuais/default. A aparência deve refletir o estado criptográfico efetivo e nunca apresentar um atributo ausente como incorporado.
 - A página final recebe atestado ML-DSA-65 do manifesto pré-assinatura. Esse atestado é uma prova adicional do portal e não substitui nem renomeia a assinatura PAdES ICP-Brasil, que segue os algoritmos e políticas homologados.
@@ -54,7 +62,7 @@ Este documento registra o procedimento canônico para desenvolver e operar o por
 
 ## Padrão visual e de interação
 
-- O portal publico `1.14.2` adota uma unica camada visual translucida: midia
+- O portal publico `1.14.4` adota uma unica camada visual translucida: midia
   institucional full-bleed, superficies com transparencia controlada, bordas
   discretas, acento dourado e continuidade entre hero, operacoes, acesso,
   validacao e fluxo. As imagens otimizadas permanecem em WebP e devem manter

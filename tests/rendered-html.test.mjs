@@ -137,10 +137,11 @@ test("publica e conecta o conteúdo de assinaturas e segurança", async () => {
   assert.match(pages[0], /avançada/i);
   assert.match(pages[0], /qualificada/i);
   assert.match(pages[1], /A1, A3 e nuvem/i);
-  assert.match(pages[2], /CryptoTokenKit no MacBook/i);
-  assert.match(pages[2], /Maiocchi PAdES/i);
-  assert.match(pages[2], /Verificar agente e token/i);
-  assert.match(pages[2], /DSS \+ CryptoTokenKit/i);
+  assert.match(pages[2], /Autorizar no PSC/i);
+  assert.match(pages[2], /certificado em nuvem/i);
+  assert.match(pages[2], /token USB.*ponte local/i);
+  assert.match(pages[2], /lista de prestadores de serviço de confiança/i);
+  assert.doesNotMatch(pages[2], /CryptoTokenKit no MacBook|Verificar agente e token/i);
   assert.doesNotMatch(pages[2], /src="https:\/\/cdn\.lacunasoftware\.com\/libs\/web-pki/i);
   assert.match(pages[3], /serviço oficial/i);
   assert.match(pages[3], /validar\.iti\.gov\.br/i);
@@ -194,7 +195,7 @@ test("publica sem alteração a cadeia GOV.BR indicada na fonte oficial", async 
 
 test("não expõe código no portal e conserva a fonte correspondente fora da raiz pública", async () => {
   const [archive, redesignPatch, sourcePatch, emailPatch, certificatePatch, chromeSource, outputFiles] = await Promise.all([
-    readFile(new URL("../compliance/docuseal-maiocchi-3.0.1-maiocchi.9.tar.gz", import.meta.url)),
+    readFile(new URL("../compliance/docuseal-maiocchi-3.0.1-maiocchi.10.tar.gz", import.meta.url)),
     readFile(new URL("../patches/docuseal/0002-institutional-signing-window.patch", import.meta.url), "utf8"),
     readFile(new URL("../patches/docuseal/0003-unified-contact-and-source-surface.patch", import.meta.url), "utf8"),
     readFile(new URL("../patches/docuseal/0004-unified-email-standard.patch", import.meta.url), "utf8"),
@@ -206,7 +207,7 @@ test("não expõe código no portal e conserva a fonte correspondente fora da ra
   assert.ok(archive.length > 1_000_000, "o arquivo-fonte deve conter o fork completo e suas licenças");
   assert.equal(
     createHash("sha256").update(archive).digest("hex"),
-    "cb47ff6ecd46df2640d73c98a618024009c4119a6276c239d37cc519cf43d12b",
+    "af2851364be13d798da70dd17166070f8dbc9e53001399a9703fabd29033b219",
   );
   await assert.rejects(
     stat(new URL("../public/codigo-fonte/docuseal-maiocchi-3.0.1.tar.gz", import.meta.url)),
@@ -278,11 +279,12 @@ test("padroniza páginas inexistentes e redirecionamentos internos", async () =>
   assert.match(traefik, /documents-to-main:/i);
   assert.match(traefik, /replacement: 'https:\/\/assinatura\.maiocchi\.adv\.br\/\$\{1\}'/i);
   assert.match(docuseal, /APP_URL: https:\/\/assinatura\.maiocchi\.adv\.br/i);
-  assert.match(docuseal, /image: maiocchi\/docuseal:3\.0\.1-maiocchi\.9/i);
+  assert.match(docuseal, /image: maiocchi\/docuseal:3\.0\.1-maiocchi\.10/i);
   assert.match(docuseal, /DEFAULT_LOCALE: pt/i);
   assert.match(docuseal, /CERTIFICATE_AUTH_APP_HOST: assinatura\.maiocchi\.adv\.br/i);
-  assert.match(docuseal, /PRIVATE_PADES_BRIDGE_URL: http:\/\/pki-bridge:3400\/internal\/pades\/tickets/i);
-  assert.match(docuseal, /PRIVATE_EVIDENCE_COMPOSER_URL: http:\/\/pki-bridge:3400\/internal\/evidence\/compose/i);
+  assert.match(docuseal, /PRIVATE_PADES_BRIDGE_URL: http:\/\/pki-bridge-internal:3401\/internal\/pades\/tickets/i);
+  assert.match(docuseal, /PRIVATE_EVIDENCE_COMPOSER_URL: http:\/\/pki-bridge-internal:3401\/internal\/evidence\/compose/i);
+  assert.match(docuseal, /AUTHENTICITY_INTERNAL_HMAC_KEY_FILE: \/run\/signature-secrets\/internal-hmac[.]key/i);
   assert.match(docuseal, /SMTP_ADDRESS: smtp\.mail\.me\.com/i);
   assert.match(docuseal, /SMTP_PORT: "587"/i);
   assert.match(docuseal, /SMTP_DOMAIN: maiocchi\.adv\.br/i);

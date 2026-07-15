@@ -10,6 +10,7 @@ import { FileArtifactStore } from "../src/artifact-store.mjs";
 import { canonicalize, sha256Hex } from "../src/authenticity-contract.mjs";
 import { applyMigrations, PostgresAuthenticityRepository } from "../src/authenticity-repository.mjs";
 import { registerGoldStandardDocument } from "../src/authenticity-service.mjs";
+import { PostgresInternalReplayGuard } from "../src/internal-replay-guard.mjs";
 import { buildValidationAttestationClaims, signValidationAttestation } from "../src/validation-attestation.mjs";
 import { PostgresPrivateSigningRepository } from "../src/private-signing-repository.mjs";
 
@@ -87,7 +88,22 @@ test("migra e persiste a trilha de autenticidade no PostgreSQL", { skip: !databa
     "003_private_pades_provider.sql",
     "004_remote_pades_sessions.sql",
     "005_embedded_pades_evidence.sql",
+    "006_internal_request_nonces.sql",
   ]);
+
+  const replayGuard = new PostgresInternalReplayGuard(pool);
+  const requestAuth = {
+    nonce: "0123456789abcdef0123456789abcdef",
+    timestamp: String(Math.floor(Date.now() / 1000)),
+    expiresAt: new Date(Date.now() + 300_000),
+  };
+  assert.equal(await replayGuard.consume(requestAuth), true);
+  assert.equal(await replayGuard.consume(requestAuth), false);
+  assert.equal(await replayGuard.consume({
+    nonce: "fedcba9876543210fedcba9876543210",
+    timestamp: String(Math.floor(Date.now() / 1000) - 301),
+    expiresAt: new Date(Date.now() - 1_000),
+  }), false);
 
   const ticketId = randomUUID();
   const firstRemoteId = randomUUID();

@@ -57,6 +57,31 @@ export function createPostQuantumSigner(privateKey, configuredKeyId) {
   };
 }
 
+export function createPostQuantumKeyring(activeSigner, historicalPublicKeys = new Map()) {
+  if (!activeSigner?.attest || !activeSigner?.keyId || !activeSigner?.publicKey) {
+    throw new TypeError("active post-quantum signer is invalid");
+  }
+  const publicKeys = new Map(historicalPublicKeys);
+  for (const [keyId, publicKey] of publicKeys) {
+    if (!KEY_ID_PATTERN.test(keyId) || postQuantumKeyId(publicKey) !== keyId) {
+      throw new TypeError("historical post-quantum public key is invalid");
+    }
+  }
+  publicKeys.set(activeSigner.keyId, activeSigner.publicKey);
+  return {
+    keyId: activeSigner.keyId,
+    publicKey: activeSigner.publicKey,
+    publicKeys,
+    attest(manifest) {
+      return activeSigner.attest(manifest);
+    },
+    verify(manifest, attestation) {
+      const publicKey = publicKeys.get(attestation?.keyId);
+      return Boolean(publicKey && verifyPostQuantumAttestation(manifest, attestation, publicKey));
+    },
+  };
+}
+
 export function verifyPostQuantumAttestation(manifest, attestation, publicKey) {
   if (attestation?.algorithm !== "ML-DSA-65" || typeof attestation.signatureBase64url !== "string") return false;
   try {
