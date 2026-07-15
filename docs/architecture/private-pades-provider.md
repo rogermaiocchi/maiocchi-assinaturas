@@ -37,6 +37,27 @@ O agente local expõe `/v1/authorize`, `/v1/status`, `/v1/certificates` e `/v1/s
 
 O corpo assinado contém sessão, DTBS, algoritmo, fingerprint, hash/nome do documento e expiração. A assinatura aceita é RSA PKCS#1 v1.5 com SHA-256, compatível com o certificado A3 validado no MacBook.
 
+### Normalização e vinculação do PDF
+
+Toda apresentação nova é congelada antes do DTBS com os elementos de catálogo
+que o DSS 6.4 exige para a aparência PAdES: extensão `ADBE`, versão-base `1.7`,
+nível `8`, e um único `OutputIntent` sRGB. O perfil ICC incorporado tem `6.876`
+bytes e SHA-256
+`87e382b9336e6a0417a4d860173109ab319a029cf2972e19833a3327c65bd7e4`,
+idêntico ao produzido pelo Java 21 da imagem de produção.
+
+O bridge exige que o PDF assinado seja uma revisão incremental cujo prefixo é o
+PDF preparado e cuja única lacuna criptográfica é `/Contents`. Catálogo,
+páginas, referências, anotações e AcroForm são comparados semanticamente. Uma
+referência de página encerra a travessia recursiva porque cada página é verificada
+separadamente, com identidade e ordem próprias; isso evita que um destino em
+`/Names`, `/Outlines` ou anotação reproduza indevidamente a alteração permitida
+do widget em outra página.
+
+Tickets legados, preparados antes da normalização, só admitem a mutação exata do
+DSS: a extensão `ADBE` acima e o mesmo perfil sRGB, sem chaves adicionais. Perfil,
+condição, nível ou conteúdo divergente falham fechado.
+
 ## Gates de produção
 
 1. Política AD-RB v1.3 e SHA-256 devem coincidir com o ITI.
@@ -73,3 +94,6 @@ A Certisign condiciona a utilização A3 no macOS ao modelo de mídia, driver e 
 - [PJe: campos da tabela de assinaturas](https://docs.pje.jus.br/configura%C3%A7%C3%B5es-do-pje/Regras%20de%20interface/)
 - [ITI: DOC-ICP-15.01, 15.02 e 15.03 vigentes e alterações de 2025](https://www.gov.br/iti/pt-br/assuntos/legislacao/instrucoes-normativas/instrucoes-normativas)
 - [Certisign: drivers A3 para macOS](https://suporte.certisign.com.br/duvidas-suporte/certificado-a3-drivers?cod_rev=102497)
+- [DSS 6.4: release oficial](https://github.com/esig/dss/releases/tag/6.4)
+- [DSS 6.4: inclusão oficial de OutputIntent sRGB](https://github.com/esig/dss/blob/6.4/dss-pades-pdfbox/src/main/java/eu/europa/esig/dss/pdf/pdfbox/visible/AbstractPdfBoxSignatureDrawer.java)
+- [DSS 6.4: teste oficial da extensão ADBE 1.7 nível 8](https://github.com/esig/dss/blob/6.4/dss-pades/src/test/java/eu/europa/esig/dss/pades/signature/extension/PAdESLevelB17PdfDeveloperExtensionTest.java)

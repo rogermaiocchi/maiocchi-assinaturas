@@ -1,4 +1,5 @@
 import { PDFDocument } from "pdf-lib";
+import { deflateSync } from "node:zlib";
 
 const BYTE_RANGE_MARKERS = ["1111111111", "2222222222", "3333333333"];
 const DEFAULT_CONTENTS_HEX = `30${"ab".repeat(127)}`;
@@ -42,8 +43,10 @@ export async function simulatedSignedPdf(presentation, {
   inheritedFieldType = false,
   pageOverrides = {},
   parentFieldOverrides = {},
+  padesCatalogEnhancement = null,
   signatureCount = 1,
   subFilter = "ETSI.CAdES.detached",
+  widgetPageIndex = 0,
   widgetRect = [0, 0, 0, 0],
 } = {}) {
   const document = await PDFDocument.load(presentation, { updateMetadata: false });
@@ -55,9 +58,18 @@ export async function simulatedSignedPdf(presentation, {
   const signatureNumber = nextObjectNumber++;
   const hasExtraSignature = extraSignatureDictionary || signatureCount > 1;
   const extraSignatureNumber = hasExtraSignature ? nextObjectNumber++ : undefined;
+  const outputIntentNumber = padesCatalogEnhancement ? nextObjectNumber++ : undefined;
+  const profileNumber = padesCatalogEnhancement ? nextObjectNumber++ : undefined;
 
   const serializedCatalogOverrides = new Map([["/AcroForm", `${acroFormNumber} 0 R`]]);
   if (alterCatalog) serializedCatalogOverrides.set("/PageMode", "/UseOutlines");
+  if (padesCatalogEnhancement) {
+    serializedCatalogOverrides.set(
+      "/Extensions",
+      `<< /ADBE << /BaseVersion /1.7 /ExtensionLevel ${padesCatalogEnhancement.extensionLevel ?? 8} >> >>`,
+    );
+    serializedCatalogOverrides.set("/OutputIntents", `[ ${outputIntentNumber} 0 R ]`);
+  }
   for (const [key, value] of Object.entries(catalogOverrides)) {
     serializedCatalogOverrides.set(`/${key}`, value);
   }
@@ -86,7 +98,8 @@ export async function simulatedSignedPdf(presentation, {
 
   const objects = [];
   if (alterPage || attachWidgetToPage || Object.keys(pageOverrides).length > 0) {
-    const page = document.getPages()[0];
+    const page = document.getPages()[widgetPageIndex];
+    if (!page) throw new RangeError("PDF fixture widgetPageIndex is outside the document");
     const serializedPageOverrides = new Map(Object.entries(pageOverrides).map(([key, value]) => [`/${key}`, value]));
     if (alterPage) serializedPageOverrides.set("/MediaBox", "[ 0 0 300 300 ]");
     if (attachWidgetToPage) serializedPageOverrides.set("/Annots", `[ ${widgetNumber} 0 R ]`);
@@ -110,6 +123,22 @@ export async function simulatedSignedPdf(presentation, {
       number: extraSignatureNumber,
       value: `<<\n/Type /Sig\n/SubFilter /ETSI.CAdES.detached\n/ByteRange [ 0 1 2 3 ]\n/Contents <30ab>\n>>`,
     });
+  }
+  if (padesCatalogEnhancement) {
+    const profile = Buffer.from(padesCatalogEnhancement.profile);
+    const compressedProfile = deflateSync(profile);
+    const outputCondition = padesCatalogEnhancement.outputCondition ?? "sRGB";
+    const outputIntentExtra = padesCatalogEnhancement.outputIntentExtra ?? "";
+    objects.push(
+      {
+        number: outputIntentNumber,
+        value: `<<\n/Type /OutputIntent\n/S /GTS_PDFA1\n/DestOutputProfile ${profileNumber} 0 R\n/OutputCondition (${outputCondition})\n/OutputConditionIdentifier (${outputCondition})\n${outputIntentExtra}\n>>`,
+      },
+      {
+        number: profileNumber,
+        value: `<<\n/N 3\n/Filter /FlateDecode\n/Length ${compressedProfile.length}\n>>\nstream\n${compressedProfile.toString("latin1")}\nendstream`,
+      },
+    );
   }
 
   let body = "\n";

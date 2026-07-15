@@ -10,7 +10,7 @@ ARG SOURCE_REVISION=unknown
 LABEL org.opencontainers.image.title="Maiocchi. Assinatura PAdES Provider" \
       org.opencontainers.image.vendor="Maiocchi Advogado" \
       org.opencontainers.image.version="1.2.6" \
-      org.opencontainers.image.source="https://github.com/rogermaiocchi/maiocchi-assinaturas/tree/portal-v1.14.8" \
+      org.opencontainers.image.source="https://github.com/rogermaiocchi/maiocchi-assinaturas/tree/portal-v1.14.9" \
       org.opencontainers.image.revision="${SOURCE_REVISION}"
 RUN apk upgrade --no-cache && \
     apk del --no-cache gnupg && \

@@ -1,7 +1,15 @@
 import assert from "node:assert/strict";
 import { createHash, generateKeyPairSync } from "node:crypto";
 import test from "node:test";
-import { PDFArray, PDFDict, PDFDocument, PDFName, StandardFonts } from "pdf-lib";
+import {
+  PDFArray,
+  PDFDict,
+  PDFDocument,
+  PDFName,
+  PDFNumber,
+  PDFStream,
+  StandardFonts,
+} from "pdf-lib";
 import {
   PAGE_MARGINS,
   SIGNATURE_BOX,
@@ -113,6 +121,18 @@ test("acrescenta evidências, registra apenas páginas de conteúdo e vincula o 
   assert.equal(composed.getProducer(), "Maiocchi. Assinatura");
   assert.match(composed.getSubject(), /ICP-Brasil/);
   assert.match(composed.catalog.get(PDFName.of("Lang")).toString(), /pt-BR/);
+  const extensions = composed.catalog.lookup(PDFName.of("Extensions"), PDFDict);
+  const adbe = extensions.lookup(PDFName.of("ADBE"), PDFDict);
+  assert.equal(adbe.lookup(PDFName.of("BaseVersion"), PDFName).asString(), "/1.7");
+  assert.equal(adbe.lookup(PDFName.of("ExtensionLevel"), PDFNumber).asNumber(), 8);
+  const outputIntents = composed.catalog.lookup(PDFName.of("OutputIntents"), PDFArray);
+  assert.equal(outputIntents.size(), 1);
+  const outputIntent = outputIntents.lookup(0, PDFDict);
+  assert.equal(outputIntent.lookup(PDFName.of("Type"), PDFName).asString(), "/OutputIntent");
+  assert.equal(outputIntent.lookup(PDFName.of("S"), PDFName).asString(), "/GTS_PDFA1");
+  assert.equal(outputIntent.get(PDFName.of("OutputCondition")).decodeText(), "sRGB");
+  const colorProfile = outputIntent.lookup(PDFName.of("DestOutputProfile"), PDFStream);
+  assert.equal(colorProfile.dict.lookup(PDFName.of("N"), PDFNumber).asNumber(), 3);
   assert.equal(sheet.getCreator(), "Maiocchi. Assinatura");
   assert.equal(sheet.getProducer(), "Maiocchi. Assinatura");
   assert.match(sheet.getTitle(), /Evidências da assinatura digital/);
@@ -151,6 +171,43 @@ test("mantém a inscrição lateral em uma linha em paginação extensa com pág
 
   assert.equal(result.totalPages, 12);
   assert.equal(composed.getPageCount(), 12);
+});
+
+test("preenche OutputIntents vazio e rejeita extensão ADBE incompatível antes da assinatura", async () => {
+  const emptyIntentDocument = await PDFDocument.create();
+  emptyIntentDocument.addPage([595.28, 841.89]);
+  emptyIntentDocument.catalog.set(PDFName.of("OutputIntents"), emptyIntentDocument.context.obj([]));
+  const emptyIntentSource = Buffer.from(await emptyIntentDocument.save({ useObjectStreams: false }));
+  const emptyIntentManifest = manifestFor(emptyIntentSource, 1);
+  const attestation = {
+    algorithm: "ML-DSA-65", keyId: "ml-dsa-65-test",
+    code: "PQC-MLDSA65-1111-2222-3333-4444", manifestSha256: sha256(JSON.stringify(emptyIntentManifest)),
+  };
+  const composed = await composePadesEvidence({
+    sourcePdf: emptyIntentSource,
+    manifest: emptyIntentManifest,
+    attestation,
+  });
+  const normalized = await PDFDocument.load(composed.presentation, { updateMetadata: false });
+  assert.equal(normalized.catalog.lookup(PDFName.of("OutputIntents"), PDFArray).size(), 1);
+
+  const invalidExtensionDocument = await PDFDocument.create();
+  invalidExtensionDocument.addPage([595.28, 841.89]);
+  invalidExtensionDocument.catalog.set(PDFName.of("Extensions"), invalidExtensionDocument.context.obj({
+    ADBE: invalidExtensionDocument.context.obj({
+      BaseVersion: PDFName.of("1.7"),
+      ExtensionLevel: PDFNumber.of(7),
+    }),
+  }));
+  const invalidExtensionSource = Buffer.from(await invalidExtensionDocument.save({ useObjectStreams: false }));
+  await assert.rejects(
+    () => composePadesEvidence({
+      sourcePdf: invalidExtensionSource,
+      manifest: manifestFor(invalidExtensionSource, 1),
+      attestation,
+    }),
+    /ADBE developer extension must be version 1[.]7 level 8/,
+  );
 });
 
 test("usa marca PAdES e omite ITI nas modalidades simples e avançada sem infraestrutura reconhecida", async () => {

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { PDFDocument } from "pdf-lib";
+import { PDFDocument, PDFName, PDFString } from "pdf-lib";
 import { assertSignedPdfBoundToPresentation } from "../src/signed-pdf-binding.mjs";
 import { SIGNATURE_BOX } from "../src/pades-evidence-layout.mjs";
 import {
@@ -18,6 +19,23 @@ async function onePagePdf({ width = 595.28, pages = 1 } = {}) {
 const isBindingMismatch = (error) => (
   error.status === 422 && error.code === "signed_document_mismatch"
 );
+
+const srgbProfile = await readFile(new URL("../assets/srgb.icc", import.meta.url));
+
+async function twoPagePdfWithNamedDestination() {
+  const document = await PDFDocument.create();
+  const firstPage = document.addPage([595.28, 841.89]);
+  const evidencePage = document.addPage([595.28, 841.89]);
+  const destination = document.context.obj([evidencePage.ref, PDFName.of("Fit")]);
+  document.catalog.set(PDFName.of("Names"), document.context.obj({
+    Dests: document.context.obj({
+      Names: document.context.obj([PDFString.of("evidence"), destination]),
+    }),
+  }));
+  firstPage.drawText("Página com destino nomeado");
+  evidencePage.drawText("Página de evidências");
+  return Buffer.from(await document.save({ useObjectStreams: false }));
+}
 
 test("vincula a única assinatura estrutural alcançável pelo AcroForm", async () => {
   const presentation = await onePagePdf();
@@ -80,6 +98,49 @@ test("limita a aparência da assinatura à área reservada na última página", 
     }),
     isBindingMismatch,
   );
+});
+
+test("aceita somente os aprimoramentos exatos do DSS e trata páginas como limites semânticos", async () => {
+  const presentation = await twoPagePdfWithNamedDestination();
+  const reservedRect = [
+    SIGNATURE_BOX.left,
+    SIGNATURE_BOX.bottom,
+    SIGNATURE_BOX.left + SIGNATURE_BOX.width,
+    SIGNATURE_BOX.bottom + SIGNATURE_BOX.height,
+  ];
+  await assert.doesNotReject(async () => assertSignedPdfBoundToPresentation({
+    presentation,
+    signedPdf: await simulatedSignedPdf(presentation, {
+      attachWidgetToPage: true,
+      widgetPageIndex: 1,
+      widgetRect: reservedRect,
+      padesCatalogEnhancement: { profile: srgbProfile },
+    }),
+  }));
+
+  const alteredProfile = Buffer.from(srgbProfile);
+  alteredProfile[alteredProfile.length - 1] ^= 0x01;
+  const oversizedProfile = Buffer.alloc((1024 * 1024) + 1);
+  for (const padesCatalogEnhancement of [
+    { profile: srgbProfile, extensionLevel: 9 },
+    { profile: srgbProfile, outputCondition: "Perfil não autorizado" },
+    { profile: srgbProfile, outputIntentExtra: "/Info (não autorizado)" },
+    { profile: alteredProfile },
+    { profile: oversizedProfile },
+  ]) {
+    await assert.rejects(
+      async () => assertSignedPdfBoundToPresentation({
+        presentation,
+        signedPdf: await simulatedSignedPdf(presentation, {
+          attachWidgetToPage: true,
+          widgetPageIndex: 1,
+          widgetRect: reservedRect,
+          padesCatalogEnhancement,
+        }),
+      }),
+      isBindingMismatch,
+    );
+  }
 });
 
 test("rejeita ByteRange textual sem assinatura estrutural e assinaturas estruturais duplicadas", async () => {

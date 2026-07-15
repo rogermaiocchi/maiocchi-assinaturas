@@ -1,7 +1,16 @@
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import fontkit from "@pdf-lib/fontkit";
-import { PDFDocument, PDFName, PDFString, degrees, rgb } from "pdf-lib";
+import {
+  PDFArray,
+  PDFDict,
+  PDFDocument,
+  PDFName,
+  PDFNumber,
+  PDFString,
+  degrees,
+  rgb,
+} from "pdf-lib";
 import bwipjs from "bwip-js";
 import QRCode from "qrcode";
 import { assertPublicId, portalVerificationUrl } from "./authenticity-contract.mjs";
@@ -26,6 +35,7 @@ const PAPER = rgb(0.992, 0.996, 0.994);
 const ICP_LOGO_PATH = fileURLToPath(new URL("../assets/icp-brasil-oficial.png", import.meta.url));
 const MAIOCCHI_MARK_PATH = fileURLToPath(new URL("../assets/maiocchi-mark.png", import.meta.url));
 const EVIDENCE_BACKGROUND_PATH = fileURLToPath(new URL("../assets/pades-evidence-page.png", import.meta.url));
+const SRGB_PROFILE_PATH = fileURLToPath(new URL("../assets/srgb.icc", import.meta.url));
 const REGULAR_FONT_PATH = fileURLToPath(new URL("../assets/inter-latin-400-normal.woff", import.meta.url));
 const BOLD_FONT_PATH = fileURLToPath(new URL("../assets/inter-latin-700-normal.woff", import.meta.url));
 const ITI_POLICY_OID = "2.16.76.1.7.1.11.1.3";
@@ -43,6 +53,62 @@ const ITI_OPTIONAL_ATTRIBUTES = Object.freeze({
     "/Reference", "/Changes", "/V=0", "/Prop_AuthTime", "DSS", "VRI",
   ]),
 });
+
+function isExpectedAdbeExtension(value, context) {
+  const dictionary = context.lookup(value);
+  if (!(dictionary instanceof PDFDict)) return false;
+  const keys = dictionary.entries().map(([key]) => key.toString()).sort();
+  const baseVersion = context.lookup(dictionary.get(PDFName.of("BaseVersion")));
+  const extensionLevel = context.lookup(dictionary.get(PDFName.of("ExtensionLevel")));
+  return JSON.stringify(keys) === JSON.stringify(["/BaseVersion", "/ExtensionLevel"])
+    && baseVersion instanceof PDFName
+    && baseVersion.asString() === "/1.7"
+    && extensionLevel instanceof PDFNumber
+    && extensionLevel.asNumber() === 8;
+}
+
+async function ensurePadesCatalog(document) {
+  const { catalog, context } = document;
+  const extensionsKey = PDFName.of("Extensions");
+  const adbeKey = PDFName.of("ADBE");
+  const existingExtensions = catalog.get(extensionsKey);
+  let extensions;
+  if (existingExtensions === undefined) {
+    extensions = context.obj({});
+    catalog.set(extensionsKey, extensions);
+  } else {
+    extensions = context.lookup(existingExtensions);
+    if (!(extensions instanceof PDFDict)) throw new TypeError("PDF Extensions catalog entry must be a dictionary");
+  }
+  if (!extensions.has(adbeKey)) {
+    extensions.set(adbeKey, context.obj({
+      BaseVersion: PDFName.of("1.7"),
+      ExtensionLevel: PDFNumber.of(8),
+    }));
+  } else if (!isExpectedAdbeExtension(extensions.get(adbeKey), context)) {
+    throw new TypeError("PDF ADBE developer extension must be version 1.7 level 8");
+  }
+
+  const outputIntentsKey = PDFName.of("OutputIntents");
+  const existingOutputIntents = catalog.get(outputIntentsKey);
+  if (existingOutputIntents !== undefined) {
+    const outputIntents = context.lookup(existingOutputIntents);
+    if (!(outputIntents instanceof PDFArray)) throw new TypeError("PDF OutputIntents catalog entry must be an array");
+    if (outputIntents.size() > 0) return;
+  }
+  const profileStream = context.flateStream(await readFile(SRGB_PROFILE_PATH), {
+    N: PDFNumber.of(3),
+  });
+  const profileReference = context.register(profileStream);
+  const outputIntentReference = context.register(context.obj({
+    Type: PDFName.of("OutputIntent"),
+    S: PDFName.of("GTS_PDFA1"),
+    DestOutputProfile: profileReference,
+    OutputCondition: PDFString.of("sRGB"),
+    OutputConditionIdentifier: PDFString.of("sRGB"),
+  }));
+  catalog.set(outputIntentsKey, context.obj([outputIntentReference]));
+}
 
 function clean(value, fallback = "Não informado", max = 180) {
   if (typeof value !== "string" || !value.trim()) return fallback;
@@ -769,6 +835,7 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
   ]);
   document.setCreationDate(new Date(manifest.createdAt));
   document.setModificationDate(new Date(manifest.createdAt));
+  await ensurePadesCatalog(document);
 
   const presentation = Buffer.from(await document.save({ useObjectStreams: false, addDefaultPage: false }));
   const sheetDocument = await PDFDocument.create({ updateMetadata: false });

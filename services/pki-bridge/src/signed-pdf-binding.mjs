@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { inflateSync } from "node:zlib";
 import {
   PDFArray,
   PDFDict,
@@ -7,6 +8,7 @@ import {
   PDFName,
   PDFNumber,
   PDFRef,
+  PDFString,
   PDFStream,
 } from "pdf-lib";
 import { PkiProviderError } from "./errors.mjs";
@@ -17,9 +19,22 @@ const REQUIRED_SUBFILTER = "/ETSI.CAdES.detached";
 const EMPTY_KEYS = new Set();
 const PAGE_IGNORED_KEYS = new Set(["/Annots", "/Parent"]);
 const ANNOTATION_IGNORED_KEYS = new Set(["/P", "/Parent"]);
-const CATALOG_IGNORED_KEYS = new Set(["/AcroForm", "/Pages"]);
+const CATALOG_IGNORED_KEYS = new Set(["/AcroForm", "/Pages", "/Extensions", "/OutputIntents"]);
 const ACROFORM_IGNORED_KEYS = new Set(["/Fields", "/SigFlags"]);
 const ACTIVE_FIELD_KEYS = new Set(["/A", "/AA"]);
+const ADBE_EXTENSION_IGNORED_KEYS = new Set(["/ADBE"]);
+const EXPECTED_ADBE_EXTENSION_KEYS = new Set(["/BaseVersion", "/ExtensionLevel"]);
+const EXPECTED_OUTPUT_INTENT_KEYS = new Set([
+  "/DestOutputProfile",
+  "/OutputCondition",
+  "/OutputConditionIdentifier",
+  "/S",
+  "/Type",
+]);
+const EXPECTED_ICC_STREAM_KEYS = new Set(["/Filter", "/Length", "/N"]);
+const EXPECTED_SRGB_ICC_SHA256 = "87e382b9336e6a0417a4d860173109ab319a029cf2972e19833a3327c65bd7e4";
+const MAX_COMPRESSED_ICC_BYTES = 64 * 1024;
+const MAX_ICC_PROFILE_BYTES = 1024 * 1024;
 const PDF_WHITESPACE = new Set([0x00, 0x09, 0x0a, 0x0c, 0x0d, 0x20]);
 const RECT_TOLERANCE_POINTS = 0.5;
 
@@ -229,19 +244,28 @@ function hasWholeFileCoverage(pdf, presentationSize, signature) {
   return true;
 }
 
-function canonicalObject(object, context, { ignoredKeys = EMPTY_KEYS, visiting = new Set() } = {}) {
+function canonicalObject(object, context, {
+  ignoredKeys = EMPTY_KEYS,
+  terminalReferences = EMPTY_KEYS,
+  visiting = new Set(),
+} = {}) {
   if (object === undefined) return null;
   if (object instanceof PDFRef) {
     const reference = object.toString();
+    if (terminalReferences.has(reference)) return ["ref", reference];
     if (visiting.has(reference)) return ["cycle", reference];
     const next = new Set(visiting);
     next.add(reference);
-    return ["ref", reference, canonicalObject(context.lookup(object), context, { ignoredKeys, visiting: next })];
+    return ["ref", reference, canonicalObject(context.lookup(object), context, {
+      ignoredKeys,
+      terminalReferences,
+      visiting: next,
+    })];
   }
   if (object instanceof PDFStream) {
     return [
       "stream",
-      canonicalObject(object.dict, context, { ignoredKeys, visiting }),
+      canonicalObject(object.dict, context, { ignoredKeys, terminalReferences, visiting }),
       sha256(object.getContents()),
     ];
   }
@@ -251,12 +275,16 @@ function canonicalObject(object, context, { ignoredKeys = EMPTY_KEYS, visiting =
       .sort(([left], [right]) => left.toString().localeCompare(right.toString()))
       .map(([key, value]) => [
         key.toString(),
-        canonicalObject(value, context, { ignoredKeys: EMPTY_KEYS, visiting }),
+        canonicalObject(value, context, {
+          ignoredKeys: EMPTY_KEYS,
+          terminalReferences,
+          visiting,
+        }),
       ])];
   }
   if (object instanceof PDFArray) {
     return ["array", ...object.asArray().map((value) => (
-      canonicalObject(value, context, { ignoredKeys, visiting })
+      canonicalObject(value, context, { ignoredKeys, terminalReferences, visiting })
     ))];
   }
   return [object.constructor.name, object.toString()];
@@ -302,7 +330,7 @@ function classifyFieldTree(fieldValue, context, signatureFields, visiting = new 
   return { hasSignature, hasNonSignature, hasActiveAction };
 }
 
-function acroFormFingerprint(document, signatureFields) {
+function acroFormFingerprint(document, signatureFields, terminalReferences) {
   const context = document.context;
   const acroFormValue = document.catalog.get(PDFName.of("AcroForm"));
   if (acroFormValue === undefined) return { properties: ["dict"], fields: [] };
@@ -311,7 +339,10 @@ function acroFormFingerprint(document, signatureFields) {
   if (!(acroForm instanceof PDFDict)) {
     throw providerMismatch("PDF contains an invalid AcroForm dictionary");
   }
-  const properties = canonicalObject(acroForm, context, { ignoredKeys: ACROFORM_IGNORED_KEYS });
+  const properties = canonicalObject(acroForm, context, {
+    ignoredKeys: ACROFORM_IGNORED_KEYS,
+    terminalReferences,
+  });
   const fieldsValue = acroForm.get(PDFName.of("Fields"));
   if (fieldsValue === undefined) return { properties, fields: [] };
 
@@ -328,7 +359,7 @@ function acroFormFingerprint(document, signatureFields) {
       }
       continue;
     }
-    fields.push(objectDigest(fieldValue, context));
+    fields.push(objectDigest(fieldValue, context, { terminalReferences }));
   }
   return { properties, fields };
 }
@@ -370,7 +401,14 @@ function signatureWidgetDetails(object, context, signatureFields) {
   return { dictionary, visible: reserved };
 }
 
-function nonSignatureAnnotations(page, signatureFields, pageIndex, lastPageIndex, attachedVisibleWidgets) {
+function nonSignatureAnnotations(
+  page,
+  signatureFields,
+  pageIndex,
+  lastPageIndex,
+  attachedVisibleWidgets,
+  terminalReferences,
+) {
   const annotations = page.node.Annots();
   if (!annotations) return [];
   const fingerprints = [];
@@ -385,19 +423,32 @@ function nonSignatureAnnotations(page, signatureFields, pageIndex, lastPageIndex
       }
       continue;
     }
-    fingerprints.push(objectDigest(annotation, page.doc.context, { ignoredKeys: ANNOTATION_IGNORED_KEYS }));
+    fingerprints.push(objectDigest(annotation, page.doc.context, {
+      ignoredKeys: ANNOTATION_IGNORED_KEYS,
+      terminalReferences,
+    }));
   }
   return fingerprints.sort();
 }
 
-function pageFingerprint(page, signatureFields, pageIndex, lastPageIndex, attachedVisibleWidgets) {
+function pageFingerprint(
+  page,
+  signatureFields,
+  pageIndex,
+  lastPageIndex,
+  attachedVisibleWidgets,
+  terminalReferences,
+) {
   const context = page.doc.context;
   const inheritedKeys = ["Resources", "MediaBox", "CropBox", "Rotate", "UserUnit"];
   return sha256(Buffer.from(JSON.stringify({
-    direct: canonicalObject(page.node, context, { ignoredKeys: PAGE_IGNORED_KEYS }),
+    direct: canonicalObject(page.node, context, {
+      ignoredKeys: PAGE_IGNORED_KEYS,
+      terminalReferences,
+    }),
     inherited: inheritedKeys.map((key) => [
       key,
-      canonicalObject(page.node.getInheritableAttribute(PDFName.of(key)), context),
+      canonicalObject(page.node.getInheritableAttribute(PDFName.of(key)), context, { terminalReferences }),
     ]),
     annotations: nonSignatureAnnotations(
       page,
@@ -405,12 +456,15 @@ function pageFingerprint(page, signatureFields, pageIndex, lastPageIndex, attach
       pageIndex,
       lastPageIndex,
       attachedVisibleWidgets,
+      terminalReferences,
     ),
   }), "utf8"));
 }
 
 function semanticFingerprint(document, signatureFields = new Set(), visibleSignatureWidgets = new Set()) {
   const pages = document.getPages();
+  const pageReferences = pages.map((page) => page.ref.toString());
+  const terminalReferences = new Set(pageReferences);
   const attachedVisibleWidgets = new Set();
   const pageFingerprints = pages.map((page, index) => pageFingerprint(
     page,
@@ -418,16 +472,178 @@ function semanticFingerprint(document, signatureFields = new Set(), visibleSigna
     index,
     pages.length - 1,
     attachedVisibleWidgets,
+    terminalReferences,
   ));
   if (visibleSignatureWidgets.size !== attachedVisibleWidgets.size
       || [...visibleSignatureWidgets].some((widget) => !attachedVisibleWidgets.has(widget))) {
     throw providerMismatch("Signed PDF visible signature widget is not attached to the evidence page");
   }
   return {
-    catalog: objectDigest(document.catalog, document.context, { ignoredKeys: CATALOG_IGNORED_KEYS }),
-    acroForm: acroFormFingerprint(document, signatureFields),
+    catalog: objectDigest(document.catalog, document.context, {
+      ignoredKeys: CATALOG_IGNORED_KEYS,
+      terminalReferences,
+    }),
+    acroForm: acroFormFingerprint(document, signatureFields, terminalReferences),
+    pageReferences,
     pages: pageFingerprints,
   };
+}
+
+function hasExactDictionaryKeys(dictionary, expected) {
+  const keys = dictionary.entries().map(([key]) => key.toString());
+  return keys.length === expected.size && keys.every((key) => expected.has(key));
+}
+
+function equivalentObjects(left, leftContext, right, rightContext, options) {
+  return JSON.stringify(canonicalObject(left, leftContext, options))
+    === JSON.stringify(canonicalObject(right, rightContext, options));
+}
+
+function expectedAdbeExtension(value, context) {
+  const dictionary = context.lookup(value);
+  if (!(dictionary instanceof PDFDict) || !hasExactDictionaryKeys(dictionary, EXPECTED_ADBE_EXTENSION_KEYS)) {
+    return false;
+  }
+  const baseVersion = context.lookup(dictionary.get(PDFName.of("BaseVersion")));
+  const extensionLevel = context.lookup(dictionary.get(PDFName.of("ExtensionLevel")));
+  return baseVersion instanceof PDFName
+    && baseVersion.asString() === "/1.7"
+    && extensionLevel instanceof PDFNumber
+    && extensionLevel.asNumber() === 8;
+}
+
+function assertPermittedDeveloperExtension(preparedDocument, signedDocument) {
+  const key = PDFName.of("Extensions");
+  const preparedValue = preparedDocument.catalog.get(key);
+  const signedValue = signedDocument.catalog.get(key);
+  if (preparedValue === undefined && signedValue === undefined) return;
+  if (signedValue === undefined) {
+    throw providerMismatch("Signed PDF removed the prepared developer extensions");
+  }
+
+  const signedDictionary = signedDocument.context.lookup(signedValue);
+  if (!(signedDictionary instanceof PDFDict)) {
+    throw providerMismatch("Signed PDF contains an invalid developer extensions dictionary");
+  }
+  if (preparedValue === undefined) {
+    if (signedDictionary.entries().length !== 1
+        || !expectedAdbeExtension(signedDictionary.get(PDFName.of("ADBE")), signedDocument.context)) {
+      throw providerMismatch("Signed PDF added an unexpected developer extension");
+    }
+    return;
+  }
+
+  if (equivalentObjects(
+    preparedValue,
+    preparedDocument.context,
+    signedValue,
+    signedDocument.context,
+  )) return;
+
+  const preparedDictionary = preparedDocument.context.lookup(preparedValue);
+  if (!(preparedDictionary instanceof PDFDict)
+      || !equivalentObjects(
+        preparedDictionary,
+        preparedDocument.context,
+        signedDictionary,
+        signedDocument.context,
+        { ignoredKeys: ADBE_EXTENSION_IGNORED_KEYS },
+      )
+      || preparedDictionary.has(PDFName.of("ADBE"))
+      || !expectedAdbeExtension(signedDictionary.get(PDFName.of("ADBE")), signedDocument.context)) {
+    throw providerMismatch("Signed PDF changed the prepared developer extensions");
+  }
+}
+
+function decodedText(value, context) {
+  const resolved = context.lookup(value);
+  return resolved instanceof PDFString || resolved instanceof PDFHexString
+    ? resolved.decodeText()
+    : null;
+}
+
+function expectedSrgbProfile(value, context) {
+  const stream = context.lookup(value);
+  if (!(stream instanceof PDFStream) || !hasExactDictionaryKeys(stream.dict, EXPECTED_ICC_STREAM_KEYS)) {
+    return false;
+  }
+  const filter = context.lookup(stream.dict.get(PDFName.of("Filter")));
+  const components = context.lookup(stream.dict.get(PDFName.of("N")));
+  const length = context.lookup(stream.dict.get(PDFName.of("Length")));
+  const compressed = Buffer.from(stream.getContents());
+  if (!(filter instanceof PDFName)
+      || filter.asString() !== "/FlateDecode"
+      || !(components instanceof PDFNumber)
+      || components.asNumber() !== 3
+      || !(length instanceof PDFNumber)
+      || length.asNumber() !== compressed.length
+      || compressed.length > MAX_COMPRESSED_ICC_BYTES) return false;
+
+  let profile;
+  try {
+    profile = inflateSync(compressed, { maxOutputLength: MAX_ICC_PROFILE_BYTES });
+  } catch {
+    return false;
+  }
+  return profile.length >= 128
+    && profile.length <= MAX_ICC_PROFILE_BYTES
+    && profile.readUInt32BE(0) === profile.length
+    && profile.subarray(12, 16).toString("ascii") === "mntr"
+    && profile.subarray(16, 20).toString("ascii") === "RGB "
+    && profile.subarray(20, 24).toString("ascii") === "XYZ "
+    && profile.subarray(36, 40).toString("ascii") === "acsp"
+    && sha256(profile) === EXPECTED_SRGB_ICC_SHA256;
+}
+
+function expectedSrgbOutputIntent(value, context) {
+  const dictionary = context.lookup(value);
+  if (!(dictionary instanceof PDFDict) || !hasExactDictionaryKeys(dictionary, EXPECTED_OUTPUT_INTENT_KEYS)) {
+    return false;
+  }
+  return resolvedName(dictionary.get(PDFName.of("Type")), context) === "/OutputIntent"
+    && resolvedName(dictionary.get(PDFName.of("S")), context) === "/GTS_PDFA1"
+    && decodedText(dictionary.get(PDFName.of("OutputCondition")), context) === "sRGB"
+    && decodedText(dictionary.get(PDFName.of("OutputConditionIdentifier")), context) === "sRGB"
+    && expectedSrgbProfile(dictionary.get(PDFName.of("DestOutputProfile")), context);
+}
+
+function assertPermittedOutputIntent(preparedDocument, signedDocument) {
+  const key = PDFName.of("OutputIntents");
+  const preparedValue = preparedDocument.catalog.get(key);
+  const signedValue = signedDocument.catalog.get(key);
+  if (preparedValue === undefined && signedValue === undefined) return;
+  if (signedValue === undefined) {
+    throw providerMismatch("Signed PDF removed the prepared output intent");
+  }
+  if (preparedValue !== undefined) {
+    if (equivalentObjects(
+      preparedValue,
+      preparedDocument.context,
+      signedValue,
+      signedDocument.context,
+    )) return;
+
+    const preparedOutputIntents = preparedDocument.context.lookup(preparedValue);
+    const signedOutputIntents = signedDocument.context.lookup(signedValue);
+    if (preparedOutputIntents instanceof PDFArray
+        && preparedOutputIntents.size() === 0
+        && signedOutputIntents instanceof PDFArray
+        && signedOutputIntents.size() === 1
+        && expectedSrgbOutputIntent(signedOutputIntents.get(0), signedDocument.context)) return;
+    throw providerMismatch("Signed PDF changed the prepared output intent");
+  }
+
+  const outputIntents = signedDocument.context.lookup(signedValue);
+  if (!(outputIntents instanceof PDFArray)
+      || outputIntents.size() !== 1
+      || !expectedSrgbOutputIntent(outputIntents.get(0), signedDocument.context)) {
+    throw providerMismatch("Signed PDF added an unexpected output intent");
+  }
+}
+
+function assertPermittedCatalogEnhancements(preparedDocument, signedDocument) {
+  assertPermittedDeveloperExtension(preparedDocument, signedDocument);
+  assertPermittedOutputIntent(preparedDocument, signedDocument);
 }
 
 export async function assertSignedPdfBoundToPresentation({ presentation, signedPdf }) {
@@ -447,6 +663,7 @@ export async function assertSignedPdfBoundToPresentation({ presentation, signedP
     if (!hasWholeFileCoverage(signedPdf, presentation.length, signature)) {
       throw providerMismatch("Signed PDF does not cover exactly its signature Contents gap through final EOF");
     }
+    assertPermittedCatalogEnhancements(preparedDocument, signedDocument);
     const preparedSemantics = semanticFingerprint(preparedDocument);
     const signedSemantics = semanticFingerprint(
       signedDocument,
