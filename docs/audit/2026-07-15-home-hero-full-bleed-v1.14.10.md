@@ -32,7 +32,15 @@ Escopo: primeiro viewport de `assinatura.maiocchi.adv.br`
 
 ## Publicação
 
-- Registro de backup, revisão de imagem e validação externa serão acrescentados depois da implantação.
+- [V] Commit funcional publicado: `b0399d30f208df07844e6823492df33401e192d4`.
+- [V] Backup anterior: `20260715T200948Z`; os seis artefatos listados no manifesto passaram em `sha256sum -c`.
+- [V] Contêiner ativo: `maiocchi/assinatura-portal:1.14.10`, revisão OCI `b0399d30f208df07844e6823492df33401e192d4`, estado `running`.
+- [V] `https://assinatura.maiocchi.adv.br/healthz`: `ok`.
+- [V] `https://assinatura.maiocchi.adv.br/hero-home-maiocchi.webp`: HTTP 200, `image/webp`, 214782 bytes.
+- [V] Produção 1440 x 900: hero 1425 x 900, conteúdo encerrado em y=788, sem overflow horizontal.
+- [V] Produção iPad 834 x 1194: hero 819 x 1194, conteúdo encerrado em y=1082, sem overflow horizontal.
+- [V] Produção iPhone 390 x 844: hero 375 x 844, conteúdo encerrado em y=792, sem overflow horizontal.
+- [V] Console de produção sem erros durante a inspeção responsiva.
 
 ## Rollback
 
