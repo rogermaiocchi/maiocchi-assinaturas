@@ -63,6 +63,11 @@ function normalizedSigners(value) {
     return {
       name: clean(entry?.name, "Signatário identificado no documento", 140),
       role: clean(entry?.role, "Signatário", 80),
+      modality: clean(entry?.modality, "simple", 40),
+      profile: clean(entry?.profile, "SIMPLES RASTREÁVEL", 40),
+      format: clean(entry?.format, "Assinatura eletrônica", 48),
+      infrastructure: clean(entry?.infrastructure, "Maiocchi. Assinatura", 80),
+      legalBasis: clean(entry?.legalBasis, "MP 2.200-2/2001, art. 10, § 2º", 180),
       identitySource: clean(entry?.identitySource, "Sessão eletrônica rastreada", 100),
       signedAt: Number.isNaN(signedAt.getTime()) ? null : signedAt.toISOString(),
     };
@@ -717,7 +722,7 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
     } else {
       visibleSigners.forEach((signer, index) => {
         const signedAt = signer.signedAt ? formatDate(signer.signedAt) : "instante registrado na trilha";
-        const value = `${signer.name} · ${signer.role} · ${signedAt}`;
+        const value = `${signer.name} · ${signer.role} · ${signer.profile} · ${signedAt}`;
         page.drawText(fitText(fonts.regular, value, 7.2, SIGNATURE_BOX.width - 8), {
           x: SIGNATURE_BOX.left,
           y: SIGNATURE_BOX.bottom + SIGNATURE_BOX.height - 15 - index * 13,

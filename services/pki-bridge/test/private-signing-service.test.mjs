@@ -171,6 +171,17 @@ test("compõe evidência simples no mesmo padrão visual com atestado ML-DSA-65"
   }), /SHA-256/);
 });
 
+test("recusa ticket qualificado sem provider local ou remoto", async () => {
+  const service = new PrivateSigningService({
+    repository: new MemoryRepository(), artifactStore: new MemoryArtifacts(), postQuantumSigner,
+    baseUrl: "https://assinatura.maiocchi.adv.br",
+  });
+  await assert.rejects(
+    async () => service.createTicket({ pdf: await onePagePdf(), ttlSeconds: 600 }),
+    (error) => error.status === 503,
+  );
+});
+
 test("ticket privado vincula PDF, certificado, tarefa e resultado validado", async () => {
   const repository = new MemoryRepository();
   const artifactStore = new MemoryArtifacts();
@@ -200,6 +211,12 @@ test("ticket privado vincula PDF, certificado, tarefa e resultado validado", asy
         validation: {
           trusted: true,
           cryptographicIntegrity: true,
+          signedBy: "CLIENTE IDENTIFICADO",
+          signerNationalIdMasked: "006.***.***-40",
+          signerNationalIdSha256: sha256("00600000040"),
+          certificateType: "ICP-Brasil A3",
+          signingTime: "2026-07-15T12:00:00.000Z",
+          policyOid,
           itiAttributes: {
             normativeDocument: "DOC-ICP-15.03 v9.1, tabelas A.14-A.22",
             profile: "PAdES AD-RB v1.3",
@@ -222,11 +239,25 @@ test("ticket privado vincula PDF, certificado, tarefa e resultado validado", asy
     repository, artifactStore, provider, localSigningEnabled: true, postQuantumSigner,
     baseUrl: "https://assinatura.maiocchi.adv.br",
   });
-  const created = await service.createTicket({ pdf: sourcePdf, documentName: "Contrato cliente.pdf", ttlSeconds: 600 });
+  const integration = {
+    system: "docuseal",
+    submissionReference: "MAI-2026-1111-2222-3333-4444",
+    submitterUuid: "11111111-1111-4111-8111-111111111111",
+    signerName: "Cliente identificado",
+    signerEmail: "cliente@example.test",
+    signerNationalIdSha256: sha256("00600000040"),
+  };
+  const created = await service.createTicket({
+    pdf: sourcePdf,
+    documentName: "Contrato cliente.pdf",
+    ttlSeconds: 600,
+    documentContext: { integration },
+  });
   assert.match(created.url, /^https:\/\/assinatura\.maiocchi\.adv\.br\/assinar-icp#ticket=[A-Za-z0-9_-]{43}$/);
   assert.equal(created.sourcePdfSha256, sha256(sourcePdf));
   assert.match(created.publicId, /^MAI-\d{4}(?:-[0-9A-HJKMNP-TV-Z]{4}){4}$/);
   assert.match(created.documentNumber, /^\d{29}$/);
+  assert.deepEqual(repository.ticket.document_context.integration, integration);
   assert.doesNotMatch(repository.ticket.token_sha256.toString("hex"), /ticket=/);
 
   const token = new URL(created.url).hash.slice("#ticket=".length);
@@ -251,11 +282,33 @@ test("ticket privado vincula PDF, certificado, tarefa e resultado validado", asy
   assert.equal(verification.envelope.proof.scope, "final-pades-record");
   assert.equal(verification.envelope.record.document.hash.value, sha256(signedPdf));
   assert.equal(verification.envelope.record.signature.itiAttributes.profile, "PAdES AD-RB v1.3");
+  assert.equal("nationalIdSha256" in verification.envelope.record.goldStandard.signers[0], false);
   assert.deepEqual(verification.envelope.record.signature.itiAttributes.attributes.map(({ identifier, status }) => ({ identifier, status })), [
     { identifier: "id-aa-ets-signerAttr", status: "PRESENT" },
     { identifier: "id-aa-ets-contentTimeStamp", status: "REQUIRES_ICP_BRASIL_ACT" },
     { identifier: "Name", status: "PRESENT" },
   ]);
+  const commit = await service.commitPayload(token);
+  assert.deepEqual(Buffer.from(commit.signedPdfBase64, "base64"), signedPdf);
+  assert.equal(commit.receipt.origin.submitterUuid, integration.submitterUuid);
+  assert.equal(commit.receipt.hashes.sourcePdfSha256, sha256(sourcePdf));
+  assert.equal(commit.receipt.hashes.signedPdfSha256, sha256(signedPdf));
+  assert.equal(commit.receipt.signer.identityMatch, true);
+  assert.equal(commit.receipt.proof.algorithm, "ML-DSA-65");
+  repository.ticket.document_context.integration.signerNationalIdSha256 = sha256("52900000025");
+  await assert.rejects(() => service.commitPayload(token), (error) => error.status === 422);
+  repository.ticket.document_context.integration.signerNationalIdSha256 = integration.signerNationalIdSha256;
+  repository.ticket.document_context.integration.signerName = "Cliente";
+  await assert.rejects(() => service.commitPayload(token), (error) => error.status === 422);
+  repository.ticket.document_context.integration.signerName = "Outra Pessoa";
+  await assert.rejects(() => service.commitPayload(token), (error) => error.status === 422);
+  repository.ticket.document_context.integration.signerName = integration.signerName;
+  repository.ticket.expires_at = new Date(Date.now() - 1000).toISOString();
+  await assert.rejects(() => service.status(token), (error) => error.status === 410);
+  await assert.rejects(() => service.result(token), (error) => error.status === 410);
+  await assert.rejects(() => service.commitPayload(token), (error) => error.status === 410);
+  assert.equal((await service.verification(created.publicId)).documentStatus, "active");
+  repository.ticket.expires_at = new Date(Date.now() + 60_000).toISOString();
   const finalHash = repository.ticket.signed_pdf_sha256;
   repository.ticket.signed_pdf_sha256 = Buffer.alloc(32, 9);
   await assert.rejects(() => service.verification(created.publicId), (error) => error.status === 503);

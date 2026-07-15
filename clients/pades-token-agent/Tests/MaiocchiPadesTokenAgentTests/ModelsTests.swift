@@ -141,3 +141,48 @@ import Testing
     #expect(!weakKey.isEligibleExternalTokenKey)
     #expect(!nonRsaKey.isEligibleExternalTokenKey)
 }
+
+@Test func replayGuardPersistsSuccessfulReservationsAcrossRestart() throws {
+    let directory = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    let file = directory.appendingPathComponent("replay.jsonl")
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let now = Date(timeIntervalSince1970: 1_800_000_000)
+    let expiry = now.addingTimeInterval(120)
+    let session = "3bd4615d-5d09-4b7a-a6b8-27f2b329cb19"
+
+    let first = try PersistentReplayGuard(fileURL: file, now: now)
+    try first.reserve(sessionId: session, expiresAt: expiry, now: now)
+    let reopened = try PersistentReplayGuard(fileURL: file, now: now)
+    var replayRejected = false
+    do {
+        try reopened.reserve(sessionId: session, expiresAt: expiry, now: now)
+    } catch {
+        replayRejected = true
+    }
+    #expect(replayRejected)
+    try reopened.release(sessionId: session)
+    try reopened.reserve(sessionId: session, expiresAt: expiry, now: now)
+}
+
+@Test func replayGuardRejectsPermissiveOrSymbolicLinkStores() throws {
+    let directory = FileManager.default.temporaryDirectory
+        .appendingPathComponent(UUID().uuidString, isDirectory: true)
+    let permissive = directory.appendingPathComponent("permissive.jsonl")
+    let symbolicLink = directory.appendingPathComponent("link.jsonl")
+    defer { try? FileManager.default.removeItem(at: directory) }
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    FileManager.default.createFile(
+        atPath: permissive.path,
+        contents: Data(),
+        attributes: [.posixPermissions: 0o644]
+    )
+    try FileManager.default.createSymbolicLink(at: symbolicLink, withDestinationURL: permissive)
+
+    #expect(throws: (any Error).self) {
+        _ = try PersistentReplayGuard(fileURL: permissive)
+    }
+    #expect(throws: (any Error).self) {
+        _ = try PersistentReplayGuard(fileURL: symbolicLink)
+    }
+}

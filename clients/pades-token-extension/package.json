@@ -1,0 +1,19 @@
+{
+  "name": "maiocchi-pades-token-extension",
+  "version": "1.0.1",
+  "description": "Extensão Chrome MV3 para o agente local PAdES do Maiocchi Advogado.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "smoke:agent": "node scripts/smoke-agent.mjs",
+    "test": "node --test test/*.test.mjs && npm run build && node scripts/validate-dist.mjs",
+    "package": "npm run test && node scripts/package.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.1"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  }
+}

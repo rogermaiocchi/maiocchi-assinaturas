@@ -7,7 +7,12 @@ import path from "node:path";
 import test from "node:test";
 import { buildAuthenticityRecord, signAuthenticityRecord } from "../src/authenticity-contract.mjs";
 import { bodySha256, internalRequestMessage, verifyInternalResponse } from "../src/internal-auth.mjs";
-import { createRequestHandler, listenAtomically, readConfiguredSecret } from "../src/server.mjs";
+import {
+  createRequestHandler,
+  listenAtomically,
+  readConfiguredSecret,
+  requiresPrivateSigningEvidenceKey,
+} from "../src/server.mjs";
 
 const publicId = "MAI-2026-1111-1111-1111-1111";
 const internalKey = "internal-test-key-with-32-characters";
@@ -32,6 +37,13 @@ test("carrega o HMAC interno por secret file e rejeita origem ambígua", async (
 
   assert.equal(await readConfiguredSecret(null, secretFile, "test key"), "a".repeat(64));
   await assert.rejects(readConfiguredSecret("b".repeat(64), secretFile, "test key"), /either/);
+});
+
+test("só exige chave ML-DSA quando uma modalidade PAdES foi habilitada", () => {
+  assert.equal(requiresPrivateSigningEvidenceKey({ providerEndpoint: null, remoteProvider: null, localSigningEnabled: false }), false);
+  assert.equal(requiresPrivateSigningEvidenceKey({ providerEndpoint: "http://provider", remoteProvider: null, localSigningEnabled: false }), false);
+  assert.equal(requiresPrivateSigningEvidenceKey({ providerEndpoint: "http://provider", remoteProvider: null, localSigningEnabled: true }), true);
+  assert.equal(requiresPrivateSigningEvidenceKey({ providerEndpoint: null, remoteProvider: {}, localSigningEnabled: false }), true);
 });
 
 function makeEnvelope(privateKey) {
@@ -92,7 +104,7 @@ test("expõe verificação, CORS restrito, redirect e bloqueio do original", asy
 
   const health = await (await fetch(`${base}/healthz`)).json();
   assert.equal(health.service, "pki-bridge");
-  assert.equal(health.version, "1.3.21");
+  assert.equal(health.version, "1.3.23");
   assert.equal(health.localA3Signing, "disabled");
   assert.equal(health.remoteSigning, "disabled");
 

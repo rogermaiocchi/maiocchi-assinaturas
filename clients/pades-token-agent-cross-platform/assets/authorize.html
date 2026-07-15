@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Autorizar assinatura | Maiocchi</title>
+  <style>
+    :root{color-scheme:light;--ink:#171918;--muted:#626865;--line:#d9ddda;--paper:#f6f7f5;--yellow:#f3ca45;--green:#176b4d;--red:#a12b2b}*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.55 system-ui,"Segoe UI",sans-serif}main{width:min(720px,calc(100% - 32px));margin:7vh auto}.brand{font-weight:800;font-size:18px;margin-bottom:40px}.brand span{color:#a77d00}.eyebrow{font-size:12px;font-weight:800;text-transform:uppercase}.panel{background:rgba(255,255,255,.94);border:1px solid var(--line);border-radius:8px;padding:clamp(24px,5vw,44px);box-shadow:0 18px 45px rgba(20,25,22,.07)}h1{font-size:clamp(28px,5vw,42px);line-height:1.12;margin:8px 0 14px;letter-spacing:0}p{color:var(--muted)}dl{display:grid;grid-template-columns:110px 1fr;gap:8px 18px;margin:28px 0;padding:20px 0;border-block:1px solid var(--line)}dt{font-size:12px;font-weight:800}dd{margin:0;overflow-wrap:anywhere}.hash{font:12px ui-monospace,SFMono-Regular,Consolas,monospace}label{display:block;font-weight:700;margin:20px 0 8px}select,button{width:100%;min-height:48px;border-radius:6px;font:inherit}select{border:1px solid #aeb5b1;background:#fff;padding:0 12px}button{border:0;background:var(--yellow);font-weight:800;cursor:pointer;margin-top:18px}button:disabled{cursor:not-allowed;opacity:.55}.status{min-height:24px;margin-top:18px;color:var(--green);font-weight:700}.error{color:var(--red)}.security{font-size:13px;margin-top:26px}.dot{display:inline-block;width:8px;height:8px;background:var(--green);border-radius:50%;margin-right:7px}@media(max-width:520px){main{margin:20px auto}.brand{margin-bottom:20px}dl{grid-template-columns:1fr;gap:3px}dd{margin-bottom:8px}}
+  </style>
+  <script src="/v1/authorize.js" defer></script>
+</head>
+<body>
+  <main>
+    <div class="brand"><span>m.</span> MAIOCCHI ASSINATURAS</div>
+    <section class="panel">
+      <div class="eyebrow"><span class="dot"></span>Agente local protegido</div>
+      <h1>Autorizar com ICP-Brasil</h1>
+      <p>Confira o documento e selecione a identidade do dispositivo criptográfico. A conformidade ICP-Brasil será confirmada pelo servidor; a chave privada permanece no token.</p>
+      <dl><dt>Documento</dt><dd id="document">Verificando...</dd><dt>SHA-256 recebido</dt><dd class="hash" id="hash">-</dd></dl>
+      <label for="certificate">Credencial externa</label>
+      <select id="certificate" disabled><option>Consultando dispositivo...</option></select>
+      <button id="sign" disabled>Autorizar assinatura no token</button>
+      <div id="status" class="status" role="status" aria-live="polite"></div>
+      <p class="security">O agente não recebe PIN do portal, não exporta a chave e não assina sem confirmação. No Windows, a autorização é conduzida pelo CNG; no Linux, pelo caminho protegido do middleware PKCS#11.</p>
+    </section>
+  </main>
+</body>
+</html>

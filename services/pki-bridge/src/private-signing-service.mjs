@@ -6,6 +6,8 @@ import { assertSignedPdfBoundToPresentation } from "./signed-pdf-binding.mjs";
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const MAX_PDF_BYTES = 40 * 1024 * 1024;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const PUBLIC_ID_PATTERN = /^MAI-[0-9]{4}(?:-[0-9A-HJKMNP-TV-Z]{4}){4}$/;
 const ICP_BRASIL_SIGNER_ROLE = "Signatário ICP-Brasil";
 const REMOTE_HEALTH_CACHE_MS = 30_000;
 
@@ -33,10 +35,33 @@ function safeDisplay(value, fallback, max = 180) {
   return typeof value === "string" && value.trim() ? value.trim().replace(/\s+/g, " ").slice(0, max) : fallback;
 }
 
+function normalizedIdentity(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
 function safeDocumentContext(value) {
   const context = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const generatedBy = context.generatedBy && typeof context.generatedBy === "object" && !Array.isArray(context.generatedBy)
     ? context.generatedBy : {};
+  const integration = context.integration && typeof context.integration === "object" && !Array.isArray(context.integration)
+    ? context.integration : null;
+  const linkedSubmitter = integration?.system === "docuseal" && PUBLIC_ID_PATTERN.test(integration.submissionReference || "") &&
+    UUID_PATTERN.test(integration.submitterUuid || "") ? {
+      system: "docuseal",
+      submissionReference: integration.submissionReference,
+      submitterUuid: integration.submitterUuid,
+      signerName: safeDisplay(integration.signerName, "Não informado", 120),
+      signerEmail: safeDisplay(integration.signerEmail, "Não informado", 180),
+      ...(SHA256_PATTERN.test(integration.signerNationalIdSha256 || "")
+        ? { signerNationalIdSha256: integration.signerNationalIdSha256 }
+        : {}),
+    } : null;
   return {
     generatedBy: {
       name: safeDisplay(generatedBy.name, "Roger Maiocchi", 120),
@@ -45,6 +70,7 @@ function safeDocumentContext(value) {
     },
     intendedFor: safeDisplay(context.intendedFor, "Não informado"),
     purpose: safeDisplay(context.purpose, "Documento eletrônico"),
+    ...(linkedSubmitter ? { integration: linkedSubmitter } : {}),
   };
 }
 
@@ -130,6 +156,11 @@ function maskNationalId(value) {
   return "Não informado";
 }
 
+function nationalIdSha256(value) {
+  const digits = String(value || "").replace(/\D/g, "");
+  return [11, 14].includes(digits.length) ? sha256(digits) : null;
+}
+
 function remotePolicyOid(signer) {
   return signer?.signaturePolicy?.oid || signer?.policy?.oid || null;
 }
@@ -137,12 +168,40 @@ function remotePolicyOid(signer) {
 function remoteSignerMetadata(signer) {
   const certificate = signer?.certificate || {};
   const signedAt = signer?.signingTime || signer?.claimedSigningTime || new Date().toISOString();
+  const nationalId = certificate.pkiBrazil?.cpf || certificate.subjectIdentifier;
   return {
     name: safeDisplay(certificate.subjectDisplayName || certificate.subjectCommonName, "Signatário identificado no certificado", 140),
-    nationalIdMasked: maskNationalId(certificate.pkiBrazil?.cpf || certificate.subjectIdentifier),
+    nationalIdMasked: maskNationalId(nationalId),
+    nationalIdSha256: nationalIdSha256(nationalId),
     certificateType: safeDisplay(certificate.pkiBrazil?.certificateType, "ICP-Brasil", 80),
     certificateFingerprintSha256: safeDisplay(certificate.thumbprintSHA256, "", 64).toLowerCase(),
     signedAt: Number.isNaN(new Date(signedAt).getTime()) ? new Date().toISOString() : new Date(signedAt).toISOString(),
+  };
+}
+
+function validatedSignerEvidence(ticket) {
+  const validation = ticket.validation_report || {};
+  if (validation.provider === "rest_pki_core") {
+    return (validation.inspection?.signers || []).map(remoteSignerMetadata);
+  }
+  return [{
+    name: safeDisplay(validation.signedBy, "Signatário identificado no certificado", 140),
+    nationalIdMasked: safeDisplay(validation.signerNationalIdMasked, "Não informado", 40),
+    nationalIdSha256: SHA256_PATTERN.test(validation.signerNationalIdSha256 || "")
+      ? validation.signerNationalIdSha256 : null,
+    certificateType: safeDisplay(validation.certificateType, "ICP-Brasil A3", 80),
+    certificateFingerprintSha256: bufferHex(ticket.certificate_fingerprint_sha256) || "",
+    signedAt: validation.signingTime || ticket.completed_at,
+  }];
+}
+
+function publicSignerEvidence(signer) {
+  return {
+    name: signer.name,
+    nationalIdMasked: signer.nationalIdMasked,
+    certificateType: signer.certificateType,
+    certificateFingerprintSha256: signer.certificateFingerprintSha256,
+    signedAt: signer.signedAt,
   };
 }
 
@@ -242,6 +301,9 @@ export class PrivateSigningService {
   }
 
   async createTicket({ pdf, documentName, documentContext, ttlSeconds = 600 }) {
+    if (!this.localSigningEnabled && !this.remoteProvider) {
+      throw Object.assign(new Error("qualified signing provider is unavailable"), { status: 503 });
+    }
     if (!Buffer.isBuffer(pdf) || pdf.length < 5 || pdf.length > MAX_PDF_BYTES || pdf.subarray(0, 5).toString("ascii") !== "%PDF-") {
       throw new TypeError("source PDF is invalid");
     }
@@ -340,6 +402,7 @@ export class PrivateSigningService {
       finalPostQuantumCode: ticket.final_pqc_code || null,
       localSigningAvailable: this.localSigningEnabled,
       remoteSigningAvailable: remoteHealth.ready,
+      linkedToDocuseal: ticket.document_context?.integration?.system === "docuseal",
     };
   }
 
@@ -611,6 +674,70 @@ export class PrivateSigningService {
     };
   }
 
+  async commitPayload(token) {
+    const ticket = await this.repository.findByTokenHash(tokenHash(token));
+    assertActive(ticket);
+    if (!ticket || ticket.status !== "completed") {
+      throw Object.assign(new Error("validated signed PDF is not available"), { status: 409 });
+    }
+    const integration = ticket.document_context?.integration;
+    if (integration?.system !== "docuseal") {
+      throw Object.assign(new Error("ticket is not linked to a DocuSeal signer"), { status: 422 });
+    }
+    const verification = await this.verification(ticket.public_id);
+    const record = verification.envelope.record;
+    const signers = validatedSignerEvidence(ticket);
+    const expectedName = normalizedIdentity(integration.signerName);
+    const expectedNationalIdSha256 = integration.signerNationalIdSha256 || null;
+    const matchingSigners = expectedName.length >= 5
+      ? signers.filter((signer) => normalizedIdentity(signer.name) === expectedName &&
+          (!expectedNationalIdSha256 || signer.nationalIdSha256 === expectedNationalIdSha256))
+      : [];
+    if (matchingSigners.length !== 1) {
+      throw Object.assign(new Error("certificate signer does not match the linked DocuSeal signer"), { status: 422 });
+    }
+    const [signer] = matchingSigners;
+    const signedPdf = await this.artifactStore.get(ticket.signed_pdf_storage_key);
+    const signedPdfSha256 = bufferHex(ticket.signed_pdf_sha256);
+    if (sha256(signedPdf) !== signedPdfSha256) {
+      throw Object.assign(new Error("stored signed PDF hash mismatch"), { status: 503 });
+    }
+    return {
+      signedPdfBase64: signedPdf.toString("base64"),
+      receipt: {
+        version: 1,
+        attemptId: ticket.id,
+        publicId: ticket.public_id,
+        documentNumber: ticket.document_number,
+        documentName: ticket.document_name,
+        origin: {
+          system: "docuseal",
+          submissionReference: integration.submissionReference,
+          submitterUuid: integration.submitterUuid,
+        },
+        hashes: {
+          sourcePdfSha256: bufferHex(ticket.source_pdf_sha256),
+          presentationPdfSha256: bufferHex(ticket.presentation_pdf_sha256),
+          signedPdfSha256,
+          validationReportSha256: record.validation.report.hash.value,
+        },
+        signer: {
+          name: signer.name || "Não informado",
+          nationalIdMasked: signer.nationalIdMasked || "Não informado",
+          certificateFingerprintSha256: signer.certificateFingerprintSha256 || "",
+          identityMatch: true,
+        },
+        validation: {
+          status: record.validation.status,
+          policyOid: record.signature.policyOid,
+          signatureCount: record.signature.count,
+        },
+        proof: verification.envelope.proof,
+        completedAt: record.document.finalizedAt,
+      },
+    };
+  }
+
   async verification(publicId) {
     const ticket = await this.repository.findByPublicId(publicId);
     if (!ticket || ticket.status !== "completed") return null;
@@ -620,15 +747,8 @@ export class PrivateSigningService {
       throw Object.assign(new Error("private PAdES evidence failed internal validation"), { status: 503 });
     }
     const validation = ticket.validation_report || {};
-    const remoteSigners = validation.provider === "rest_pki_core" ? (validation.inspection?.signers || []).map(remoteSignerMetadata) : [];
-    const localSigner = validation.provider === "rest_pki_core" ? [] : [{
-      name: safeDisplay(validation.signedBy, "Signatário identificado no certificado", 140),
-      nationalIdMasked: safeDisplay(validation.signerNationalIdMasked, "Não informado", 40),
-      certificateType: safeDisplay(validation.certificateType, "ICP-Brasil A3", 80),
-      certificateFingerprintSha256: bufferHex(ticket.certificate_fingerprint_sha256) || "",
-      signedAt: validation.signingTime || ticket.completed_at,
-    }];
-    const signers = remoteSigners.length ? remoteSigners : localSigner;
+    const signerEvidence = validatedSignerEvidence(ticket);
+    const signers = signerEvidence.map(publicSignerEvidence);
     const policyOid = validation.provider === "rest_pki_core"
       ? remotePolicyOid(validation.inspection.signers[0])
       : validation.policyOid;

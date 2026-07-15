@@ -1,0 +1,1923 @@
+diff --git a/Dockerfile b/Dockerfile
+index 99b8840d989165b16560f02e1e8f72f7bfa31b3a..a19cbd8ea2637f5e9efb1443c4b37d608f54ce61 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -103,7 +103,7 @@ RUN mkdir -p /app/public/legal && \
+ ARG SOURCE_REVISION=unknown
+ LABEL org.opencontainers.image.title="Maiocchi. Assinatura" \
+       org.opencontainers.image.vendor="Maiocchi Advogado" \
+-      org.opencontainers.image.version="3.0.1-maiocchi.12" \
++      org.opencontainers.image.version="3.0.1-maiocchi.13" \
+       org.opencontainers.image.revision="${SOURCE_REVISION}" \
+       org.opencontainers.image.licenses="AGPL-3.0-only"
+ 
+diff --git a/app/controllers/qualified_signature_completions_controller.rb b/app/controllers/qualified_signature_completions_controller.rb
+new file mode 100644
+index 0000000000000000000000000000000000000000..1b0f222a32eb906128438ded50f91fc9c7662661
+--- /dev/null
++++ b/app/controllers/qualified_signature_completions_controller.rb
+@@ -0,0 +1,25 @@
++# frozen_string_literal: true
++
++class QualifiedSignatureCompletionsController < ApplicationController
++  skip_before_action :authenticate_user!
++  skip_authorization_check
++  skip_forgery_protection
++
++  def create
++    RateLimit.call("qualified-signature-completion-#{request.remote_ip}", limit: 10, ttl: 10.minutes, enabled: true)
++    ticket = params.require(:ticket).to_s
++    unless ticket.match?(/\A[A-Za-z0-9_-]{43}\z/)
++      raise QualifiedSignatures::Commit::Error,
++            'O ticket qualificado é inválido.'
++    end
++
++    submitter = QualifiedSignatures::Commit.call(ticket:, request:)
++    render json: {
++      status: 'committed',
++      publicId: submitter.qualified_signature_public_id,
++      redirectUrl: submit_form_completed_path(submitter.slug)
++    }
++  rescue QualifiedSignatures::Commit::Error, PrivatePadesTickets::Error, ActionController::ParameterMissing => e
++    render json: { error: { code: 'qualified_commit_rejected', message: e.message } }, status: :unprocessable_content
++  end
++end
+diff --git a/app/controllers/qualified_signatures_controller.rb b/app/controllers/qualified_signatures_controller.rb
+index ec6e26e05aed25b1b6a5e908dfe9c0461ae1c139..d46782c333fafab353f835312a8c42a5e12f7c5e 100644
+--- a/app/controllers/qualified_signatures_controller.rb
++++ b/app/controllers/qualified_signatures_controller.rb
+@@ -1,34 +1,105 @@
+ # frozen_string_literal: true
+ 
+ class QualifiedSignaturesController < ApplicationController
+-  before_action { authorize!(:create, Template) }
+-  before_action :ensure_remote_available
++  layout 'form'
+ 
+-  def new; end
++  skip_before_action :authenticate_user!
++  skip_authorization_check
++
++  before_action :load_submitter
++  before_action :authorize_access
++  before_action :ensure_verified_submitter
++
++  def new
++    @remote_available = PrivatePadesTickets.remote_available?
++  end
+ 
+   def create
+-    upload = params[:pdf]
+-    raise PrivatePadesTickets::Error, 'Selecione o PDF que será assinado.' unless upload.respond_to?(:read)
++    rate_limit!
++    pdf, document_name = qualified_source
+ 
+     result = PrivatePadesTickets.create(
+-      pdf: BoundedPdfUpload.read!(upload, max_bytes: PrivatePadesTickets::MAX_PDF_BYTES),
+-      document_name: upload.original_filename,
++      pdf:,
++      document_name:,
+       intended_for: params[:intended_for],
+-      purpose: params[:purpose]
++      purpose: params[:purpose],
++      submitter: @submitter
+     )
+ 
++    register_attempt!(result) if @submitter
++
+     redirect_to PrivatePadesTickets.local_ticket_path(result.fetch('url'))
+   rescue PrivatePadesTickets::Error, BoundedPdfUpload::TooLarge => e
+     flash.now[:alert] = e.message
++    @remote_available = PrivatePadesTickets.remote_available?
+     render :new, status: :unprocessable_content
+   end
+ 
+   private
+ 
+-  def ensure_remote_available
+-    return if PrivatePadesTickets.remote_available?
++  def load_submitter
++    @submitter = Submitter.find_by!(slug: params[:submitter_slug]) if params[:submitter_slug].present?
++  end
++
++  def authorize_access
++    if @submitter
++      invalid = @submitter.completed_at? || @submitter.declined_at? || @submitter.submission.expired? ||
++                @submitter.submission.archived_at? || @submitter.submission.template&.archived_at?
++      raise ActionController::RoutingError, I18n.t('not_found') if invalid
++
++      return
++    end
+ 
+-    alert = 'A assinatura qualificada está indisponível porque nenhum PSC credenciado está conectado ao gateway.'
+-    redirect_to root_path, alert:
++    authenticate_user!
++    authorize!(:create, Template)
++  end
++
++  def rate_limit!
++    actor = @submitter ? "submitter-#{@submitter.id}" : "user-#{current_user.id}"
++    RateLimit.call("qualified-signature-#{actor}", limit: 5, ttl: 10.minutes, enabled: true)
++  rescue RateLimit::LimitApproached
++    raise PrivatePadesTickets::Error, 'Limite temporário atingido. Aguarde antes de preparar outro documento.'
++  end
++
++  def ensure_verified_submitter
++    return unless @submitter
++    return if Submitters::AuthorizedForForm.call(@submitter, current_user, request)
++
++    redirect_to submit_form_path(@submitter.slug),
++                alert: I18n.t('verification_required_refresh_the_page_and_pass_2fa')
++  end
++
++  def qualified_source
++    return QualifiedSignatures::CanonicalSource.call(@submitter, request) if @submitter
++
++    upload = params[:pdf]
++    raise PrivatePadesTickets::Error, 'Selecione o PDF que será assinado.' unless upload.respond_to?(:read)
++
++    [BoundedPdfUpload.read!(upload, max_bytes: PrivatePadesTickets::MAX_PDF_BYTES), upload.original_filename]
++  end
++
++  def register_attempt!(result)
++    MaiocchiSignaturePolicy.apply_to_submitter!(@submitter, MaiocchiSignaturePolicy::QUALIFIED, save: false)
++    @submitter.preferences['qualified_signature_attempt'] = {
++      'public_id' => result.fetch('publicId'),
++      'document_number' => result.fetch('documentNumber'),
++      'source_pdf_sha256' => result.fetch('sourcePdfSha256'),
++      'status' => 'pending',
++      'created_at' => Time.current.utc.iso8601,
++      'expires_at' => result.fetch('expiresAt')
++    }
++    @submitter.qualified_signature_state = 'ticketed'
++    @submitter.qualified_signature_public_id = result.fetch('publicId')
++    @submitter.qualified_signature_source_sha256 = result.fetch('sourcePdfSha256')
++    @submitter.qualified_signature_signed_sha256 = nil
++    @submitter.qualified_signature_receipt = {}
++    @submitter.qualified_signature_completed_at = nil
++    @submitter.save!
++    SubmissionEvents.create_with_tracking_data(
++      @submitter,
++      'start_qualified_signature',
++      request,
++      { public_id: result.fetch('publicId'), source_pdf_sha256: result.fetch('sourcePdfSha256') }
++    )
+   end
+ end
+diff --git a/app/controllers/submit_form_controller.rb b/app/controllers/submit_form_controller.rb
+index a65c2237137fb0b890a9b50aab30aab5664b4f20..dd0f705bb07eaca3c24ac03768b26c0c4e799061 100644
+--- a/app/controllers/submit_form_controller.rb
++++ b/app/controllers/submit_form_controller.rb
+@@ -8,6 +8,7 @@ class SubmitFormController < ApplicationController
+   skip_authorization_check
+ 
+   before_action :load_submitter, only: %i[show update completed]
++  before_action :snapshot_signature_mode, only: %i[show update completed]
+   before_action :maybe_redirect_delegated, only: %i[show completed]
+   before_action :maybe_render_locked_page, only: :show
+   before_action :maybe_require_link_2fa, only: %i[show]
+@@ -131,6 +132,10 @@ class SubmitFormController < ApplicationController
+     @submitter = Submitter.find_by(slug: params[:slug] || params[:submit_form_slug])
+   end
+ 
++  def snapshot_signature_mode
++    MaiocchiSignaturePolicy.snapshot_submitter!(@submitter) if @submitter
++  end
++
+   def build_attachments_index(submission)
+     ActiveStorage::Attachment.where(record: submission.submitters, name: :attachments)
+                              .preload(:blob).index_by(&:uuid)
+diff --git a/app/controllers/submitter_signature_modes_controller.rb b/app/controllers/submitter_signature_modes_controller.rb
+new file mode 100644
+index 0000000000000000000000000000000000000000..1420894fec36dceeaa85ea5048751e30fba4b168
+--- /dev/null
++++ b/app/controllers/submitter_signature_modes_controller.rb
+@@ -0,0 +1,61 @@
++# frozen_string_literal: true
++
++class SubmitterSignatureModesController < ApplicationController
++  layout 'form'
++
++  skip_before_action :authenticate_user!
++  skip_authorization_check
++
++  before_action :load_submitter
++  before_action :ensure_active_submitter
++  before_action :ensure_verified_access, only: :update
++  before_action :snapshot_signature_mode
++
++  def show
++    @current_mode = MaiocchiSignaturePolicy.mode_for(@submitter)
++    @required_mode = MaiocchiSignaturePolicy.required_mode_for(@submitter)
++    @remote_available = PrivatePadesTickets.remote_available?
++  end
++
++  def update
++    mode = MaiocchiSignaturePolicy.validate_mode!(params[:signature_mode])
++    MaiocchiSignaturePolicy.apply_to_submitter!(@submitter, mode)
++    SubmissionEvents.create_with_tracking_data(
++      @submitter,
++      'select_signature_mode',
++      request,
++      { signature_mode: mode, policy_version: MaiocchiSignaturePolicy::POLICY_VERSION }
++    )
++
++    if mode == MaiocchiSignaturePolicy::QUALIFIED
++      redirect_to new_qualified_signature_path(submitter_slug: @submitter.slug)
++    else
++      redirect_to submit_form_path(@submitter.slug)
++    end
++  rescue MaiocchiSignaturePolicy::InvalidMode => e
++    redirect_to submit_form_signature_mode_path(@submitter.slug), alert: e.message
++  end
++
++  private
++
++  def load_submitter
++    @submitter = Submitter.find_by!(slug: params[:submit_form_slug])
++  end
++
++  def ensure_active_submitter
++    invalid = @submitter.completed_at? || @submitter.declined_at? || @submitter.submission.expired? ||
++              @submitter.submission.archived_at? || @submitter.submission.template&.archived_at?
++    raise ActionController::RoutingError, I18n.t('not_found') if invalid
++  end
++
++  def snapshot_signature_mode
++    MaiocchiSignaturePolicy.snapshot_submitter!(@submitter)
++  end
++
++  def ensure_verified_access
++    return if Submitters::AuthorizedForForm.call(@submitter, current_user, request)
++
++    redirect_to submit_form_path(@submitter.slug),
++                alert: I18n.t('verification_required_refresh_the_page_and_pass_2fa')
++  end
++end
+diff --git a/app/javascript/styles/_maiocchi_brand.scss b/app/javascript/styles/_maiocchi_brand.scss
+index c06aa33d70eb573ebf74a1da447b69c010a8baba..a14a9ad426d9cc18e3227bd8c29f16811a5c64d9 100644
+--- a/app/javascript/styles/_maiocchi_brand.scss
++++ b/app/javascript/styles/_maiocchi_brand.scss
+@@ -658,6 +658,11 @@ page-container {
+   background: rgb(17 17 17 / 78%);
+ }
+ 
++.maiocchi-mode-card.is-current {
++  border-color: var(--maiocchi-accent);
++  box-shadow: 0 0 0 3px rgb(255 184 0 / 18%), 0 14px 35px rgb(10 10 10 / 7%);
++}
++
+ .maiocchi-mode-icon {
+   align-items: center;
+   background: rgb(255 196 0 / 18%);
+@@ -673,6 +678,7 @@ page-container {
+   min-width: 0;
+ }
+ 
++.maiocchi-mode-card__copy h2,
+ .maiocchi-mode-card__copy h3 {
+   font-size: 1.05rem;
+   font-weight: 800;
+@@ -699,6 +705,14 @@ page-container {
+   margin-top: 0.6rem;
+ }
+ 
++.maiocchi-mode-card__status {
++  color: rgb(255 255 255 / 72%);
++  font-size: 0.68rem;
++  grid-column: 1 / -1;
++  line-height: 1.4;
++  margin: -0.25rem 0 0;
++}
++
+ .maiocchi-mode-card__action,
+ .maiocchi-mode-card > .maiocchi-icon-action {
+   align-self: end;
+@@ -753,6 +767,51 @@ page-container {
+   min-width: 0;
+ }
+ 
++.maiocchi-mode-picker {
++  margin: clamp(1rem, 5vw, 4rem) auto;
++  max-width: 72rem;
++  padding: 0 1rem;
++}
++
++.maiocchi-mode-picker__header {
++  align-items: flex-start;
++  display: flex;
++  gap: 1rem;
++  margin-bottom: 1.5rem;
++}
++
++.maiocchi-mode-picker__header > div {
++  min-width: 0;
++}
++
++.maiocchi-mode-picker__header h1 {
++  font-size: clamp(1.8rem, 4vw, 2.8rem);
++  font-weight: 850;
++  line-height: 1.05;
++  margin-top: 0.25rem;
++}
++
++.maiocchi-mode-picker__header p:last-child {
++  color: var(--maiocchi-muted);
++  line-height: 1.5;
++  margin-top: 0.6rem;
++  max-width: 48rem;
++}
++
++.maiocchi-mode-picker__back {
++  align-items: center;
++  color: var(--maiocchi-muted);
++  display: inline-flex;
++  font-size: 0.8rem;
++  font-weight: 750;
++  gap: 0.4rem;
++  margin-top: 1rem;
++  text-decoration: underline;
++  text-decoration-color: var(--maiocchi-accent);
++  text-decoration-thickness: 2px;
++  text-underline-offset: 3px;
++}
++
+ .maiocchi-qualified__heading {
+   align-items: flex-start;
+   display: flex;
+@@ -835,6 +894,29 @@ page-container {
+   padding: 0.75rem;
+ }
+ 
++.maiocchi-provider-status {
++  align-items: flex-start;
++  border-left: 3px solid var(--maiocchi-accent);
++  display: flex;
++  font-size: 0.75rem;
++  gap: 0.55rem;
++  line-height: 1.45;
++  padding: 0.75rem;
++}
++
++.maiocchi-provider-status.is-ready {
++  background: rgb(31 122 74 / 10%);
++  border-left-color: #1f7a4a;
++}
++
++.maiocchi-provider-status.is-waiting {
++  background: rgb(255 184 0 / 11%);
++}
++
++.maiocchi-provider-status svg {
++  flex: 0 0 auto;
++}
++
+ .maiocchi-qualified__legal span,
+ .maiocchi-qualified__submit span {
+   min-width: 0;
+diff --git a/app/jobs/process_submitter_completion_job.rb b/app/jobs/process_submitter_completion_job.rb
+index 26091719ae46f95c72cadf86b479259cffa8f659..310adf13632699a32f141c0049bd07998c4e1e7f 100644
+--- a/app/jobs/process_submitter_completion_job.rb
++++ b/app/jobs/process_submitter_completion_job.rb
+@@ -17,7 +17,8 @@ class ProcessSubmitterCompletionJob
+     if is_all_completed && submitter.completed_at == submitter.submission.submitters.maximum(:completed_at)
+       Submissions::EnsureAuditGenerated.call(submitter.submission)
+ 
+-      if submitter.submission.account.account_configs.exists?(key: AccountConfig::COMBINE_PDF_RESULT_KEY, value: true)
++      if MaiocchiSignaturePolicy.mode_for(submitter) != MaiocchiSignaturePolicy::QUALIFIED &&
++         submitter.submission.account.account_configs.exists?(key: AccountConfig::COMBINE_PDF_RESULT_KEY, value: true)
+         Submissions::EnsureCombinedGenerated.call(submitter)
+       end
+ 
+diff --git a/app/models/submission_event.rb b/app/models/submission_event.rb
+index e88d192fda2b3fa0af8a317e97f6a7ef115327ed..486192cd2683e4a822713b33ae9e3535989b6ba3 100644
+--- a/app/models/submission_event.rb
++++ b/app/models/submission_event.rb
+@@ -65,6 +65,9 @@ class SubmissionEvent < ApplicationRecord
+     complete_form: 'complete_form',
+     decline_form: 'decline_form',
+     delegate_form: 'delegate_form',
++    select_signature_mode: 'select_signature_mode',
++    start_qualified_signature: 'start_qualified_signature',
++    complete_qualified_signature: 'complete_qualified_signature',
+     api_complete_form: 'api_complete_form'
+   }, scope: false
+ 
+diff --git a/app/models/submitter.rb b/app/models/submitter.rb
+index 0e4bc6c248476500aef32ec2a20a48da4203d907..3735b29a38479653411a91a1419e87dc5fd6f4e8 100644
+--- a/app/models/submitter.rb
++++ b/app/models/submitter.rb
+@@ -55,6 +55,20 @@ class Submitter < ApplicationRecord
+   serialize :preferences, coder: JSON
+   serialize :metadata, coder: JSON
+ 
++  validates :signature_mode, inclusion: { in: MaiocchiSignaturePolicy::SIGNER_MODES }, allow_nil: true
++  validates :signature_mode_requirement, inclusion: { in: MaiocchiSignaturePolicy::SIGNER_MODES }, allow_nil: true
++  validates :signature_mode_source, length: { maximum: 40 }, allow_nil: true
++  validates :signature_policy_version, length: { maximum: 40 }, allow_nil: true
++  validates :qualified_signature_state, inclusion: { in: %w[ticketed validated committed failed] }, allow_nil: true
++  validates :qualified_signature_public_id, format: { with: MaiocchiSignaturePolicy::PUBLIC_ID_PATTERN },
++                                            allow_nil: true
++  validates :qualified_signature_source_sha256, :qualified_signature_signed_sha256,
++            format: { with: /\A[a-f0-9]{64}\z/ }, allow_nil: true
++  validate :qualified_completion_must_be_committed
++
++  before_validation :snapshot_signature_policy, on: :create
++  before_update :protect_committed_qualified_signature
++
+   has_many_attached :documents
+   has_many_attached :attachments
+   has_many_attached :preview_documents
+@@ -118,6 +132,29 @@ class Submitter < ApplicationRecord
+ 
+   private
+ 
++  def qualified_completion_must_be_committed
++    return unless completed_at? && signature_mode == MaiocchiSignaturePolicy::QUALIFIED
++    return if qualified_signature_state == 'committed'
++
++    errors.add(:completed_at, 'exige um PAdES ICP-Brasil validado e incorporado ao documento')
++  end
++
++  def protect_committed_qualified_signature
++    return unless qualified_signature_state_was == 'committed'
++
++    protected_fields = %w[
++      qualified_signature_state qualified_signature_public_id qualified_signature_source_sha256
++      qualified_signature_signed_sha256 qualified_signature_receipt qualified_signature_completed_at
++    ]
++    return unless changes.keys.intersect?(protected_fields)
++
++    raise ActiveRecord::ReadOnlyRecord, 'O registro qualificado confirmado é imutável.'
++  end
++
++  def snapshot_signature_policy
++    MaiocchiSignaturePolicy.snapshot_submitter!(self, source: 'submission_default', save: false)
++  end
++
+   def anonymize_email_events
+     email_events.each do |event|
+       event.update!(email: Digest::MD5.base64digest(event.email))
+diff --git a/app/views/qualified_signatures/new.html.erb b/app/views/qualified_signatures/new.html.erb
+index 37e6c8878a8bd31b6c0abefc32db4a079c51814a..a42f025fbd8dcc4bb0542be21b09144ac8f81a43 100644
+--- a/app/views/qualified_signatures/new.html.erb
++++ b/app/views/qualified_signatures/new.html.erb
+@@ -4,19 +4,33 @@
+     <div>
+       <p class="maiocchi-eyebrow">MODALIDADE · ICP-BRASIL</p>
+       <h1 id="qualified-signature-title">Assinatura digital qualificada</h1>
+-      <p>O gateway prepara o PDF e encaminha o titular ao PSC credenciado. A chave do certificado A3 em nuvem nunca ingressa no portal.</p>
++      <p>O gateway prepara o PDF final e abre as opções compatíveis com o certificado do titular: token físico conectado ao computador ou certificado remoto em PSC integrado. A chave privada nunca é transferida ao portal.</p>
+     </div>
+   </div>
+ 
+   <%= form_with url: qualified_signatures_path, method: :post, multipart: true,
+                 data: { turbo: false }, class: 'maiocchi-qualified__form' do |form| %>
+-    <label class="maiocchi-field" for="qualified_pdf">
+-      <span>Documento PDF</span>
+-      <%= form.file_field :pdf, id: 'qualified_pdf', accept: 'application/pdf,.pdf', required: true, class: 'file-input file-input-bordered w-full' %>
+-    </label>
++    <%= form.hidden_field :submitter_slug, value: @submitter.slug if @submitter %>
++    <div class="maiocchi-provider-status is-ready" role="status">
++      <%= svg_icon('shield_check', class: 'w-5 h-5') %>
++      <span><strong>Preparação disponível.</strong> Após o envio, o portal detectará o agente do token físico e também oferecerá o PSC remoto quando houver uma integração ativa.</span>
++    </div>
++    <% if @submitter %>
++      <div class="maiocchi-field maiocchi-qualified__canonical-document">
++        <span>Documento vinculado</span>
++        <strong><%= @submitter.submission.name || @submitter.submission.template.name %></strong>
++        <small>O PDF será gerado no servidor com os campos e anexos deste signatário. Não é permitido substituir o documento por outro arquivo.</small>
++      </div>
++    <% else %>
++      <label class="maiocchi-field" for="qualified_pdf">
++        <span>Documento PDF</span>
++        <%= form.file_field :pdf, id: 'qualified_pdf', accept: 'application/pdf,.pdf', required: true, class: 'file-input file-input-bordered w-full' %>
++      </label>
++    <% end %>
+     <label class="maiocchi-field" for="qualified_intended_for">
+       <span>Destinado a</span>
+       <%= form.text_field :intended_for, id: 'qualified_intended_for', maxlength: 180,
++                          value: params[:intended_for].presence || @submitter&.name,
+                           placeholder: 'Cliente, órgão ou destinatário', class: 'base-input' %>
+     </label>
+     <label class="maiocchi-field" for="qualified_purpose">
+@@ -30,7 +44,13 @@
+     </div>
+     <%= form.button class: 'base-button maiocchi-qualified__submit' do %>
+       <%= svg_icon('writing_sign', class: 'w-5 h-5') %>
+-      <span>Continuar para autorização no PSC</span>
++      <span>Preparar PDF e escolher certificado</span>
+     <% end %>
+   <% end %>
++  <% if @submitter %>
++    <a href="<%= submit_form_signature_mode_path(@submitter.slug) %>" class="maiocchi-mode-picker__back">
++      <%= svg_icon('arrow_left', class: 'w-5 h-5') %>
++      <span>Voltar às modalidades</span>
++    </a>
++  <% end %>
+ </section>
+diff --git a/app/views/submissions/show.html.erb b/app/views/submissions/show.html.erb
+index 7922949c24120a515eaf25fb4afda0a321ac87ed..23a278f9d2c2409a7ca8b1a0db0eec80036f994d 100644
+--- a/app/views/submissions/show.html.erb
++++ b/app/views/submissions/show.html.erb
+@@ -241,7 +241,7 @@
+             <% end %>
+             <% if signed_in? && submitter && !submitter.completed_at? && !@submission.archived_at? && !@submission.template&.archived_at? && can?(:create, @submission) && !@submission.expired? && !submitter.declined_at? %>
+               <div class="mt-2 mb-1">
+-                <a class="btn btn-sm btn-primary w-full" target="_blank" href="<%= submit_form_path(slug: submitter.slug) %>">
++                <a class="btn btn-sm btn-primary w-full" target="_blank" href="<%= submit_form_signature_mode_path(submitter.slug) %>">
+                   <%= t('sign_in_person') %>
+                 </a>
+               </div>
+diff --git a/app/views/submit_form/show.html.erb b/app/views/submit_form/show.html.erb
+index 6a9585c5610f3c5be16531c2af26b7c1dca6fad6..f0bb9bc0a28aa5a96d6254987713c9f6cf1779a8 100644
+--- a/app/views/submit_form/show.html.erb
++++ b/app/views/submit_form/show.html.erb
+@@ -25,6 +25,7 @@
+             <%= @submitter.submission.name || @submitter.submission.template.name %>
+           </h1>
+           <nav class="maiocchi-signing-nav" aria-label="Navegação do portal">
++            <a href="<%= submit_form_signature_mode_path(@submitter.slug) %>" aria-label="Escolher modalidade de assinatura" title="Escolher modalidade de assinatura"><%= svg_icon('certificate', class: 'w-5 h-5') %></a>
+             <a href="<%= MaiocchiBrand::HOME_URL %>/#acessar-documento" aria-label="Assinar documento" title="Assinar documento" aria-current="page"><%= svg_icon('writing_sign', class: 'w-5 h-5') %></a>
+             <a href="<%= MaiocchiBrand::HOME_URL %>/#validar" aria-label="Validar documento" title="Validar documento"><%= svg_icon('shield_check', class: 'w-5 h-5') %></a>
+             <a href="<%= MaiocchiBrand::HOME_URL %>/#advogados" aria-label="Área dos advogados" title="Área dos advogados"><%= svg_icon('folder', class: 'w-5 h-5') %></a>
+diff --git a/app/views/submitter_signature_modes/show.html.erb b/app/views/submitter_signature_modes/show.html.erb
+new file mode 100644
+index 0000000000000000000000000000000000000000..0775e727eccd9778452ab3449a7ebbbe3b0b9c40
+--- /dev/null
++++ b/app/views/submitter_signature_modes/show.html.erb
+@@ -0,0 +1,52 @@
++<% content_for(:html_title, "Modalidade de assinatura | #{MaiocchiBrand::PRODUCT_NAME}") %>
++<main class="maiocchi-mode-picker">
++  <header class="maiocchi-mode-picker__header">
++    <a href="<%= submit_form_path(@submitter.slug) %>" class="maiocchi-signing-brand" aria-label="Voltar ao documento">
++      <%= render 'shared/logo', width: '54px', height: '54px' %>
++    </a>
++    <div>
++      <p class="maiocchi-eyebrow">IDENTIFICAÇÃO DO SIGNATÁRIO</p>
++      <h1>Como deseja assinar?</h1>
++      <p>Escolha a modalidade para <strong><%= @submitter.submission.name || @submitter.submission.template.name %></strong>. A opção pode ser alterada enquanto o documento não for concluído.</p>
++    </div>
++  </header>
++
++  <section class="maiocchi-modes" aria-label="Modalidades disponíveis">
++    <div class="maiocchi-modes__grid">
++      <% [
++        [MaiocchiSignaturePolicy::SIMPLE, 'writing_sign', 'Eletrônica simples', 'Manifestação eletrônica com identidade, IP, dispositivo, data, hora, hash e trilha de auditoria.'],
++        [MaiocchiSignaturePolicy::ADVANCED, 'email_check', 'Eletrônica avançada', 'Confirmação adicional por código enviado ao e-mail do signatário e trilha probatória.'],
++        [MaiocchiSignaturePolicy::QUALIFIED, 'certificate', 'Digital qualificada', 'PAdES com certificado ICP-Brasil autorizado pelo titular em token físico ou, quando integrado, em PSC remoto.']
++      ].each do |mode, icon, title, description| %>
++        <% current = @current_mode == mode %>
++        <% allowed = MaiocchiSignaturePolicy.allowed_modes_for(@submitter).include?(mode) %>
++        <article class="maiocchi-mode-card <%= 'maiocchi-mode-card--qualified' if mode == MaiocchiSignaturePolicy::QUALIFIED %> <%= 'is-current' if current %>">
++          <span class="maiocchi-mode-icon" aria-hidden="true"><%= svg_icon(icon, class: 'w-7 h-7') %></span>
++          <div class="maiocchi-mode-card__copy">
++            <h2><%= title %></h2>
++            <p><%= description %></p>
++            <small><%= MaiocchiSignaturePolicy::MODES.dig(mode, :legal_basis) %></small>
++          </div>
++          <% if allowed %>
++            <%= button_to submit_form_signature_mode_path(@submitter.slug), method: :patch,
++                          params: { signature_mode: mode },
++                          class: 'maiocchi-icon-action', form_class: 'maiocchi-mode-card__action' do %>
++              <%= svg_icon(current ? 'check' : (mode == MaiocchiSignaturePolicy::QUALIFIED ? 'certificate' : 'arrow_right'), class: 'w-5 h-5') %>
++              <span><%= current ? 'Modalidade atual' : (mode == MaiocchiSignaturePolicy::QUALIFIED ? 'Usar certificado digital' : 'Escolher modalidade') %></span>
++            <% end %>
++          <% else %>
++            <p class="maiocchi-mode-card__status">Não atende à exigência mínima <%= MaiocchiSignaturePolicy::MODES.dig(@required_mode, :label) %> deste documento.</p>
++          <% end %>
++          <% if mode == MaiocchiSignaturePolicy::QUALIFIED && !@remote_available %>
++            <p class="maiocchi-mode-card__status">Token físico disponível pelo agente local. PSC remoto ainda não conectado.</p>
++          <% end %>
++        </article>
++      <% end %>
++    </div>
++  </section>
++
++  <a href="<%= submit_form_path(@submitter.slug) %>" class="maiocchi-mode-picker__back">
++    <%= svg_icon('arrow_left', class: 'w-5 h-5') %>
++    <span>Voltar ao documento</span>
++  </a>
++</main>
+diff --git a/app/views/templates/_submission.html.erb b/app/views/templates/_submission.html.erb
+index 35e45851853d8423c20ddad2a68163e9603a20f7..2f40659eeb537b28f74dc5cfe1f54c77ebb6001d 100644
+--- a/app/views/templates/_submission.html.erb
++++ b/app/views/templates/_submission.html.erb
+@@ -81,7 +81,7 @@
+         <% elsif !submission.archived_at? && !template&.archived_at? && !submission.expired? && !submitter.declined_at? %>
+           <% if current_user.email == submitter.email %>
+             <div class="flex-1 md:flex-none md:w-36 flex">
+-              <a href="<%= submit_form_path(slug: submitter.slug) %>" data-turbo="false" target="_blank" id="sign_yourself_button" class="btn btn-sm btn-neutral btn-outline bg-white w-full md:w-36 flex z-[1]">
++              <a href="<%= submit_form_signature_mode_path(submitter.slug) %>" data-turbo="false" target="_blank" id="sign_yourself_button" class="btn btn-sm btn-neutral btn-outline bg-white w-full md:w-36 flex z-[1]">
+                 <span class="flex items-center justify-center space-x-1 md:space-x-2">
+                   <% if t('sign_now').length < 12 %>
+                     <%= svg_icon('writing_sign', class: 'w-4 h-4 stroke-2') %>
+@@ -167,7 +167,7 @@
+                 <% elsif !template&.archived_at? && !submission.archived_at? && !is_submission_completed && !submission.expired? && !submitter.declined_at? %>
+                   <div class="relative flex items-center space-x-3">
+                     <% if current_user.email == submitter.email %>
+-                      <a href="<%= submit_form_path(slug: submitter.slug) %>" data-turbo="false" target="_blank" id="sign_yourself_button" class="absolute md:relative top-0 right-0 btn btn-xs btn-outline btn-neutral bg-white w-28 md:w-36 z-[1]">
++                      <a href="<%= submit_form_signature_mode_path(submitter.slug) %>" data-turbo="false" target="_blank" id="sign_yourself_button" class="absolute md:relative top-0 right-0 btn btn-xs btn-outline btn-neutral bg-white w-28 md:w-36 z-[1]">
+                         <span class="flex items-center justify-center space-x-1 md:space-x-2">
+                           <% if t('sign_now').length < 12 %>
+                             <%= svg_icon('writing_sign', class: 'w-4 h-4 stroke-2') %>
+diff --git a/config/routes.rb b/config/routes.rb
+index a27f9113ef4e210846ccd6e7d9f2842fdd9d9127..766967f3a4f1108b59267b5f64b9f10bf3176ff9 100644
+--- a/config/routes.rb
++++ b/config/routes.rb
+@@ -12,6 +12,8 @@ Rails.application.routes.draw do
+   root 'dashboard#index'
+ 
+   resources :qualified_signatures, only: %i[new create], path: 'assinaturas/qualificada'
++  post 'assinaturas/qualificada/complete', to: 'qualified_signature_completions#create',
++                                           as: :complete_qualified_signature
+   get 'evidencias/:code', to: 'evidence_records#show', as: :evidence_record, defaults: { format: :json }
+ 
+   get 'up' => 'rails/health#show'
+@@ -160,6 +162,7 @@ Rails.application.routes.draw do
+   end
+ 
+   resources :submit_form, only: %i[show update], path: 's', param: 'slug' do
++    resource :signature_mode, only: %i[show update], controller: 'submitter_signature_modes'
+     resources :values, only: %i[index], controller: 'submit_form_values'
+     resources :download, only: %i[index], controller: 'submit_form_download'
+     resources :documents, only: %i[index], controller: 'submit_form_completed_download'
+diff --git a/db/migrate/20260715103000_add_signature_policy_to_submitters.rb b/db/migrate/20260715103000_add_signature_policy_to_submitters.rb
+new file mode 100644
+index 0000000000000000000000000000000000000000..a8dc79b298c5921df47e890b9116e24b8258ee02
+--- /dev/null
++++ b/db/migrate/20260715103000_add_signature_policy_to_submitters.rb
+@@ -0,0 +1,69 @@
++# frozen_string_literal: true
++
++class AddSignaturePolicyToSubmitters < ActiveRecord::Migration[8.1]
++  def change
++    change_table :submitters, bulk: true do |table|
++      table.string :signature_mode, limit: 32
++      table.string :signature_mode_requirement, limit: 32
++      table.string :signature_mode_source, limit: 40
++      table.string :signature_policy_version, limit: 40
++      table.string :qualified_signature_state, limit: 20
++      table.string :qualified_signature_public_id, limit: 40
++      table.string :qualified_signature_source_sha256, limit: 64
++      table.string :qualified_signature_signed_sha256, limit: 64
++      table.jsonb :qualified_signature_receipt, null: false, default: {}
++      table.datetime :qualified_signature_completed_at
++    end
++
++    add_check_constraint :submitters,
++                         <<~SQL.squish,
++                           signature_mode IS NULL OR
++                           signature_mode IN ('simple', 'advanced', 'qualified_icp_brasil')
++                         SQL
++                         name: 'submitters_signature_mode_valid'
++    add_check_constraint :submitters,
++                         <<~SQL.squish,
++                           signature_mode_requirement IS NULL OR
++                           signature_mode_requirement IN ('simple', 'advanced', 'qualified_icp_brasil')
++                         SQL
++                         name: 'submitters_signature_mode_requirement_valid'
++    add_check_constraint :submitters,
++                         <<~SQL.squish,
++                           qualified_signature_state IS NULL OR
++                           qualified_signature_state IN ('ticketed', 'validated', 'committed', 'failed')
++                         SQL
++                         name: 'submitters_qualified_signature_state_valid'
++    add_check_constraint :submitters,
++                         <<~SQL.squish,
++                           qualified_signature_source_sha256 IS NULL OR
++                           qualified_signature_source_sha256 ~ '^[a-f0-9]{64}$'
++                         SQL
++                         name: 'submitters_qualified_source_sha256_valid'
++    add_check_constraint :submitters,
++                         <<~SQL.squish,
++                           qualified_signature_signed_sha256 IS NULL OR
++                           qualified_signature_signed_sha256 ~ '^[a-f0-9]{64}$'
++                         SQL
++                         name: 'submitters_qualified_signed_sha256_valid'
++    add_check_constraint :submitters,
++                         <<~SQL.squish,
++                           completed_at IS NULL OR
++                           signature_mode IS DISTINCT FROM 'qualified_icp_brasil' OR
++                           qualified_signature_state = 'committed'
++                         SQL
++                         name: 'submitters_qualified_completion_committed'
++    add_check_constraint :submitters,
++                         <<~SQL.squish,
++                           qualified_signature_state IS DISTINCT FROM 'committed' OR (
++                             qualified_signature_public_id IS NOT NULL AND
++                             qualified_signature_source_sha256 IS NOT NULL AND
++                             qualified_signature_signed_sha256 IS NOT NULL AND
++                             qualified_signature_completed_at IS NOT NULL
++                           )
++                         SQL
++                         name: 'submitters_qualified_commit_complete'
++    add_index :submitters, %i[submission_id signature_mode]
++    add_index :submitters, :qualified_signature_public_id, unique: true,
++                                                           where: 'qualified_signature_public_id IS NOT NULL'
++  end
++end
+diff --git a/db/schema.rb b/db/schema.rb
+index d9c80e7cff022ba6f184d2f3ecb343b419d28c1a..9db43d616c3379a9a38d9785a766acb963afb6ab 100644
+--- a/db/schema.rb
++++ b/db/schema.rb
+@@ -10,7 +10,7 @@
+ #
+ # It's strongly recommended that you check this file into your version control system.
+ 
+-ActiveRecord::Schema[8.1].define(version: 2026_07_10_193000) do
++ActiveRecord::Schema[8.1].define(version: 2026_07_15_103000) do
+   # These are extensions that must be enabled in order to support this database
+   enable_extension "btree_gin"
+   enable_extension "pg_catalog.plpgsql"
+@@ -436,7 +436,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_10_193000) do
+     t.datetime "opened_at"
+     t.string "phone"
+     t.text "preferences", null: false
++    t.datetime "qualified_signature_completed_at"
++    t.string "qualified_signature_public_id", limit: 40
++    t.jsonb "qualified_signature_receipt", default: {}, null: false
++    t.string "qualified_signature_signed_sha256", limit: 64
++    t.string "qualified_signature_source_sha256", limit: 64
++    t.string "qualified_signature_state", limit: 20
+     t.datetime "sent_at"
++    t.string "signature_mode", limit: 32
++    t.string "signature_mode_requirement", limit: 32
++    t.string "signature_mode_source", limit: 40
++    t.string "signature_policy_version", limit: 40
+     t.string "slug", null: false
+     t.bigint "submission_id", null: false
+     t.string "timezone"
+@@ -448,8 +458,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_10_193000) do
+     t.index ["completed_at", "account_id"], name: "index_submitters_on_completed_at_and_account_id"
+     t.index ["email"], name: "index_submitters_on_email"
+     t.index ["external_id"], name: "index_submitters_on_external_id"
++    t.index ["qualified_signature_public_id"], name: "index_submitters_on_qualified_signature_public_id", unique: true, where: "(qualified_signature_public_id IS NOT NULL)"
+     t.index ["slug"], name: "index_submitters_on_slug", unique: true
++    t.index ["submission_id", "signature_mode"], name: "index_submitters_on_submission_id_and_signature_mode"
+     t.index ["submission_id"], name: "index_submitters_on_submission_id"
++    t.check_constraint "completed_at IS NULL OR signature_mode::text IS DISTINCT FROM 'qualified_icp_brasil'::text OR qualified_signature_state::text = 'committed'::text", name: "submitters_qualified_completion_committed"
++    t.check_constraint "qualified_signature_signed_sha256 IS NULL OR qualified_signature_signed_sha256::text ~ '^[a-f0-9]{64}$'::text", name: "submitters_qualified_signed_sha256_valid"
++    t.check_constraint "qualified_signature_source_sha256 IS NULL OR qualified_signature_source_sha256::text ~ '^[a-f0-9]{64}$'::text", name: "submitters_qualified_source_sha256_valid"
++    t.check_constraint "qualified_signature_state IS NULL OR (qualified_signature_state::text = ANY (ARRAY['ticketed'::character varying::text, 'validated'::character varying::text, 'committed'::character varying::text, 'failed'::character varying::text]))", name: "submitters_qualified_signature_state_valid"
++    t.check_constraint "qualified_signature_state::text IS DISTINCT FROM 'committed'::text OR qualified_signature_public_id IS NOT NULL AND qualified_signature_source_sha256 IS NOT NULL AND qualified_signature_signed_sha256 IS NOT NULL AND qualified_signature_completed_at IS NOT NULL", name: "submitters_qualified_commit_complete"
++    t.check_constraint "signature_mode IS NULL OR (signature_mode::text = ANY (ARRAY['simple'::character varying::text, 'advanced'::character varying::text, 'qualified_icp_brasil'::character varying::text]))", name: "submitters_signature_mode_valid"
++    t.check_constraint "signature_mode_requirement IS NULL OR (signature_mode_requirement::text = ANY (ARRAY['simple'::character varying::text, 'advanced'::character varying::text, 'qualified_icp_brasil'::character varying::text]))", name: "submitters_signature_mode_requirement_valid"
+   end
+ 
+   create_table "template_accesses", force: :cascade do |t|
+diff --git a/lib/maiocchi_evidence_record.rb b/lib/maiocchi_evidence_record.rb
+index d0272272c46052a462751264481d18ee6bbfceaf..d6a69162b2d9e6000d5e60a6be952d1f59103815 100644
+--- a/lib/maiocchi_evidence_record.rb
++++ b/lib/maiocchi_evidence_record.rb
+@@ -38,7 +38,7 @@ module MaiocchiEvidenceRecord
+ 
+   def build_record(submission:, attachment:, bytes:, audit:, public_id:, pqc:, proof:, manifest:)
+     sha256 = Digest::SHA256.hexdigest(bytes)
+-    config = MaiocchiSignaturePolicy.config_for(submission)
++    config = MaiocchiSignaturePolicy.aggregate_config_for(submission)
+ 
+     {
+       schema: 'br.adv.maiocchi.evidence',
+@@ -108,19 +108,32 @@ module MaiocchiEvidenceRecord
+   end
+ 
+   def gold_standard_record(submission, config, public_id)
+-    advanced = MaiocchiSignaturePolicy.mode_for(submission) == MaiocchiSignaturePolicy::ADVANCED
++    modality = MaiocchiSignaturePolicy.aggregate_mode_for(submission)
+ 
+     {
+       barcodeValue: "MAI|#{public_id}|R1",
+       intendedFor: 'Destinatários identificados no documento',
+-      purpose: advanced ? 'Assinatura eletrônica avançada' : 'Assinatura eletrônica documentada',
++      purpose: evidence_purpose(modality),
+       signingLocation: signer_locations(submission),
+-      tokenType: advanced ? 'OTP por e-mail e sessão autenticada' : 'Sessão eletrônica rastreada',
++      tokenType: config.fetch(:infrastructure),
+       signatureType: "#{config.fetch(:format)} · #{config.fetch(:label)}",
+       signers: signers(submission)
+     }
+   end
+ 
++  def evidence_purpose(modality)
++    case modality
++    when MaiocchiSignaturePolicy::ADVANCED
++      'Assinatura eletrônica avançada'
++    when MaiocchiSignaturePolicy::QUALIFIED
++      'Assinatura digital qualificada ICP-Brasil'
++    when 'mixed'
++      'Assinaturas em modalidades distintas, individualizadas por signatário'
++    else
++      'Assinatura eletrônica documentada'
++    end
++  end
++
+   def links_record(submission, proof)
+     key_id = proof&.dig(:keyId)
+ 
+@@ -145,9 +158,16 @@ module MaiocchiEvidenceRecord
+   def signers(submission)
+     roles = submission.template_submitters.to_a.index_by { |item| item['uuid'] }
+     submission.submitters.select(&:completed_at).map do |submitter|
++      mode = MaiocchiSignaturePolicy.mode_for(submitter)
++      config = MaiocchiSignaturePolicy::MODES.fetch(mode)
+       {
+         name: submitter.name.presence || 'Signatário identificado no documento',
+         role: roles.dig(submitter.uuid, 'name') || 'Signatário',
++        modality: mode,
++        profile: config.fetch(:label),
++        format: config.fetch(:format),
++        infrastructure: config.fetch(:infrastructure),
++        legalBasis: config.fetch(:legal_basis),
+         certificateFingerprintSha256: '',
+         signedAt: submitter.completed_at.iso8601
+       }
+diff --git a/lib/maiocchi_signature_policy.rb b/lib/maiocchi_signature_policy.rb
+index 38d551949041328f9ad70754a9ea9ef8cb9ef4a5..d4982503f78923f348a4c91e638c81fd23eae225 100644
+--- a/lib/maiocchi_signature_policy.rb
++++ b/lib/maiocchi_signature_policy.rb
+@@ -6,6 +6,11 @@ module MaiocchiSignaturePolicy
+   QUALIFIED = 'qualified_icp_brasil'
+   DEFAULT_MODE = SIMPLE
+   STANDARD_MODES = [SIMPLE, ADVANCED].freeze
++  SIGNER_MODES = [SIMPLE, ADVANCED, QUALIFIED].freeze
++  MODE_RANK = SIGNER_MODES.each_with_index.to_h.freeze
++  POLICY_VERSION = '2026-07-15-v1'
++
++  InvalidMode = Class.new(ArgumentError)
+ 
+   MODES = {
+     SIMPLE => {
+@@ -55,19 +60,81 @@ module MaiocchiSignaturePolicy
+     STANDARD_MODES.include?(mode.to_s) ? mode.to_s : DEFAULT_MODE
+   end
+ 
++  def validate_mode!(mode, allowed: SIGNER_MODES)
++    normalized = mode.presence || DEFAULT_MODE
++    return normalized if allowed.include?(normalized)
++
++    raise InvalidMode, 'A modalidade de assinatura informada não é válida.'
++  end
++
+   def mode_for(record)
++    signer_mode = record.signature_mode if record.respond_to?(:signature_mode)
++    return normalize(signer_mode) if signer_mode.present?
++
+     direct_mode = record&.preferences&.dig('signature_mode')
+     return normalize(direct_mode) if direct_mode.present?
+ 
++    submission = record.submission if record.respond_to?(:submission)
++    submission_mode = submission&.preferences&.dig('signature_mode')
++    return normalize(submission_mode) if submission_mode.present?
++
+     template = record.template if record.respond_to?(:template)
+     template_mode = template&.preferences&.dig('signature_mode')
+     normalize(template_mode)
+   end
+ 
++  def required_mode_for(submitter)
++    persisted = submitter.signature_mode_requirement if submitter.respond_to?(:signature_mode_requirement)
++    return normalize(persisted) if persisted.present?
++
++    direct = submitter.preferences&.dig('signature_mode_requirement') ||
++             submitter.preferences&.dig('signature_mode')
++    return normalize(direct) if direct.present?
++
++    submission_mode = submitter.submission&.preferences&.dig('signature_mode')
++    return normalize(submission_mode) if submission_mode.present?
++
++    template = submitter.submission&.template
++    normalize(template&.preferences&.dig('signature_mode'))
++  end
++
++  def allowed_modes_for(submitter)
++    minimum = MODE_RANK.fetch(required_mode_for(submitter))
++    SIGNER_MODES.select { |mode| MODE_RANK.fetch(mode) >= minimum }
++  end
++
+   def config_for(record)
+     MODES.fetch(mode_for(record))
+   end
+ 
++  def completed_signer_modes(submission)
++    submission.submitters.filter_map do |submitter|
++      mode_for(submitter) if submitter.completed_at?
++    end.uniq
++  end
++
++  def aggregate_mode_for(submission)
++    modes = completed_signer_modes(submission)
++    return mode_for(submission) if modes.empty?
++    return modes.first if modes.one?
++
++    'mixed'
++  end
++
++  def aggregate_config_for(submission)
++    modes = completed_signer_modes(submission)
++    return config_for(submission) if modes.empty?
++    return MODES.fetch(modes.first) if modes.one?
++
++    configs = modes.map { |mode| MODES.fetch(mode) }
++    {
++      label: 'MISTA',
++      format: configs.map { |config| config.fetch(:format) }.uniq.join(' + '),
++      infrastructure: configs.map { |config| config.fetch(:infrastructure) }.uniq.join(' + '),
++      legal_basis: configs.map { |config| config.fetch(:legal_basis) }.uniq.join(' · ')
++    }
++  end
++
+   def label(record)
+     config_for(record).fetch(:label)
+   end
+@@ -77,13 +144,58 @@ module MaiocchiSignaturePolicy
+   end
+ 
+   def apply_to_template!(template, mode)
+-    normalized = normalize_standard(mode)
++    normalized = validate_mode!(mode, allowed: STANDARD_MODES)
+     template.preferences ||= {}
+     template.preferences['signature_mode'] = normalized
+     template.preferences['require_email_2fa'] = normalized == ADVANCED
+     template
+   end
+ 
++  def apply_to_submitter!(submitter, mode, source: 'signer_choice', save: true)
++    normalized = validate_mode!(mode)
++    requirement = required_mode_for(submitter)
++    unless allowed_modes_for(submitter).include?(normalized)
++      raise InvalidMode,
++            "A modalidade exigida para este documento é #{MODES.fetch(requirement).fetch(:label)} ou superior."
++    end
++
++    submitter.preferences ||= {}
++    submitter.signature_mode_requirement = requirement
++    submitter.signature_mode = normalized
++    submitter.signature_policy_version = POLICY_VERSION
++    submitter.signature_mode_source = source
++    if normalized == ADVANCED || requirement == ADVANCED
++      submitter.preferences['require_email_2fa'] = true
++    else
++      submitter.preferences.delete('require_email_2fa')
++    end
++    clear_uncommitted_qualified_attempt!(submitter) if normalized != QUALIFIED
++    submitter.save! if save
++    submitter
++  end
++
++  def clear_uncommitted_qualified_attempt!(submitter)
++    return if submitter.qualified_signature_state == 'committed'
++
++    submitter.qualified_signature_state = nil
++    submitter.qualified_signature_public_id = nil
++    submitter.qualified_signature_source_sha256 = nil
++    submitter.qualified_signature_signed_sha256 = nil
++    submitter.qualified_signature_receipt = {}
++    submitter.qualified_signature_completed_at = nil
++    submitter.preferences.delete('qualified_signature_attempt')
++  end
++
++  def snapshot_submitter!(submitter, source: 'submission_snapshot', save: true)
++    submitter.signature_mode_requirement ||= required_mode_for(submitter)
++    if submitter.signature_mode.present?
++      submitter.save! if save && submitter.changed?
++      return submitter
++    end
++
++    apply_to_submitter!(submitter, required_mode_for(submitter), source: source, save: save)
++  end
++
+   def apply_to_submission!(submission)
+     submission.preferences ||= {}
+     submission.preferences['signature_mode'] = mode_for(submission)
+diff --git a/lib/private_evidence_composer.rb b/lib/private_evidence_composer.rb
+index 1cb9abc4d0d43980ddaaf0a1a378a0c54b91d2be..54dc2c307471e99ad5092cbacf67392d1e041a5f 100644
+--- a/lib/private_evidence_composer.rb
++++ b/lib/private_evidence_composer.rb
+@@ -103,12 +103,11 @@ module PrivateEvidenceComposer
+   end
+ 
+   def signing_metadata(submission, completed_submitters)
+-    config = MaiocchiSignaturePolicy.config_for(submission)
++    config = MaiocchiSignaturePolicy.aggregate_config_for(submission)
+     last_submitter = completed_submitters.max_by(&:completed_at)
+-    event = submission.submission_events.select(&:complete_form?).max_by(&:event_timestamp)
++    event = completion_event_for(last_submitter)
+     event_data = event_metadata(event)
+     roles = submission.template_submitters.to_a.index_by { |item| item['uuid'] }
+-    advanced = MaiocchiSignaturePolicy.mode_for(submission) == MaiocchiSignaturePolicy::ADVANCED
+ 
+     {
+       observedIp: event_data['ip'].presence || 'Não fornecido',
+@@ -122,11 +121,19 @@ module PrivateEvidenceComposer
+       profile: config.fetch(:label),
+       infrastructure: 'Maiocchi. Assinatura',
+       legalBasis: config.fetch(:legal_basis),
+-      modality: MaiocchiSignaturePolicy.mode_for(submission),
+-      signers: completed_submitters.map { |submitter| signer_record(submitter, roles, advanced:) }
++      modality: MaiocchiSignaturePolicy.aggregate_mode_for(submission),
++      signers: completed_submitters.map { |submitter| signer_record(submitter, roles) }
+     }
+   end
+ 
++  def completion_event_for(submitter)
++    return unless submitter
++
++    submitter.submission_events.select do |event|
++      event.complete_form? || event.api_complete_form? || event.complete_qualified_signature?
++    end.max_by(&:event_timestamp)
++  end
++
+   def event_metadata(event)
+     event&.data || {}
+   end
+@@ -143,15 +150,34 @@ module PrivateEvidenceComposer
+     (completed_submitters.filter_map(&:completed_at).max || Time.current).iso8601
+   end
+ 
+-  def signer_record(submitter, roles, advanced:)
++  def signer_record(submitter, roles)
++    mode = MaiocchiSignaturePolicy.mode_for(submitter)
++    config = MaiocchiSignaturePolicy::MODES.fetch(mode)
++
+     {
+       name: submitter.name.presence || submitter.email.presence || 'Signatário identificado no documento',
+       role: roles.dig(submitter.uuid, 'name').presence || 'Signatário',
+-      identitySource: advanced ? 'OTP por e-mail e sessão autenticada' : 'Consentimento e sessão eletrônica rastreada',
++      modality: mode,
++      profile: config.fetch(:label),
++      format: config.fetch(:format),
++      infrastructure: config.fetch(:infrastructure),
++      legalBasis: config.fetch(:legal_basis),
++      identitySource: signer_identity_source(mode),
+       signedAt: submitter.completed_at.iso8601
+     }
+   end
+ 
++  def signer_identity_source(mode)
++    case mode
++    when MaiocchiSignaturePolicy::ADVANCED
++      'OTP por e-mail e sessão autenticada'
++    when MaiocchiSignaturePolicy::QUALIFIED
++      'Certificado digital ICP-Brasil'
++    else
++      'Consentimento e sessão eletrônica rastreada'
++    end
++  end
++
+   def perform_request(payload)
+     perform_request_to(endpoint, payload, open_timeout: 8, read_timeout: 90)
+   end
+diff --git a/lib/private_pades_tickets.rb b/lib/private_pades_tickets.rb
+index 81218fc8918a38719e6c5e90ef9083648036ced6..fb6590798604c7188cf43b80ea58c768e2696c85 100644
+--- a/lib/private_pades_tickets.rb
++++ b/lib/private_pades_tickets.rb
+@@ -1,6 +1,7 @@
+ # frozen_string_literal: true
+ 
+ require 'base64'
++require 'digest'
+ require 'json'
+ require 'net/http'
+ require 'openssl'
+@@ -15,11 +16,10 @@ module PrivatePadesTickets
+ 
+   module_function
+ 
+-  def create(pdf:, document_name:, intended_for:, purpose:)
++  def create(pdf:, document_name:, intended_for:, purpose:, submitter: nil)
+     validate_pdf!(pdf)
+-    ensure_remote_available!
+ 
+-    payload = ticket_payload(pdf, document_name, intended_for, purpose)
++    payload = ticket_payload(pdf, document_name, intended_for, purpose, submitter)
+     response, request_auth = perform_request(payload)
+     parse_response(response, request_auth: request_auth)
+   rescue JSON::ParserError, URI::InvalidURIError, Net::OpenTimeout, Net::ReadTimeout,
+@@ -27,6 +27,17 @@ module PrivatePadesTickets
+     raise Error, "O provider PAdES está temporariamente indisponível (#{e.class.name})."
+   end
+ 
++  def commit(ticket:)
++    raise Error, 'O ticket qualificado é inválido.' unless ticket.to_s.match?(/\A[A-Za-z0-9_-]{43}\z/)
++
++    payload = JSON.generate(ticket:)
++    response, request_auth = perform_request(payload, uri: commit_endpoint)
++    parse_commit_response(response, request_auth:)
++  rescue JSON::ParserError, URI::InvalidURIError, Net::OpenTimeout, Net::ReadTimeout,
++         SocketError, SystemCallError, OpenSSL::SSL::SSLError => e
++    raise Error, "O resultado PAdES está temporariamente indisponível (#{e.class.name})."
++  end
++
+   def remote_available?
+     Rails.cache.fetch(REMOTE_HEALTH_CACHE_KEY, expires_in: 30.seconds) { remote_available_uncached? }
+   end
+@@ -48,11 +59,11 @@ module PrivatePadesTickets
+     raise Error, 'A assinatura qualificada remota está indisponível. Nenhum PSC credenciado está conectado ao gateway.'
+   end
+ 
+-  def ticket_payload(pdf, document_name, intended_for, purpose)
++  def ticket_payload(pdf, document_name, intended_for, purpose, submitter = nil)
+     JSON.generate(
+       pdfBase64: Base64.strict_encode64(pdf),
+       documentName: document_name,
+-      ttlSeconds: 600,
++      ttlSeconds: 1800,
+       documentContext: {
+         generatedBy: {
+           name: 'Roger Maiocchi',
+@@ -60,13 +71,35 @@ module PrivatePadesTickets
+           professionalRegistration: 'OAB/DF 31.249'
+         },
+         intendedFor: intended_for.presence || 'Cliente ou destinatário indicado no documento',
+-        purpose: purpose.presence || 'Assinatura digital qualificada de documento jurídico'
++        purpose: purpose.presence || 'Assinatura digital qualificada de documento jurídico',
++        integration: submitter_context(submitter)
+       }
+     )
+   end
+ 
+-  def perform_request(payload)
+-    uri = endpoint
++  def submitter_context(submitter)
++    return unless submitter
++
++    {
++      system: 'docuseal',
++      submissionReference: MaiocchiSignaturePolicy.public_id(submitter.submission),
++      submitterUuid: submitter.uuid,
++      signerName: submitter.name.presence,
++      signerEmail: submitter.email.presence,
++      signerNationalIdSha256: submitter_national_id_sha256(submitter)
++    }.compact
++  end
++
++  def submitter_national_id_sha256(submitter)
++    metadata = submitter.metadata.is_a?(Hash) ? submitter.metadata : {}
++    value = metadata.values_at('national_id', 'nationalId', 'cpf', :national_id, :nationalId, :cpf).compact_blank.first
++    digits = value.to_s.gsub(/\D/, '')
++    return unless digits.length.in?([11, 14])
++
++    Digest::SHA256.hexdigest(digits)
++  end
++
++  def perform_request(payload, uri: endpoint)
+     request = Net::HTTP::Post.new(uri)
+     request['Content-Type'] = 'application/json'
+     request['Accept'] = 'application/json'
+@@ -86,6 +119,22 @@ module PrivatePadesTickets
+     [response, request_auth]
+   end
+ 
++  def parse_commit_response(response, request_auth:)
++    MaiocchiInternalGateway.verify_response!(response, request_auth:)
++    body = JSON.parse(response.body)
++    unless response.is_a?(Net::HTTPSuccess)
++      raise Error, body.dig('error', 'message') || 'O resultado PAdES foi recusado.'
++    end
++    unless body['receipt'].is_a?(Hash) && body['signedPdfBase64'].is_a?(String) &&
++           body['signedPdfBase64'].bytesize <= (MAX_PDF_BYTES * 8 / 3)
++      raise Error, 'O provider PAdES retornou um resultado incompleto.'
++    end
++
++    body
++  rescue MaiocchiInternalGateway::Error => e
++    raise Error, e.message
++  end
++
+   def perform_health_request
+     uri = health_endpoint
+     request = Net::HTTP::Get.new(uri)
+@@ -152,4 +201,12 @@ module PrivatePadesTickets
+       uri.fragment = nil
+     end
+   end
++
++  def commit_endpoint
++    endpoint.tap do |uri|
++      uri.path = '/internal/pades/commit'
++      uri.query = nil
++      uri.fragment = nil
++    end
++  end
+ end
+diff --git a/lib/qualified_signatures/canonical_source.rb b/lib/qualified_signatures/canonical_source.rb
+new file mode 100644
+index 0000000000000000000000000000000000000000..fdc7812641307c96ce0c6ce831771e96ae668db8
+--- /dev/null
++++ b/lib/qualified_signatures/canonical_source.rb
+@@ -0,0 +1,60 @@
++# frozen_string_literal: true
++
++module QualifiedSignatures
++  module CanonicalSource
++    module_function
++
++    def call(submitter, request)
++      if submitter.name.blank?
++        raise PrivatePadesTickets::Error,
++              'Informe o nome completo do signatário antes de usar o certificado digital.'
++      end
++
++      ensure_signing_order!(submitter)
++
++      submitter.with_lock do
++        finalize_values_without_completion!(submitter, request)
++        attachment = canonical_attachment(submitter)
++        pdf = attachment.download
++        PrivatePadesTickets.validate_pdf!(pdf)
++        [pdf, attachment.filename.to_s]
++      end
++    rescue Submitters::SubmitValues::RequiredFieldError
++      raise PrivatePadesTickets::Error,
++            'Preencha todos os campos obrigatórios do documento antes de iniciar a assinatura com certificado digital.'
++    end
++
++    def ensure_signing_order!(submitter)
++      others = submitter.submission.submitters.where.not(id: submitter.id)
++      if others.exists?(completed_at: nil)
++        raise PrivatePadesTickets::Error,
++              'As assinaturas eletrônicas anteriores devem ser concluídas antes da assinatura ICP-Brasil final.'
++      end
++      return unless others.exists?(signature_mode: MaiocchiSignaturePolicy::QUALIFIED)
++
++      raise PrivatePadesTickets::Error,
++            'A coassinatura PAdES incremental ainda não está habilitada para mais de um certificado no mesmo documento.'
++    end
++
++    def finalize_values_without_completion!(submitter, request)
++      Submitters::SubmitValues.assign_completed_attributes(submitter, request)
++      submitter.completed_at = nil
++      submitter.save!
++    end
++
++    def canonical_attachment(submitter)
++      submission = submitter.submission
++      values_hash = Submissions::GeneratePreviewAttachments.build_submitter_values_hash(submitter)
++      current = submission.preview_merged_document_attachment
++      return current if current&.metadata&.dig('values_hash') == values_hash
++
++      ApplicationRecord.no_touching { current&.destroy }
++      Submissions::GeneratePreviewAttachments.call(
++        submission,
++        values_hash:,
++        submitter:,
++        merge: true
++      ).first
++    end
++  end
++end
+diff --git a/lib/qualified_signatures/commit.rb b/lib/qualified_signatures/commit.rb
+new file mode 100644
+index 0000000000000000000000000000000000000000..691a4b496374fbf1db05af3e38e67f2a93520bdd
+--- /dev/null
++++ b/lib/qualified_signatures/commit.rb
+@@ -0,0 +1,138 @@
++# frozen_string_literal: true
++
++require 'base64'
++require 'digest'
++
++module QualifiedSignatures
++  module Commit
++    Error = Class.new(StandardError)
++    HASH_PATTERN = /\A[a-f0-9]{64}\z/
++
++    module_function
++
++    def call(ticket:, request:)
++      response = PrivatePadesTickets.commit(ticket:)
++      receipt = response.fetch('receipt')
++      submitter = load_submitter!(receipt)
++      pdf = decode_pdf!(response.fetch('signedPdfBase64'), receipt)
++      committed = false
++
++      submitter.with_lock do
++        return submitter if already_committed?(submitter, receipt)
++
++        validate_receipt!(submitter, receipt, pdf)
++        attach_signed_pdf!(submitter, pdf, receipt)
++        mark_committed!(submitter, receipt, request)
++        committed = true
++      end
++
++      ProcessSubmitterCompletionJob.perform_async('submitter_id' => submitter.id) if committed
++      submitter
++    rescue KeyError, ArgumentError, JSON::ParserError => e
++      raise Error, "O comprovante qualificado está incompleto (#{e.class.name})."
++    end
++
++    def load_submitter!(receipt)
++      origin = receipt.fetch('origin')
++      raise Error, 'O resultado não pertence ao fluxo documental do portal.' unless origin['system'] == 'docuseal'
++
++      Submitter.find_by!(qualified_signature_public_id: receipt.fetch('publicId'))
++    rescue ActiveRecord::RecordNotFound
++      raise Error, 'O signatário vinculado ao resultado não foi localizado.'
++    end
++
++    def decode_pdf!(encoded, receipt)
++      pdf = Base64.strict_decode64(encoded)
++      digest = Digest::SHA256.hexdigest(pdf)
++      expected = receipt.dig('hashes', 'signedPdfSha256')
++      unless digest == expected && pdf.start_with?('%PDF-')
++        raise Error,
++              'O PDF devolvido não corresponde ao hash validado.'
++      end
++
++      pdf
++    end
++
++    def validate_receipt!(submitter, receipt, pdf)
++      origin = receipt.fetch('origin')
++      hashes = receipt.fetch('hashes')
++      validation = receipt.fetch('validation')
++      signer = receipt.fetch('signer')
++
++      checks = [
++        receipt['version'] == 1,
++        origin['submissionReference'] == MaiocchiSignaturePolicy.public_id(submitter.submission),
++        origin['submitterUuid'] == submitter.uuid,
++        submitter.signature_mode == MaiocchiSignaturePolicy::QUALIFIED,
++        submitter.qualified_signature_state == 'ticketed',
++        submitter.qualified_signature_public_id == receipt['publicId'],
++        submitter.qualified_signature_source_sha256 == hashes['sourcePdfSha256'],
++        hashes['sourcePdfSha256'].to_s.match?(HASH_PATTERN),
++        hashes['signedPdfSha256'].to_s.match?(HASH_PATTERN),
++        Digest::SHA256.hexdigest(pdf) == hashes['signedPdfSha256'],
++        signer['identityMatch'] == true,
++        signer['certificateFingerprintSha256'].to_s.match?(HASH_PATTERN),
++        validation['status'] == 'valid',
++        validation['signatureCount'].to_i.positive?,
++        receipt.dig('proof', 'algorithm') == 'ML-DSA-65'
++      ]
++      raise Error, 'O PAdES não passou pelo vínculo integral com documento, signatário e validação.' unless checks.all?
++    end
++
++    def already_committed?(submitter, receipt)
++      return false unless submitter.qualified_signature_state == 'committed'
++
++      same_result = submitter.qualified_signature_public_id == receipt['publicId'] &&
++                    submitter.qualified_signature_signed_sha256 == receipt.dig('hashes', 'signedPdfSha256')
++      return true if same_result
++
++      raise Error, 'Já existe outro resultado qualificado confirmado para este signatário.'
++    end
++
++    def attach_signed_pdf!(submitter, pdf, receipt)
++      filename = receipt.fetch('documentName').sub(/\.pdf\z/i, '-assinado.pdf')
++      sha256 = receipt.dig('hashes', 'signedPdfSha256')
++      blob = ActiveStorage::Blob.create_and_upload!(
++        io: StringIO.new(pdf),
++        filename:,
++        content_type: 'application/pdf',
++        metadata: {
++          'sha256' => sha256,
++          'evidence_id' => receipt.fetch('publicId'),
++          'signature_mode' => MaiocchiSignaturePolicy::QUALIFIED,
++          'document_number' => receipt.fetch('documentNumber')
++        }
++      )
++      ActiveStorage::Attachment.create!(blob:, name: 'documents', record: submitter)
++    end
++
++    def mark_committed!(submitter, receipt, request)
++      completed_at = Time.iso8601(receipt.fetch('completedAt'))
++      submitter.assign_attributes(
++        qualified_signature_state: 'committed',
++        qualified_signature_signed_sha256: receipt.dig('hashes', 'signedPdfSha256'),
++        qualified_signature_receipt: receipt,
++        qualified_signature_completed_at: completed_at,
++        completed_at:,
++        ip: request.remote_ip,
++        ua: request.user_agent,
++        timezone: request.params[:timezone].presence || submitter.timezone
++      )
++      submitter.save!
++      LockEvent.find_or_create_by!(key: "result_attachments:#{submitter.id}", event_name: :complete)
++      create_completion_event!(submitter, 'complete_qualified_signature', request, receipt)
++      create_completion_event!(submitter, 'complete_form', request, receipt)
++    end
++
++    def create_completion_event!(submitter, type, request, receipt)
++      return if submitter.submission_events.exists?(event_type: type)
++
++      SubmissionEvents.create_with_tracking_data(
++        submitter,
++        type,
++        request,
++        { public_id: receipt.fetch('publicId'), signed_pdf_sha256: receipt.dig('hashes', 'signedPdfSha256') }
++      )
++    end
++  end
++end
+diff --git a/lib/submissions/ensure_result_generated.rb b/lib/submissions/ensure_result_generated.rb
+index 468b54cf09fe2e607b702ab186ed0159dfed7aeb..d304d824eb9b4c4903d291e02e9a4bb7146c5f4a 100644
+--- a/lib/submissions/ensure_result_generated.rb
++++ b/lib/submissions/ensure_result_generated.rb
+@@ -16,6 +16,14 @@ module Submissions
+ 
+       raise NotCompletedYet unless submitter.completed_at?
+ 
++      if MaiocchiSignaturePolicy.mode_for(submitter) == MaiocchiSignaturePolicy::QUALIFIED
++        unless submitter.qualified_signature_state == 'committed' && submitter.documents.attached?
++          raise PrivatePadesTickets::Error, 'O PDF qualificado validado não foi incorporado ao signatário.'
++        end
++
++        return submitter.documents.reload
++      end
++
+       total_wait_time ||= 0
+       key = ['result_attachments', submitter.id].join(':')
+ 
+diff --git a/lib/submitters.rb b/lib/submitters.rb
+index cdb4ee430a4463cf58f0e13996050c37dd35d3e5..ad31abbdc84de893621b25bea270709890aa072d 100644
+--- a/lib/submitters.rb
++++ b/lib/submitters.rb
+@@ -105,6 +105,11 @@ module Submitters
+   end
+ 
+   def select_attachments_for_download(submitter)
++    if MaiocchiSignaturePolicy.mode_for(submitter) == MaiocchiSignaturePolicy::QUALIFIED &&
++       submitter.qualified_signature_state == 'committed'
++      return submitter.documents.preload(:blob)
++    end
++
+     if AccountConfig.exists?(account_id: submitter.submission.account_id,
+                              key: AccountConfig::COMBINE_PDF_RESULT_KEY,
+                              value: true) &&
+@@ -266,6 +271,14 @@ module Submitters
+     return if submitter.submission.submitters.exists?(completed_at: nil)
+     return if submitter.submission.submitters.order(:completed_at).last != submitter
+ 
++    if MaiocchiSignaturePolicy.mode_for(submitter) == MaiocchiSignaturePolicy::QUALIFIED &&
++       submitter.qualified_signature_state == 'committed'
++      attachment = submitter.documents_attachments.first
++      return unless attachment
++
++      return ActiveStorage::Blob.proxy_path(attachment.blob, expires_at: ttl.from_now.to_i)
++    end
++
+     attachment = submitter.submission.combined_document_attachment
+     attachment ||= Submissions::EnsureCombinedGenerated.call(submitter)
+ 
+diff --git a/lib/submitters/submit_values.rb b/lib/submitters/submit_values.rb
+index 31d956c144d824ac01b584ce789a0317a8dfba68..eefb06e4a424e7eb2e259fc2fc3e8586db79e776 100644
+--- a/lib/submitters/submit_values.rb
++++ b/lib/submitters/submit_values.rb
+@@ -40,6 +40,10 @@ module Submitters
+     def update_submitter!(submitter, params, request, validate_required: true)
+       values = normalized_values(params)
+ 
++      if params[:completed] == 'true' && MaiocchiSignaturePolicy.mode_for(submitter) == MaiocchiSignaturePolicy::QUALIFIED
++        raise ValidationError, 'Conclua este documento pela opção de certificado digital ICP-Brasil.'
++      end
++
+       submitter.values.merge!(values)
+       submitter.opened_at ||= Time.current
+ 
+diff --git a/spec/lib/maiocchi_signature_policy_spec.rb b/spec/lib/maiocchi_signature_policy_spec.rb
+index d888f8893536f8f8243b1cb8d7ac1e0b1f564adc..9f91566bbb2504a098d75f232ced9ebf270b208c 100644
+--- a/spec/lib/maiocchi_signature_policy_spec.rb
++++ b/spec/lib/maiocchi_signature_policy_spec.rb
+@@ -14,12 +14,40 @@ RSpec.describe MaiocchiSignaturePolicy do
+     expect(described_class.label(template)).to eq('AVANÇADA')
+   end
+ 
+-  it 'never promotes a standard template request to qualified ICP-Brasil' do
+-    described_class.apply_to_template!(template, described_class::QUALIFIED)
++  it 'rejects a qualified mode in the standard template flow without downgrading it' do
++    expect do
++      described_class.apply_to_template!(template, described_class::QUALIFIED)
++    end.to raise_error(described_class::InvalidMode)
+ 
+-    expect(template.preferences['signature_mode']).to eq('simple')
+-    expect(template.preferences['require_email_2fa']).to be(false)
+-    expect(described_class.label(template)).to eq('SIMPLES RASTREÁVEL')
++    expect(template.preferences['signature_mode']).to be_nil
++  end
++
++  it 'persists an explicit policy snapshot for each signer' do
++    submission = create(:submission, template: template, created_by_user: user)
++    submitter = create(:submitter, submission:, uuid: template.submitters.first['uuid'])
++
++    described_class.apply_to_submitter!(submitter, described_class::ADVANCED)
++    template.update!(preferences: template.preferences.merge('signature_mode' => described_class::SIMPLE))
++
++    expect(described_class.mode_for(submitter.reload)).to eq(described_class::ADVANCED)
++    expect(submitter.preferences['require_email_2fa']).to be(true)
++    expect(submitter.signature_policy_version).to eq(described_class::POLICY_VERSION)
++  end
++
++  it 'allows upgrades but blocks downgrades below the document requirement' do
++    described_class.apply_to_template!(template, described_class::ADVANCED)
++    template.save!
++    submission = create(:submission, template: template, created_by_user: user)
++    submitter = create(:submitter, submission:, uuid: template.submitters.first['uuid'])
++
++    expect(submitter.signature_mode_requirement).to eq(described_class::ADVANCED)
++    expect(described_class.allowed_modes_for(submitter)).to eq([described_class::ADVANCED, described_class::QUALIFIED])
++    expect do
++      described_class.apply_to_submitter!(submitter, described_class::SIMPLE)
++    end.to raise_error(described_class::InvalidMode, /AVANÇADA/)
++
++    described_class.apply_to_submitter!(submitter, described_class::QUALIFIED)
++    expect(submitter.reload.signature_mode).to eq(described_class::QUALIFIED)
+   end
+ 
+   it 'creates a stable, tamper-evident public id for a completed submission' do
+diff --git a/spec/lib/private_evidence_composer_spec.rb b/spec/lib/private_evidence_composer_spec.rb
+index ac233915b7d50e959eae2d81906229606a602e38..6e3a412d865d070d7be8110ccea868fb55b16f0d 100644
+--- a/spec/lib/private_evidence_composer_spec.rb
++++ b/spec/lib/private_evidence_composer_spec.rb
+@@ -75,6 +75,26 @@ RSpec.describe PrivateEvidenceComposer do
+     expect(submission.preferences['document_number']).to match(/\A\d{29}\z/)
+   end
+ 
++  it 'individualizes the modality and legal controls of every signer in a mixed submission' do
++    advanced_submitter = create(
++      :submitter,
++      submission:,
++      uuid: SecureRandom.uuid,
++      name: 'Segundo signatário',
++      completed_at: Time.zone.parse('2026-07-14 16:30:00')
++    )
++    MaiocchiSignaturePolicy.apply_to_submitter!(advanced_submitter, MaiocchiSignaturePolicy::ADVANCED)
++
++    metadata = described_class.payload_for(build_pdf, submission).fetch(:signingMetadata)
++
++    expect(metadata).to include(modality: 'mixed', profile: 'MISTA')
++    expect(metadata.fetch(:signers).pluck(:modality)).to contain_exactly('simple', 'advanced')
++    expect(metadata.fetch(:signers).pluck(:profile)).to contain_exactly('SIMPLES RASTREÁVEL', 'AVANÇADA')
++    expect(metadata.fetch(:signers).find { |signer| signer[:modality] == 'advanced' })
++      .to include(identitySource: 'OTP por e-mail e sessão autenticada',
++                  legalBasis: MaiocchiSignaturePolicy::MODES.dig(MaiocchiSignaturePolicy::ADVANCED, :legal_basis))
++  end
++
+   it 'finalizes and verifies an ML-DSA-65 attestation for the exact final PDF bytes' do
+     pdf = build_pdf
+     finalized_at = '2026-07-15T12:34:56.789Z'
+diff --git a/spec/lib/private_pades_tickets_spec.rb b/spec/lib/private_pades_tickets_spec.rb
+index 81ec9d5dd9db430619b02f953bfa449480203e1c..bef25960782d02ceda988977ea6b11d7f2ce17c5 100644
+--- a/spec/lib/private_pades_tickets_spec.rb
++++ b/spec/lib/private_pades_tickets_spec.rb
+@@ -50,6 +50,19 @@ RSpec.describe PrivatePadesTickets do
+     end.to raise_error(described_class::Error, 'Selecione um arquivo PDF válido.')
+   end
+ 
++  it 'binds an explicitly supplied national identifier by hash only' do
++    user = create(:user)
++    template = create(:template, account: user.account, author: user)
++    submission = create(:submission, template:, account: user.account, created_by_user: user)
++    submitter = create(:submitter, submission:, uuid: template.submitters.first['uuid'],
++                                   name: 'Cliente Identificado', metadata: { 'cpf' => '529.000.000-25' })
++
++    context = described_class.submitter_context(submitter)
++
++    expect(context[:signerNationalIdSha256]).to eq(Digest::SHA256.hexdigest('52900000025'))
++    expect(context.to_json).not_to include('52900000025', '529.000.000-25')
++  end
++
+   it 'reports remote signing only when the PSC gateway is ready' do
+     stub_request(:get, 'http://pki-bridge:3400/healthz')
+       .to_return(status: 200, body: { status: 'ok', remoteSigning: 'ready' }.to_json)
+@@ -57,19 +70,28 @@ RSpec.describe PrivatePadesTickets do
+     expect(described_class.remote_available?).to be(true)
+   end
+ 
+-  it 'fails closed before creating a ticket when no PSC is connected' do
++  it 'prepares a protected ticket even when the PSC authorization is not connected yet' do
+     stub_request(:get, 'http://pki-bridge:3400/healthz')
+       .to_return(status: 200, body: { status: 'ok', remoteSigning: 'disabled' }.to_json)
+-
+-    expect do
+-      described_class.create(
+-        pdf: "%PDF-1.7\nfixture",
+-        document_name: 'contrato.pdf',
+-        intended_for: 'Cliente',
+-        purpose: 'Contrato'
++    request = stub_request(:post, 'http://pki-bridge:3400/internal/pades/tickets')
++              .to_return do |incoming|
++      signed_json(
++        { url: "https://assinatura.maiocchi.adv.br/assinar-icp#ticket=#{'A' * 43}" },
++        status: 201,
++        incoming:
+       )
+-    end.to raise_error(described_class::Error, /Nenhum PSC credenciado/)
+-    expect(a_request(:post, 'http://pki-bridge:3400/internal/pades/tickets')).not_to have_been_made
++    end
++
++    result = described_class.create(
++      pdf: "%PDF-1.7\nfixture",
++      document_name: 'contrato.pdf',
++      intended_for: 'Cliente',
++      purpose: 'Contrato'
++    )
++
++    expect(result['url']).to include('/assinar-icp#ticket=')
++    expect(request).to have_been_requested.once
++    expect(a_request(:get, 'http://pki-bridge:3400/healthz')).not_to have_been_made
+   end
+ 
+   it 'rejects a lookalike host returned by the provider' do
+diff --git a/spec/lib/submitters/submit_values_qualified_spec.rb b/spec/lib/submitters/submit_values_qualified_spec.rb
+new file mode 100644
+index 0000000000000000000000000000000000000000..8a73bdafc60336fd2b7972659afaab98b6e214f5
+--- /dev/null
++++ b/spec/lib/submitters/submit_values_qualified_spec.rb
+@@ -0,0 +1,23 @@
++# frozen_string_literal: true
++
++RSpec.describe Submitters::SubmitValues do
++  let(:user) { create(:user) }
++  let(:template) { create(:template, account: user.account, author: user) }
++  let(:submission) { create(:submission, template:, account: user.account, created_by_user: user) }
++  let(:submitter) { create(:submitter, submission:, uuid: template.submitters.first['uuid']) }
++  let(:request) do
++    instance_double(ActionDispatch::Request, remote_ip: '127.0.0.1', user_agent: 'RSpec', params: {})
++  end
++
++  it 'blocks ordinary completion while a qualified PAdES has not been committed' do
++    MaiocchiSignaturePolicy.apply_to_submitter!(submitter, MaiocchiSignaturePolicy::QUALIFIED)
++    params = ActionController::Parameters.new(completed: 'true', values: {})
++
++    expect do
++      described_class.update_submitter!(submitter, params, request)
++    end.to raise_error(described_class::ValidationError, /certificado digital ICP-Brasil/)
++
++    expect(submitter.reload.completed_at).to be_nil
++    expect(submitter.submission_events.where(event_type: 'complete_form')).to be_empty
++  end
++end
+diff --git a/spec/rails_helper.rb b/spec/rails_helper.rb
+index 7b5b1c6f705c1b21dd18eb27603d2d920848cca1..318d4c51aa13f051461a364dd03891b1c8d98431 100644
+--- a/spec/rails_helper.rb
++++ b/spec/rails_helper.rb
+@@ -73,6 +73,9 @@ RSpec.configure do |config|
+     else
+       driven_by :headless_cuprite
+     end
++
++    # The external evidence pipeline has dedicated contract and cross-process specs.
++    allow(Submissions::EnsureCombinedGenerated).to receive(:call)
+   end
+ 
+   config.before do
+diff --git a/spec/requests/qualified_signature_completions_spec.rb b/spec/requests/qualified_signature_completions_spec.rb
+new file mode 100644
+index 0000000000000000000000000000000000000000..501808d109849bd35546d8060da8f128ca289962
+--- /dev/null
++++ b/spec/requests/qualified_signature_completions_spec.rb
+@@ -0,0 +1,102 @@
++# frozen_string_literal: true
++
++RSpec.describe 'Qualified signature completion' do
++  let(:user) { create(:user) }
++  let(:template) { create(:template, account: user.account, author: user) }
++  let(:submission) { create(:submission, template:, account: user.account, created_by_user: user) }
++  let(:submitter) do
++    create(:submitter, submission:, uuid: template.submitters.first['uuid'], name: 'Cliente Identificado')
++  end
++  let(:ticket) { 'A' * 43 }
++  let(:source_sha256) { 'a' * 64 }
++  let(:signed_pdf) { Rails.root.join('spec/fixtures/sample-document.pdf').binread }
++  let(:signed_sha256) { Digest::SHA256.hexdigest(signed_pdf) }
++  let(:public_id) { 'MAI-2026-1111-2222-3333-4444' }
++  let(:receipt) do
++    {
++      'version' => 1,
++      'publicId' => public_id,
++      'documentNumber' => '20260715103000000000000000001',
++      'documentName' => 'documento-canonico.pdf',
++      'origin' => {
++        'system' => 'docuseal',
++        'submissionReference' => MaiocchiSignaturePolicy.public_id(submission),
++        'submitterUuid' => submitter.uuid
++      },
++      'hashes' => {
++        'sourcePdfSha256' => source_sha256,
++        'presentationPdfSha256' => 'b' * 64,
++        'signedPdfSha256' => signed_sha256,
++        'validationReportSha256' => 'c' * 64
++      },
++      'signer' => {
++        'name' => submitter.name,
++        'nationalIdMasked' => '006.***.***-40',
++        'certificateFingerprintSha256' => 'd' * 64,
++        'identityMatch' => true
++      },
++      'validation' => { 'status' => 'valid', 'policyOid' => '2.16.76.1.7.1.11.1.3', 'signatureCount' => 1 },
++      'proof' => { 'algorithm' => 'ML-DSA-65', 'value' => 'proof' },
++      'completedAt' => Time.current.utc.iso8601
++    }
++  end
++
++  before do
++    MaiocchiSignaturePolicy.apply_to_submitter!(submitter, MaiocchiSignaturePolicy::QUALIFIED)
++    submitter.update!(
++      qualified_signature_state: 'ticketed',
++      qualified_signature_public_id: public_id,
++      qualified_signature_source_sha256: source_sha256
++    )
++    allow(PrivatePadesTickets).to receive(:commit).and_return(
++      'signedPdfBase64' => Base64.strict_encode64(signed_pdf),
++      'receipt' => receipt
++    )
++  end
++
++  it 'atomically attaches the validated PAdES before completing the signer' do
++    post complete_qualified_signature_path, params: { ticket: }, as: :json
++
++    expect(response).to have_http_status(:ok)
++    expect(submitter.reload).to have_attributes(
++      completed_at: be_present,
++      qualified_signature_state: 'committed',
++      qualified_signature_signed_sha256: signed_sha256
++    )
++    expect(submitter.documents.count).to eq(1)
++    expect(Digest::SHA256.hexdigest(submitter.documents.first.download)).to eq(signed_sha256)
++    expect(submitter.submission_events.where(event_type: 'complete_qualified_signature').count).to eq(1)
++    expect(submitter.submission_events.where(event_type: 'complete_form').count).to eq(1)
++  end
++
++  it 'selects the ticketed signer when a reused template has the same role UUID' do
++    older_submission = create(:submission, template:, account: user.account, created_by_user: user)
++    older_submitter = create(:submitter, submission: older_submission, uuid: submitter.uuid,
++                                         name: submitter.name)
++
++    post complete_qualified_signature_path, params: { ticket: }, as: :json
++
++    expect(response).to have_http_status(:ok)
++    expect(submitter.reload.qualified_signature_state).to eq('committed')
++    expect(older_submitter.reload.completed_at).to be_nil
++    expect(older_submitter.documents).to be_empty
++  end
++
++  it 'is idempotent when the same validated result is reconciled twice' do
++    2.times { post complete_qualified_signature_path, params: { ticket: }, as: :json }
++
++    expect(response).to have_http_status(:ok)
++    expect(submitter.reload.documents.count).to eq(1)
++    expect(submitter.submission_events.where(event_type: 'complete_qualified_signature').count).to eq(1)
++  end
++
++  it 'rejects an identity mismatch without completing or attaching a document' do
++    receipt['signer']['identityMatch'] = false
++
++    post complete_qualified_signature_path, params: { ticket: }, as: :json
++
++    expect(response).to have_http_status(:unprocessable_content)
++    expect(submitter.reload.completed_at).to be_nil
++    expect(submitter.documents).to be_empty
++  end
++end
+diff --git a/spec/requests/qualified_signatures_spec.rb b/spec/requests/qualified_signatures_spec.rb
+index 2dc2984206a5a2dc5260a98dc8413de8bd52fcf6..c1bb8e91eff6762444d16bca67a9f1dcf83ca003 100644
+--- a/spec/requests/qualified_signatures_spec.rb
++++ b/spec/requests/qualified_signatures_spec.rb
+@@ -30,12 +30,52 @@ RSpec.describe 'Qualified signatures' do
+     expect(PrivatePadesTickets).to have_received(:create).with(hash_including(document_name: 'sample-document.pdf'))
+   end
+ 
+-  it 'redirects without rendering the qualified workflow when no PSC is connected' do
++  it 'keeps PDF selection available when no PSC is connected' do
+     allow(PrivatePadesTickets).to receive(:remote_available?).and_return(false)
+ 
+     get new_qualified_signature_path
+ 
+-    expect(response).to redirect_to(root_path)
+-    expect(flash[:alert]).to include('nenhum PSC credenciado')
++    expect(response).to have_http_status(:ok)
++    expect(response.body).to include('qualified_pdf')
++    expect(response.body).to include('Preparação disponível')
++  end
++
++  it 'links a client ticket to the submitter without requiring an account session' do
++    template = create(:template, account: user.account, author: user)
++    submission = create(:submission, template:, account: user.account, created_by_user: user)
++    submitter = create(:submitter, submission:, uuid: template.submitters.first['uuid'])
++    sign_out user
++    allow(QualifiedSignatures::CanonicalSource).to receive(:call)
++      .and_return([Rails.root.join('spec/fixtures/sample-document.pdf').binread, 'documento-canonico.pdf'])
++    allow(PrivatePadesTickets).to receive(:create).and_return(
++      'url' => "https://assinatura.maiocchi.adv.br/assinar-icp#ticket=#{'A' * 43}",
++      'publicId' => 'MAI-2026-0000-0001-0000-0001',
++      'documentNumber' => '20260715103000000000000000001',
++      'sourcePdfSha256' => 'a' * 64,
++      'expiresAt' => 30.minutes.from_now.utc.iso8601
++    )
++    post qualified_signatures_path,
++         params: { submitter_slug: submitter.slug, intended_for: submitter.name, purpose: 'Contrato' }
++
++    expect(response).to redirect_to("/assinar-icp#ticket=#{'A' * 43}")
++    expect(submitter.reload.signature_mode).to eq(MaiocchiSignaturePolicy::QUALIFIED)
++    expect(submitter.qualified_signature_state).to eq('ticketed')
++    expect(submitter.qualified_signature_source_sha256).to eq('a' * 64)
++    expect(submitter.preferences.dig('qualified_signature_attempt', 'public_id')).to eq('MAI-2026-0000-0001-0000-0001')
++    expect(submitter.submission_events.last.event_type).to eq('start_qualified_signature')
++    expect(PrivatePadesTickets).to have_received(:create).with(hash_including(document_name: 'documento-canonico.pdf'))
++  end
++
++  it 'requires the configured email verification before opening the qualified branch' do
++    template = create(:template, account: user.account, author: user,
++                                 preferences: { 'signature_mode' => MaiocchiSignaturePolicy::ADVANCED,
++                                                'require_email_2fa' => true })
++    submission = create(:submission, template:, account: user.account, created_by_user: user)
++    submitter = create(:submitter, submission:, uuid: template.submitters.first['uuid'])
++    sign_out user
++
++    get new_qualified_signature_path(submitter_slug: submitter.slug)
++
++    expect(response).to redirect_to(submit_form_path(submitter.slug))
+   end
+ end
+diff --git a/spec/requests/submitter_signature_modes_spec.rb b/spec/requests/submitter_signature_modes_spec.rb
+new file mode 100644
+index 0000000000000000000000000000000000000000..78b3ca1bc147a47cc7c1fcc4b0f11b4e7ee5b408
+--- /dev/null
++++ b/spec/requests/submitter_signature_modes_spec.rb
+@@ -0,0 +1,69 @@
++# frozen_string_literal: true
++
++RSpec.describe 'Submitter signature modes' do
++  let(:user) { create(:user) }
++  let(:template) { create(:template, account: user.account, author: user) }
++  let(:submission) { create(:submission, template:, account: user.account, created_by_user: user) }
++  let(:submitter) { create(:submitter, submission:, uuid: template.submitters.first['uuid']) }
++
++  before do
++    allow(PrivatePadesTickets).to receive(:remote_available?).and_return(false)
++  end
++
++  it 'offers all three modes to a client holding the signer link' do
++    get submit_form_signature_mode_path(submitter.slug)
++
++    expect(response).to have_http_status(:ok)
++    expect(response.body).to include('Eletrônica simples')
++    expect(response.body).to include('Eletrônica avançada')
++    expect(response.body).to include('Digital qualificada')
++  end
++
++  it 'selects advanced mode and enables email verification for that signer' do
++    patch submit_form_signature_mode_path(submitter.slug),
++          params: { signature_mode: MaiocchiSignaturePolicy::ADVANCED }
++
++    expect(response).to redirect_to(submit_form_path(submitter.slug))
++    expect(submitter.reload.signature_mode).to eq(MaiocchiSignaturePolicy::ADVANCED)
++    expect(submitter.preferences['require_email_2fa']).to be(true)
++    expect(submitter.submission_events.last.event_type).to eq('select_signature_mode')
++  end
++
++  it 'routes qualified mode to the protected PDF preparation page' do
++    patch submit_form_signature_mode_path(submitter.slug),
++          params: { signature_mode: MaiocchiSignaturePolicy::QUALIFIED }
++
++    expect(response).to redirect_to(new_qualified_signature_path(submitter_slug: submitter.slug))
++    expect(submitter.reload.signature_mode).to eq(MaiocchiSignaturePolicy::QUALIFIED)
++  end
++
++  it 'rejects an unknown mode without changing the signer policy' do
++    original = submitter.signature_mode
++
++    patch submit_form_signature_mode_path(submitter.slug), params: { signature_mode: 'pretend-qualified' }
++
++    expect(response).to redirect_to(submit_form_signature_mode_path(submitter.slug))
++    expect(submitter.reload.signature_mode).to eq(original)
++  end
++
++  it 'keeps every mode visible but blocks a downgrade below the required level' do
++    template.update!(preferences: template.preferences.merge('signature_mode' => MaiocchiSignaturePolicy::ADVANCED))
++    required_submitter = create(:submitter, submission:, uuid: SecureRandom.uuid)
++    two_factor_token = Submitter.signed_id_verifier.generate(
++      required_submitter.slug,
++      purpose: :email_two_factor
++    )
++
++    get submit_form_signature_mode_path(required_submitter.slug)
++    expect(response.body).to include('Eletrônica simples')
++    expect(response.body).to include('Não atende à exigência mínima AVANÇADA')
++
++    patch submit_form_signature_mode_path(required_submitter.slug),
++          params: {
++            signature_mode: MaiocchiSignaturePolicy::SIMPLE,
++            two_factor_token:
++          }
++    expect(response).to redirect_to(submit_form_signature_mode_path(required_submitter.slug))
++    expect(required_submitter.reload.signature_mode).to eq(MaiocchiSignaturePolicy::ADVANCED)
++  end
++end
+diff --git a/spec/system/dashboard_spec.rb b/spec/system/dashboard_spec.rb
+index beca96064c29fff8087d07dbb1d07d47024ac7f9..180a354ada77703d7a29d8732100b70225fcc1bb 100644
+--- a/spec/system/dashboard_spec.rb
++++ b/spec/system/dashboard_spec.rb
+@@ -19,7 +19,9 @@ RSpec.describe 'Dashboard Page' do
+   context 'when there are templates' do
+     let!(:authors) { create_list(:user, 5, account:) }
+     let!(:templates) { authors.map { |author| create(:template, account:, author:) } }
+-    let!(:other_template) { create(:template, account: create(:user).account) }
++    let!(:other_template) do
++      create(:template, name: 'External Account Template', account: create(:user).account)
++    end
+ 
+     before do
+       visit root_path

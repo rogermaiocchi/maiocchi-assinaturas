@@ -4,7 +4,7 @@ import Vapor
 
 @main
 struct MaiocchiPadesTokenAgent {
-    private static let version = "1.2.1"
+    private static let version = "1.2.3"
     private static let logger = Logger(
         subsystem: "br.adv.maiocchi.pades-agent",
         category: "lifecycle"
@@ -24,9 +24,15 @@ struct MaiocchiPadesTokenAgent {
         let app = try await Application.make(environment)
         let store = TokenIdentityStore()
         let confirmation = NativeSignatureConfirmation()
+        let replayGuard = try PersistentReplayGuard()
         let allowed = Set(ProcessInfo.processInfo.environment["MAIOCCHI_ALLOWED_ORIGINS"]?
             .split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
-            ?? ["https://assinatura.maiocchi.adv.br", "http://127.0.0.1:35100", "http://localhost:3000"])
+            ?? [
+                "https://assinatura.maiocchi.adv.br",
+                "chrome-extension://cbikodnffamnfjoaobfpacilcfilmjlh",
+                "http://127.0.0.1:35100",
+                "http://localhost:3000",
+            ])
 
         app.http.server.configuration.hostname = "127.0.0.1"
         app.http.server.configuration.port = 35100
@@ -75,14 +81,20 @@ struct MaiocchiPadesTokenAgent {
                   let data = Data(base64Encoded: body.dataToSignBase64), !data.isEmpty, data.count <= 1024 * 1024 else {
                 throw Abort(.badRequest, reason: "Tarefa de assinatura inválida ou expirada.")
             }
-            try confirmation.confirm(documentName: body.documentName, documentSha256: body.documentSha256)
-            let signature = try store.sign(data, fingerprint: body.certificateFingerprintSha256)
-            logger.notice("Local external-token signing operation completed")
-            return SignResponse(
-                sessionId: body.sessionId,
-                signatureBase64: signature.base64EncodedString(),
-                certificateFingerprintSha256: body.certificateFingerprintSha256
-            )
+            try replayGuard.reserve(sessionId: body.sessionId, expiresAt: body.expiresAt)
+            do {
+                try confirmation.confirm(documentName: body.documentName, documentSha256: body.documentSha256)
+                let signature = try store.sign(data, fingerprint: body.certificateFingerprintSha256)
+                logger.notice("Local external-token signing operation completed")
+                return SignResponse(
+                    sessionId: body.sessionId,
+                    signatureBase64: signature.base64EncodedString(),
+                    certificateFingerprintSha256: body.certificateFingerprintSha256
+                )
+            } catch {
+                try replayGuard.release(sessionId: body.sessionId)
+                throw error
+            }
         }
 
         do {

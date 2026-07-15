@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "Maiocchi PAdES Discovery",
+  "version": "1.0.1",
+  "description": "Conecta o portal Maiocchi ao agente local para assinatura PAdES com token físico.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApCp+x/5NLPNIzQ+r5/sBfkZ5fdwzFmW2+NSIC5lvySVDU7c5t9hY7zulnFV70Ylc6CgKOH1kqh7t0QSs2M12CbMWaa6r7nIDyV5ez9yiQlZB6Lzy3wmlyt8yXJV4m0/fXkasTbwJec8RNGL4uBMklrJ9YrSTFmVwL89ryeNlolg0ZxBZjsE+09ZeCd2hGrymEuDDz3rM8N3JK8NMF/bPY7XdhfLaK3RhMXQ+48TXiikKZ6Uv9Tz93EGhStqAhqZQIUXFiaj3+x46Dppjv/Kvk1oYH5REYx3ZNdpM/xRlZMUY66pCnsMmnLyd2jKzwxNpNA+kIrDgpq3YbmUzLVubPwIDAQAB",
+  "permissions": [],
+  "host_permissions": [
+    "http://127.0.0.1:35100/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://assinatura.maiocchi.adv.br/assinar-icp*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Agente PAdES Maiocchi",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "content_security_policy": {
+    "extension_pages": "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src http://127.0.0.1:35100; base-uri 'none'; object-src 'none'"
+  }
+}

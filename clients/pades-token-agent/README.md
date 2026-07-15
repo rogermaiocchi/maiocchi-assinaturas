@@ -13,6 +13,10 @@ O portal abre a rota local `/v1/authorize` como navegação de primeiro nível. 
 
 O agente nunca recebe nem armazena PIN. A confirmação visual do documento ocorre antes de o CryptoTokenKit solicitar a autorização do token. O preflight também vincula o PID do `launchd`, o listener de `127.0.0.1:35100` e o binário instalado com assinatura de código verificada.
 
+Cada `sessionId` consumido é registrado localmente em arquivo append-only com
+permissão `0600` e sincronização em disco. A proteção contra replay permanece
+ativa depois de reiniciar o agente até o vencimento da sessão.
+
 ```bash
 swift build -c release
 MAIOCCHI_ALLOWED_ORIGINS=https://assinatura.maiocchi.adv.br swift run maiocchi-pades-agent

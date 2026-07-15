@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   BadgeCheck,
   Check,
@@ -21,6 +21,9 @@ import {
 
 const bridgeBase = process.env.NEXT_PUBLIC_PKI_BRIDGE_URL || "";
 const agentBase = "http://127.0.0.1:35100";
+const extensionDownloadUrl = "https://github.com/rogermaiocchi/maiocchi-pades-token-extension/releases/download/v1.0.1/maiocchi-pades-token-extension-v1.0.1.zip";
+const extensionSource = "maiocchi-pades-extension";
+const pageSource = "maiocchi-pades-page";
 
 type Ticket = {
   status: "pending" | "prepared" | "completed" | "failed" | "cancelled";
@@ -34,6 +37,7 @@ type Ticket = {
   finalPostQuantumCode: string | null;
   localSigningAvailable: boolean;
   remoteSigningAvailable: boolean;
+  linkedToDocuseal: boolean;
 };
 
 type GeolocationMetadata = {
@@ -117,6 +121,14 @@ async function responseJson<T>(response: Response): Promise<T> {
   return data as T;
 }
 
+async function commitLinkedResult(ticket: string) {
+  return responseJson<{ status: "committed"; redirectUrl: string }>(await fetch("/assinaturas/qualificada/complete", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ ticket }),
+  }));
+}
+
 function formatDate(value?: string) {
   if (!value) return "-";
   const date = new Date(value);
@@ -130,12 +142,32 @@ export function PrivatePadesPanel() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("Verificando documento e modalidades disponíveis.");
+  const [extensionDetected, setExtensionDetected] = useState(false);
+  const [localAgentDetected, setLocalAgentDetected] = useState(false);
+  const linkedCommitRef = useRef<Promise<{ status: "committed"; redirectUrl: string }> | null>(null);
+
+  const commitLinkedResultOnce = useCallback((currentToken: string) => {
+    if (!linkedCommitRef.current) {
+      linkedCommitRef.current = commitLinkedResult(currentToken).catch((caught) => {
+        linkedCommitRef.current = null;
+        throw caught;
+      });
+    }
+    return linkedCommitRef.current;
+  }, []);
 
   const refresh = useCallback(async (currentToken: string) => {
     setError("");
     const ticketResponse = await fetch(`${bridgeBase}/api/pades/ticket`, { headers: { authorization: `Bearer ${currentToken}` }, cache: "no-store" });
     const currentTicket = await responseJson<Ticket>(ticketResponse);
     setTicket(currentTicket);
+    if (currentTicket.status === "completed" && currentTicket.linkedToDocuseal) {
+      setBusy(true);
+      setMessage("Incorporando o PAdES validado ao documento do signatário.");
+      const committed = await commitLinkedResultOnce(currentToken);
+      window.location.replace(committed.redirectUrl);
+      return currentTicket;
+    }
     setMessage(currentTicket.status === "completed"
       ? "PAdES concluído e validado."
       : currentTicket.remoteSigningAvailable
@@ -144,7 +176,7 @@ export function PrivatePadesPanel() {
           ? "Documento confirmado. O token USB será operado pelo bridge local autorizado."
           : "A assinatura qualificada não está habilitada para este documento.");
     return currentTicket;
-  }, []);
+  }, [commitLinkedResultOnce]);
 
   useEffect(() => {
     async function initialize() {
@@ -181,8 +213,39 @@ export function PrivatePadesPanel() {
     void initialize();
   }, [refresh]);
 
+  useEffect(() => {
+    function requestAgentStatus() {
+      window.postMessage({ source: pageSource, type: "agent-status-request" }, window.location.origin);
+    }
+
+    function handleExtensionMessage(event: MessageEvent) {
+      if (event.source !== window || event.origin !== window.location.origin) return;
+      if (!event.data || typeof event.data !== "object" || event.data.source !== extensionSource) return;
+      if (event.data.type === "presence") {
+        setExtensionDetected(true);
+        requestAgentStatus();
+      }
+      if (event.data.type === "agent-status") {
+        setExtensionDetected(true);
+        setLocalAgentDetected(event.data.reachable === true && event.data.status?.status === "ok");
+      }
+    }
+
+    window.addEventListener("message", handleExtensionMessage);
+    const timers = [0, 250, 1000].map((delay) => window.setTimeout(requestAgentStatus, delay));
+    return () => {
+      window.removeEventListener("message", handleExtensionMessage);
+      timers.forEach((timer) => window.clearTimeout(timer));
+    };
+  }, []);
+
   function signWithLocalToken() {
     if (!token || !ticket?.localSigningAvailable || ticket.status !== "pending") return;
+    if (extensionDetected) {
+      setMessage(localAgentDetected ? "Abrindo a autorização no agente local." : "Acionando o bridge local para localizar o agente.");
+      window.postMessage({ source: pageSource, type: "open-authorize", ticket: token }, window.location.origin);
+      return;
+    }
     window.location.assign(`${agentBase}/v1/authorize#ticket=${token}`);
   }
 
@@ -290,6 +353,12 @@ export function PrivatePadesPanel() {
                 {ticket?.remoteSigningAvailable && <button className="button button--yellow" type="button" onClick={() => void signRemotely()} disabled={busy || ticket.status !== "pending"}>{busy ? <LoaderCircle className="spin" aria-hidden="true" size={17} /> : <Cloud aria-hidden="true" size={17} />}<span>Autorizar no PSC</span></button>}
                 {ticket?.localSigningAvailable && <button className={ticket.remoteSigningAvailable ? "button button--outline" : "button button--yellow"} type="button" onClick={signWithLocalToken} disabled={busy || ticket.status !== "pending"}><Usb aria-hidden="true" size={17} /><span>Usar token USB</span></button>}
               </>
+            )}
+            {ticket?.localSigningAvailable && !extensionDetected && (
+              <a className="pades-extension-download" href={extensionDownloadUrl}>
+                <Download aria-hidden="true" size={16} />
+                <span>Baixar extensão Chrome</span>
+              </a>
             )}
             <button className="pades-refresh" type="button" onClick={() => token && void refresh(token)} disabled={busy || !token} title="Atualizar estado da assinatura"><RefreshCw aria-hidden="true" size={17} /><span>Atualizar estado</span></button>
           </div>

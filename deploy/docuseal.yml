@@ -1,6 +1,6 @@
 services:
   docuseal:
-    image: maiocchi/docuseal:3.0.1-maiocchi.12
+    image: maiocchi/docuseal:3.0.1-maiocchi.13
     container_name: docuseal
     restart: unless-stopped
     mem_limit: 1g

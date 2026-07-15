@@ -158,6 +158,50 @@ test("usa marca PAdES e omite ITI nas modalidades simples e avançada sem infrae
   }
 });
 
+test("preserva modalidade, perfil e fundamento individual de signatários em um documento misto", async () => {
+  const source = await sourceDocument(1);
+  const manifest = buildEvidenceManifest({
+    publicId: "MAI-2026-1111-2222-3333-4444",
+    documentNumber: "20260713010000123456789012345",
+    documentName: "misto.pdf",
+    sourceSha256: sha256(source),
+    sourceSize: source.length,
+    sourcePageCount: 1,
+    createdAt: "2026-07-13T01:00:00.000Z",
+    documentContext: { intendedFor: "Partes", purpose: "Documento misto" },
+    signingMetadata: {
+      infrastructure: "Maiocchi. Assinatura",
+      format: "Assinaturas eletrônicas",
+      profile: "MISTA",
+      modality: "mixed",
+      signers: [
+        {
+          name: "Signatário simples", role: "Contratante", modality: "simple",
+          profile: "SIMPLES RASTREÁVEL", format: "Assinatura eletrônica",
+          infrastructure: "Maiocchi. Assinatura",
+          legalBasis: "MP 2.200-2/2001, art. 10, § 2º",
+          identitySource: "Consentimento e sessão eletrônica rastreada",
+          signedAt: "2026-07-13T01:01:00.000Z",
+        },
+        {
+          name: "Signatário avançado", role: "Contratado", modality: "advanced",
+          profile: "AVANÇADA", format: "Assinatura eletrônica avançada",
+          infrastructure: "Maiocchi. Assinatura · OTP por e-mail",
+          legalBasis: "Lei 14.063/2020, art. 4º, II",
+          identitySource: "OTP por e-mail e sessão autenticada",
+          signedAt: "2026-07-13T01:02:00.000Z",
+        },
+      ],
+    },
+  });
+
+  assert.equal(manifest.signers[0].modality, "simple");
+  assert.equal(manifest.signers[0].profile, "SIMPLES RASTREÁVEL");
+  assert.equal(manifest.signers[1].modality, "advanced");
+  assert.equal(manifest.signers[1].identitySource, "OTP por e-mail e sessão autenticada");
+  assert.equal(manifest.signers[1].legalBasis, "Lei 14.063/2020, art. 4º, II");
+});
+
 test("mantém marca PAdES e oferece VALIDAR ITI para assinatura avançada GOV.BR reconhecida", async () => {
   const source = await sourceDocument(1);
   const manifest = manifestFor(source, 1, "GOV.BR");

@@ -16,7 +16,10 @@ struct LoopbackGuard: AsyncMiddleware {
                 || (["/v1/authorize", "/v1/authorize.js"].contains(request.url.path)
                     && (request.headers.first(name: HTTPHeaders.Name("Sec-Fetch-Mode")) == "navigate" || fetchSite == "none"))
         )
-        guard (origin.map(allowedOrigins.contains) ?? false) || isLocalGet else {
+        let isPublicStatusProbe = request.method == .GET
+            && request.url.path == "/v1/status"
+            && origin == nil
+        guard (origin.map(allowedOrigins.contains) ?? false) || isLocalGet || isPublicStatusProbe else {
             return problem(.forbidden, "origin_not_allowed", "Origem não autorizada.")
         }
         if request.method == .OPTIONS {

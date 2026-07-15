@@ -12,7 +12,7 @@
   <key>EnvironmentVariables</key>
   <dict>
     <key>MAIOCCHI_ALLOWED_ORIGINS</key>
-    <string>https://assinatura.maiocchi.adv.br,http://127.0.0.1:35100,http://localhost:3000</string>
+    <string>https://assinatura.maiocchi.adv.br,chrome-extension://cbikodnffamnfjoaobfpacilcfilmjlh,http://127.0.0.1:35100,http://localhost:3000</string>
   </dict>
   <key>RunAtLoad</key>
   <true/>

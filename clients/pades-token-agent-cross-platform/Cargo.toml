@@ -1,0 +1,46 @@
+[package]
+name = "maiocchi-pades-token-agent"
+version = "1.0.1"
+edition = "2024"
+rust-version = "1.85"
+license = "Apache-2.0"
+description = "Native Windows and Linux bridge for Maiocchi ICP-Brasil PAdES signing"
+publish = false
+
+[dependencies]
+axum = { version = "0.8.9", features = ["json"] }
+base64 = "0.22.1"
+chrono = { version = "0.4.45", features = ["serde"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+sha2 = "0.10.9"
+thiserror = "2.0.18"
+tokio = { version = "1.49.0", features = ["macros", "net", "rt-multi-thread", "signal"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt"] }
+url = "2.5.8"
+uuid = { version = "1.21.0", features = ["v4"] }
+x509-parser = "0.18.1"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2.183"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+cryptoki = "0.12.0"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { version = "0.62.2", features = [
+  "Win32_Foundation",
+  "Win32_Security_Cryptography",
+  "Win32_System_Threading",
+  "Win32_UI_WindowsAndMessaging",
+] }
+
+[dev-dependencies]
+tower = { version = "0.5.3", features = ["util"] }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+panic = "abort"
+strip = "symbols"

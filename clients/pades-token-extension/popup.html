@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Agente PAdES</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <h1>Agente local PAdES</h1>
+    <p>Esta extensão apenas descobre e aciona o agente nativo. Não acessa chave, PIN nem assina.</p>
+    <dl>
+      <dt>Agente</dt>
+      <dd id="agent-state" class="warn">Verificando...</dd>
+      <dt>Versão</dt>
+      <dd id="agent-version">-</dd>
+      <dt>Perfil</dt>
+      <dd id="agent-profile">-</dd>
+    </dl>
+    <script defer src="popup.js"></script>
+  </body>
+</html>

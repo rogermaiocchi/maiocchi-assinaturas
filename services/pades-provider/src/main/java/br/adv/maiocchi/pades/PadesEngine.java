@@ -116,7 +116,8 @@ final class PadesEngine {
     record CompleteRequest(String signatureBase64) {}
     record ValidationResult(boolean cryptographicIntegrity, boolean trusted, String indication,
                             String subIndication, String format, String policyOid, String signedBy,
-                            String signerNationalIdMasked, String signingTime, String certificateType,
+                            String signerNationalIdMasked, String signerNationalIdSha256,
+                            String signingTime, String certificateType,
                             ItiPadesAdRbAttributes.Profile itiAttributes,
                             String reportXmlBase64) {}
     record CompleteResult(String signedPdfBase64, String signedPdfSha256, ValidationResult validation) {}
@@ -126,7 +127,7 @@ final class PadesEngine {
                            PAdESSignatureParameters parameters, byte[] toBeSigned, String documentSha256,
                            String certificateFingerprint, SignerIdentity signerIdentity, Instant signingTime,
                            Instant expiresAt) {}
-    private record SignerIdentity(String signedBy, String nationalIdMasked) {}
+    private record SignerIdentity(String signedBy, String nationalIdMasked, String nationalIdSha256) {}
 
     private final CommonCertificateVerifier verifier;
     private final PAdESService service;
@@ -323,7 +324,8 @@ final class PadesEngine {
                 indication == null ? "UNKNOWN" : indication.name(),
                 simple.getSubIndication(signatureId) == null ? null : simple.getSubIndication(signatureId).name(),
                 simple.getSignatureFormat(signatureId) == null ? null : simple.getSignatureFormat(signatureId).name(), signaturePolicy.oid(),
-                signerIdentity.signedBy(), signerIdentity.nationalIdMasked(), signingTime.toString(), CERTIFICATE_TYPE,
+                signerIdentity.signedBy(), signerIdentity.nationalIdMasked(), signerIdentity.nationalIdSha256(),
+                signingTime.toString(), CERTIFICATE_TYPE,
                 itiAttributes,
                 Base64.getEncoder().encodeToString(report.getBytes(java.nio.charset.StandardCharsets.UTF_8))
         );
@@ -534,7 +536,11 @@ final class PadesEngine {
         if (signedBy.isEmpty()) {
             throw new ProviderException(400, "invalid_certificate", "O certificado não informa o nome do titular.");
         }
-        return new SignerIdentity(signedBy, nationalId == null ? null : maskNationalId(nationalId));
+        return new SignerIdentity(
+                signedBy,
+                nationalId == null ? null : maskNationalId(nationalId),
+                nationalId == null ? null : sha256(nationalId.getBytes(java.nio.charset.StandardCharsets.UTF_8))
+        );
     }
 
     private static String nationalIdFromIcpBrasilExtension(CertificateToken certificate) {

@@ -100,6 +100,8 @@ class PadesEngineTest {
         assertEquals(POLICY.oid(), completed.validation().policyOid());
         assertEquals("Assinante ICP Teste", completed.validation().signedBy());
         assertEquals("529.***.***-25", completed.validation().signerNationalIdMasked());
+        assertEquals(PadesEngine.sha256(TEST_NATIONAL_ID.getBytes(java.nio.charset.StandardCharsets.UTF_8)),
+                completed.validation().signerNationalIdSha256());
         assertEquals(NOW.toString(), completed.validation().signingTime());
         assertEquals("A3", completed.validation().certificateType());
         assertEquals("PAdES AD-RB v1.3", completed.validation().itiAttributes().profile());
@@ -116,7 +118,7 @@ class PadesEngineTest {
             assertEquals("Brasil", pdfSignature.getLocation());
             assertEquals("Formalização contratual", pdfSignature.getReason());
             assertEquals("roger@maiocchi.adv.br", pdfSignature.getContactInfo());
-            assertEquals("Maiocchi. Assinatura PAdES Provider 1.2.5", ItiPadesAdRbAttributes.APPLICATION_NAME);
+            assertEquals("Maiocchi. Assinatura PAdES Provider 1.2.6", ItiPadesAdRbAttributes.APPLICATION_NAME);
             assertTrue(pdfSignature.getCOSObject().containsKey(COSName.getPDFName("Prop_Build")));
             assertFalse(pdfSignature.getCOSObject().containsKey(COSName.CERT));
             assertFalse(pdfSignature.getCOSObject().containsKey(COSName.getPDFName("R")));
@@ -195,6 +197,8 @@ class PadesEngineTest {
 
         assertEquals("Nome Real do Signatario", completed.validation().signedBy());
         assertEquals("529.***.***-25", completed.validation().signerNationalIdMasked());
+        assertEquals(PadesEngine.sha256(TEST_NATIONAL_ID.getBytes(java.nio.charset.StandardCharsets.UTF_8)),
+                completed.validation().signerNationalIdSha256());
         assertEquals(NOW.toString(), completed.validation().signingTime());
         assertEquals("A3", completed.validation().certificateType());
     }

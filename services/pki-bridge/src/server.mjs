@@ -190,6 +190,10 @@ export async function readConfiguredSecret(value, file, label) {
   return secret;
 }
 
+export function requiresPrivateSigningEvidenceKey({ providerEndpoint, remoteProvider, localSigningEnabled }) {
+  return Boolean(remoteProvider || (providerEndpoint && localSigningEnabled));
+}
+
 function closeServer(server) {
   if (!server.listening) return Promise.resolve();
   return new Promise((resolve, reject) => {
@@ -539,6 +543,18 @@ export function createRequestHandler({
         return internalJson(201, result);
       }
 
+      if (request.method === "POST" && url.pathname === "/internal/pades/commit") {
+        const raw = await readBody(request, 4096);
+        if (!(await authenticateInternal(raw, url))) {
+          return problem(401, "unauthorized", "Requisição interna não autorizada.");
+        }
+        if (!privateSigningService) {
+          return internalJson(503, { error: { code: "provider_unavailable", message: "Provider PAdES privado indisponível." } });
+        }
+        const body = JSON.parse(raw.toString("utf8"));
+        return internalJson(200, await privateSigningService.commitPayload(body.ticket));
+      }
+
       return problem(404, "not_found", "Rota não encontrada.");
     } catch (error) {
       const status = Number.isInteger(error.status) ? error.status : error instanceof SyntaxError || error instanceof TypeError ? 400 : 500;
@@ -597,15 +613,17 @@ async function main() {
     securityContextId: remoteConfiguration[2],
     redirectOrigins: (process.env.REST_PKI_CORE_REDIRECT_ORIGINS || "").split(",").map((value) => value.trim()).filter(Boolean),
   }) : null;
-  const hasPrivateSigningProvider = Boolean(providerEndpoint || remoteProvider);
+  const localSigningEnabled = process.env.ENABLE_LOCAL_A3_SIGNING === "true";
   const postQuantumKeyFile = process.env.AUTHENTICITY_ML_DSA_PRIVATE_KEY_FILE;
-  if (hasPrivateSigningProvider && !postQuantumKeyFile) throw new Error("ML-DSA-65 evidence key configuration is incomplete");
-  const postQuantumSigner = hasPrivateSigningProvider ? createPostQuantumKeyring(
+  if (!postQuantumKeyFile && requiresPrivateSigningEvidenceKey({ providerEndpoint, remoteProvider, localSigningEnabled })) {
+    throw new Error("ML-DSA-65 evidence key configuration is incomplete");
+  }
+  const postQuantumSigner = postQuantumKeyFile ? createPostQuantumKeyring(
     createPostQuantumSigner(createPrivateKey(await readFile(postQuantumKeyFile)), process.env.AUTHENTICITY_ML_DSA_KEY_ID),
     await loadPostQuantumPublicKeys(process.env.AUTHENTICITY_ML_DSA_PUBLIC_KEYS_DIR),
   ) : null;
   const allowedPolicyOids = new Set((process.env.PADES_ALLOWED_POLICY_OIDS || "").split(",").map((value) => value.trim()).filter(Boolean));
-  const privateSigningService = providerEndpoint || remoteProvider ? new PrivateSigningService({
+  const privateSigningService = postQuantumSigner ? new PrivateSigningService({
     repository: new PostgresPrivateSigningRepository(pool),
     artifactStore,
     provider: providerEndpoint ? new PrivatePadesProviderClient({
@@ -614,7 +632,7 @@ async function main() {
       allowInsecureInternal: process.env.PRIVATE_PADES_ALLOW_INTERNAL_HTTP === "true",
     }) : null,
     remoteProvider,
-    localSigningEnabled: process.env.ENABLE_LOCAL_A3_SIGNING === "true",
+    localSigningEnabled,
     postQuantumSigner,
     allowedPolicyOids,
     baseUrl: process.env.PUBLIC_BASE_URL || "https://assinatura.maiocchi.adv.br",

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { BadgeCheck, Cloud, KeyRound, ShieldCheck } from "lucide-react";
+import { BadgeCheck, Cloud, Download, KeyRound, ShieldCheck, Usb } from "lucide-react";
 import { FlowMap } from "../flow-map";
 import { LegalPage } from "../legal-page";
 
@@ -29,6 +29,10 @@ export default function IcpBrasilCertificatePage() {
       <p>Abra o link individual do documento, confira os dados e selecione <strong>Autorizar no PSC</strong>. Com certificado em nuvem, o redirecionamento protegido permite confirmar a assinatura sem extensão, aplicativo ou agente instalado.</p>
       <h2>Requisito do certificado</h2>
       <p>O percurso sem instalação exige certificado ICP-Brasil A3 em nuvem ativo em um PSC credenciado e conectado ao gateway. Um certificado guardado apenas em token USB continua no computador do titular e exige uma ponte local autorizada pelo prestador; a VPS não consegue acessar fisicamente esse dispositivo.</p>
+      <h2>Token físico no computador</h2>
+      <p>Para certificado A3 em cartão ou token USB, a chave continua sob controle do titular. O agente usa CryptoTokenKit no macOS, CNG no Windows ou p11-kit/PKCS#11 no Linux; a extensão apenas conecta a página protegida ao agente e nunca recebe PIN ou chave privada.</p>
+      <p><a className="button button--outline" href="https://github.com/rogermaiocchi/maiocchi-pades-token-extension/releases/download/v1.0.1/maiocchi-pades-token-extension-v1.0.1.zip"><Download aria-hidden="true" size={18} /><span>Baixar extensão Chrome</span></a></p>
+      <p className="legal-note"><Usb aria-hidden="true" size={16} /> O middleware oficial do fabricante e o agente nativo adequado ao sistema permanecem necessários para o token físico.</p>
       <h2>Proteção da credencial</h2>
       <p>O Maiocchi Advogado não solicita arquivo A1, PIN, senha ou chave privada. A credencial de autorização deve ser informada somente na página oficial do PSC exibida após o redirecionamento.</p>
       <h2>Arquitetura</h2>

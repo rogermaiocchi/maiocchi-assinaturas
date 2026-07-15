@@ -5,7 +5,7 @@ services:
       dockerfile: services/pki-bridge/Dockerfile
       args:
         SOURCE_REVISION: "${SOURCE_REVISION:-unknown}"
-    image: maiocchi/pki-bridge:1.3.21
+    image: maiocchi/pki-bridge:1.3.23
     container_name: pki-bridge
     restart: unless-stopped
     mem_limit: 384m
@@ -35,7 +35,7 @@ services:
       PRIVATE_PADES_PROVIDER_URL: http://pades-provider:3500
       PRIVATE_PADES_PROVIDER_API_KEY: "${PRIVATE_PADES_PROVIDER_API_KEY}"
       PRIVATE_PADES_ALLOW_INTERNAL_HTTP: "true"
-      ENABLE_LOCAL_A3_SIGNING: "${ENABLE_LOCAL_A3_SIGNING:-false}"
+      ENABLE_LOCAL_A3_SIGNING: "${ENABLE_LOCAL_A3_SIGNING:-true}"
       REST_PKI_CORE_ENDPOINT: "${REST_PKI_CORE_ENDPOINT:-}"
       REST_PKI_CORE_API_KEY: "${REST_PKI_CORE_API_KEY:-}"
       REST_PKI_CORE_SECURITY_CONTEXT_ID: "${REST_PKI_CORE_SECURITY_CONTEXT_ID:-}"
@@ -65,7 +65,7 @@ services:
       dockerfile: services/pades-provider/Dockerfile
       args:
         SOURCE_REVISION: "${SOURCE_REVISION:-unknown}"
-    image: maiocchi/pades-provider:1.2.5
+    image: maiocchi/pades-provider:1.2.6
     container_name: pades-provider
     restart: unless-stopped
     mem_limit: 768m

@@ -195,9 +195,21 @@ test("publica sem alteração a cadeia GOV.BR indicada na fonte oficial", async 
   assert.equal(createHash("sha256").update(chain).digest("hex"), "dbf22f7c15ace9c37e6b4141271695a17dc445b5a04c003ced94322ad905879f");
 });
 
+test("oferece somente o artefato operacional validado da extensão PAdES", async () => {
+  const [page, panel] = await Promise.all([
+    readFile(new URL("certificado-icp-brasil/index.html", outputRoot), "utf8"),
+    readFile(new URL("../app/assinar-icp/private-pades-panel.tsx", import.meta.url), "utf8"),
+  ]);
+  const asset = /https:\/\/github\.com\/rogermaiocchi\/maiocchi-pades-token-extension\/releases\/download\/v1\.0\.1\/maiocchi-pades-token-extension-v1\.0\.1\.zip/;
+  assert.match(page, asset);
+  assert.match(panel, asset);
+  assert.doesNotMatch(page, /github\.com\/rogermaiocchi\/maiocchi-pades-token-extension(?:["'\s<]|$)/);
+  assert.match(page, /CryptoTokenKit.*CNG.*p11-kit\/PKCS#11/i);
+});
+
 test("não expõe código no portal e conserva a fonte correspondente fora da raiz pública", async () => {
   const [archive, redesignPatch, sourcePatch, emailPatch, certificatePatch, directAuthPatch, chromeSource, outputFiles] = await Promise.all([
-    readFile(new URL("../compliance/docuseal-maiocchi-3.0.1-maiocchi.12.tar.gz", import.meta.url)),
+    readFile(new URL("../compliance/docuseal-maiocchi-3.0.1-maiocchi.13.tar.gz", import.meta.url)),
     readFile(new URL("../patches/docuseal/0002-institutional-signing-window.patch", import.meta.url), "utf8"),
     readFile(new URL("../patches/docuseal/0003-unified-contact-and-source-surface.patch", import.meta.url), "utf8"),
     readFile(new URL("../patches/docuseal/0004-unified-email-standard.patch", import.meta.url), "utf8"),
@@ -210,7 +222,7 @@ test("não expõe código no portal e conserva a fonte correspondente fora da ra
   assert.ok(archive.length > 1_000_000, "o arquivo-fonte deve conter o fork completo e suas licenças");
   assert.equal(
     createHash("sha256").update(archive).digest("hex"),
-    "7e5ed20f6dfa29da021303fa4627acc155769db8a2ba64fd54f2ac1a799863e7",
+    "befba1ecdd99c447ca0b44926020bcd0b7a3803ec5c1c851db8212181bd5ea89",
   );
   await assert.rejects(
     stat(new URL("../public/codigo-fonte/docuseal-maiocchi-3.0.1.tar.gz", import.meta.url)),
@@ -284,7 +296,7 @@ test("padroniza páginas inexistentes e redirecionamentos internos", async () =>
   assert.match(traefik, /documents-to-main:/i);
   assert.match(traefik, /replacement: 'https:\/\/assinatura\.maiocchi\.adv\.br\/\$\{1\}'/i);
   assert.match(docuseal, /APP_URL: https:\/\/assinatura\.maiocchi\.adv\.br/i);
-  assert.match(docuseal, /image: maiocchi\/docuseal:3\.0\.1-maiocchi\.12/i);
+  assert.match(docuseal, /image: maiocchi\/docuseal:3\.0\.1-maiocchi\.13/i);
   assert.match(docuseal, /DEFAULT_LOCALE: pt/i);
   assert.match(docuseal, /CERTIFICATE_AUTH_APP_HOST: assinatura\.maiocchi\.adv\.br/i);
   assert.match(docuseal, /PRIVATE_PADES_BRIDGE_URL: http:\/\/pki-bridge-internal:3401\/internal\/pades\/tickets/i);
