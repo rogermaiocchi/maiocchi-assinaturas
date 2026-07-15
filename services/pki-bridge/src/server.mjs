@@ -179,6 +179,7 @@ export function createRequestHandler({
   const permittedOrigins = new Set([baseOrigin, ...allowedOrigins.map((value) => new URL(value).origin)]);
   const trustedVerificationKeys = verificationKeys || new Map([[keyId, publicKey]]);
   const trustedValidatorKeys = validatorKeys || new Map();
+  const internalPdfBodyLimit = Math.ceil(maxBodyBytes * 4 / 3) + (1024 * 1024);
 
   return async function handle(request, response) {
     const requestOrigin = typeof request.headers.origin === "string" ? request.headers.origin : null;
@@ -352,7 +353,7 @@ export function createRequestHandler({
       }
 
       if (request.method === "POST" && url.pathname === "/internal/authenticity/records") {
-        const raw = await readBody(request, maxBodyBytes);
+        const raw = await readBody(request, internalPdfBodyLimit);
         if (!verifyWebhookSignature(request.headers["x-maiocchi-signature"], internalHmacKey, raw)) {
           return problem(401, "unauthorized", "Requisição interna não autorizada.");
         }
@@ -380,9 +381,35 @@ export function createRequestHandler({
         return json(result.replayed ? 200 : 201, { publicId: result.publicId, envelope: result.envelope, replayed: Boolean(result.replayed) });
       }
 
+      if (request.method === "POST" && url.pathname === "/internal/evidence/compose") {
+        if (!privateSigningService) return problem(503, "provider_unavailable", "Compositor privado de evidências indisponível.");
+        const raw = await readBody(request, internalPdfBodyLimit);
+        if (!verifyWebhookSignature(request.headers["x-maiocchi-signature"], internalHmacKey, raw)) {
+          return problem(401, "unauthorized", "Requisição interna não autorizada.");
+        }
+        const body = JSON.parse(raw.toString("utf8"));
+        const result = await privateSigningService.composeEvidence({
+          pdf: Buffer.from(body.pdfBase64 || "", "base64"),
+          publicId: body.publicId,
+          documentNumber: body.documentNumber,
+          documentName: body.documentName,
+          documentContext: body.documentContext,
+          signingMetadata: body.signingMetadata,
+        });
+        return json(200, {
+          presentationPdfBase64: result.presentation.toString("base64"),
+          evidencePagePdfBase64: result.evidencePage.toString("base64"),
+          manifest: result.manifest,
+          attestation: result.attestation,
+          totalPages: result.totalPages,
+          verificationUrl: result.verificationUrl,
+          barcodeValue: result.barcodeValue,
+        });
+      }
+
       if (request.method === "POST" && url.pathname === "/internal/pades/tickets") {
         if (!privateSigningService) return problem(503, "provider_unavailable", "Provider PAdES privado indisponível.");
-        const raw = await readBody(request, maxBodyBytes);
+        const raw = await readBody(request, internalPdfBodyLimit);
         if (!verifyWebhookSignature(request.headers["x-maiocchi-signature"], internalHmacKey, raw)) {
           return problem(401, "unauthorized", "Requisição interna não autorizada.");
         }

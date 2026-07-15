@@ -37,7 +37,7 @@ type AuthenticityEnvelope = {
       finalizedAt: string;
     };
     signature: {
-      format: "PAdES";
+      format: string;
       infrastructure: string;
       profile: string;
       policyOid: string | null;
@@ -57,14 +57,14 @@ type AuthenticityEnvelope = {
       } | null;
     };
     validation: {
-      status: "valid";
+      status: string;
       validatedAt: string;
       validator: string;
-      attestation: { type: "JWS" | "ML-DSA"; algorithm: "EdDSA" | "ML-DSA-65"; keyId: string; scope?: "final-pades-record"; hash: { algorithm: "SHA-256"; value: string } };
+      attestation: { type: string; algorithm: string; keyId: string; scope?: string; hash: { algorithm: "SHA-256"; value: string } };
       report: { mediaType: string; size: number; hash: { algorithm: "SHA-256"; value: string } };
     };
     representation: {
-      type: "authenticity-sheet" | "embedded-evidence-page";
+      type: string;
       mediaType: string;
       size: number;
       hash: { algorithm: "SHA-256"; value: string };
@@ -81,9 +81,9 @@ type AuthenticityEnvelope = {
       signers: Array<{ name: string; role: string; nationalIdMasked?: string; certificateType?: string; certificateFingerprintSha256: string; signedAt: string }>;
     };
     disclosure: { mode: "restricted" | "public" };
-    links: { verify: string; original: string | null; print: string; officialValidator: string | null };
+    links: { verify: string; original: string | null; print: string | null; officialValidator: string | null };
   };
-  proof: { type: "JWS" | "ML-DSA"; algorithm: "EdDSA" | "ML-DSA-65"; keyId: string; scope?: "final-pades-record"; value: string };
+  proof: { type: string; algorithm: string; keyId: string; scope?: string; value: string };
 };
 
 type VerificationResponse = {
@@ -153,10 +153,16 @@ export function AuthenticityVerifier({ officialValidatorMode = "external" }: { o
     }
     setLookup({ kind: "loading" });
     try {
-      const response = await fetch(`${apiBase}/verificacao/${encodeURIComponent(normalized)}`, {
+      let response = await fetch(`${apiBase}/verificacao/${encodeURIComponent(normalized)}`, {
         headers: { accept: "application/json" },
         cache: "no-store",
       });
+      if (response.status === 404) {
+        response = await fetch(`${apiBase}/evidencias/${encodeURIComponent(normalized)}.json`, {
+          headers: { accept: "application/json" },
+          cache: "no-store",
+        });
+      }
       const body = await response.json().catch(() => null);
       if (response.status === 404) throw new Error("A chave não foi encontrada. Confira cada caractere da via impressa.");
       if (!response.ok || !body?.proofVerified) throw new Error(body?.error?.message || "O registro não pôde ser verificado.");
@@ -189,7 +195,11 @@ export function AuthenticityVerifier({ officialValidatorMode = "external" }: { o
       const digest = await fileSha256(file);
       const result = digest === lookup.value.envelope.record.document.hash.value ? "match" : "mismatch";
       setFileResult(result);
-      void fetch(`${apiBase}/verificacao/${encodeURIComponent(lookup.value.envelope.record.document.id)}/evento`, {
+      const record = lookup.value.envelope.record;
+      const eventPath = record.signature.infrastructure === "ICP-Brasil"
+        ? `/verificacao/${encodeURIComponent(record.document.id)}/evento`
+        : `/evidencias/${encodeURIComponent(record.document.id)}/eventos`;
+      void fetch(`${apiBase}${eventPath}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ result }),
@@ -212,7 +222,7 @@ export function AuthenticityVerifier({ officialValidatorMode = "external" }: { o
     purpose: "Documento eletrônico",
     signingLocation: "Não informado",
     tokenType: "Não informado",
-    signatureType: record ? `${record.signature.format} ${record.signature.profile} · ${record.signature.infrastructure}` : "PAdES",
+    signatureType: record ? `${record.signature.format} ${record.signature.profile} · ${record.signature.infrastructure}` : "Assinatura eletrônica",
     signers: [],
   };
 
@@ -255,7 +265,7 @@ export function AuthenticityVerifier({ officialValidatorMode = "external" }: { o
               {active ? <BadgeCheck aria-hidden="true" size={24} /> : <ShieldAlert aria-hidden="true" size={24} />}
               <div>
                 <strong>{active ? "Registro íntegro e ativo" : `Documento ${lookup.value.documentStatus}`}</strong>
-                <span>{active ? "A chave foi assinada pelo serviço e corresponde a uma validação PAdES arquivada." : "Não utilize este registro sem orientação do escritório."}</span>
+                <span>{active ? "A chave corresponde ao documento final e à trilha de evidências arquivada." : "Não utilize este registro sem orientação do escritório."}</span>
               </div>
             </div>
 
@@ -311,7 +321,7 @@ export function AuthenticityVerifier({ officialValidatorMode = "external" }: { o
             )}
 
             <div className="auth-hash">
-              <span><Fingerprint aria-hidden="true" size={17} /> SHA-256 do PDF eletrônico PAdES final</span>
+              <span><Fingerprint aria-hidden="true" size={17} /> SHA-256 do PDF eletrônico final</span>
               <code>{record.document.hash.value}</code>
             </div>
 
@@ -350,7 +360,7 @@ export function AuthenticityVerifier({ officialValidatorMode = "external" }: { o
               ) : (
                 <span className="auth-restricted">Original protegido por autorização adicional.</span>
               )}
-              <a className="button button--dark" href={record.links.print}><Download aria-hidden="true" size={18} /><span>Baixar folha impressa</span></a>
+              {record.links.print && <a className="button button--dark" href={record.links.print}><Download aria-hidden="true" size={18} /><span>Baixar folha impressa</span></a>}
               {officialValidator && (officialValidatorMode === "embedded" ? (
                 <a className="button button--outline" href="#validar-iti"><ExternalLink aria-hidden="true" size={17} /><span>Continuar no VALIDAR ITI</span></a>
               ) : (

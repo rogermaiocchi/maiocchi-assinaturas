@@ -121,6 +121,39 @@ class MemoryArtifacts {
   async get(key) { return this.values.get(key); }
 }
 
+test("compõe evidência simples no mesmo padrão visual com atestado ML-DSA-65", async () => {
+  const service = new PrivateSigningService({
+    repository: new MemoryRepository(), artifactStore: new MemoryArtifacts(), provider: {},
+    postQuantumSigner, baseUrl: "https://assinatura.maiocchi.adv.br",
+  });
+  const sourcePdf = await onePagePdf();
+  const result = await service.composeEvidence({
+    pdf: sourcePdf,
+    publicId: "MAI-2026-1111-2222-3333-4444",
+    documentNumber: "20260714015027128612677818923",
+    documentName: "Contrato cliente.pdf",
+    documentContext: {
+      generatedBy: { name: "Roger Maiocchi", nationalIdMasked: "006.***.***-40", professionalRegistration: "OAB/DF 31.249" },
+      intendedFor: "Cliente identificado", purpose: "Assinatura de contrato",
+    },
+    signingMetadata: {
+      format: "Assinatura eletrônica", infrastructure: "Maiocchi. Assinatura", profile: "SIMPLES RASTREÁVEL",
+      legalBasis: "MP 2.200-2/2001, art. 10, § 2º · Lei 14.063/2020, art. 4º, I",
+      tokenType: "Sessão eletrônica rastreada", capturedAt: "2026-07-14T12:00:00.000Z",
+      timezone: "America/Sao_Paulo", locale: "pt-BR", observedIp: "203.0.113.10",
+      signers: [{ name: "Cliente identificado", role: "Cliente", signedAt: "2026-07-14T12:00:00.000Z" }],
+    },
+  });
+
+  assert.equal((await PDFDocument.load(result.presentation)).getPageCount(), 2);
+  assert.equal((await PDFDocument.load(result.evidencePage)).getPageCount(), 1);
+  assert.equal(result.visualSealMark, "PAdES");
+  assert.equal(result.icpBrasilSealIncluded, false);
+  assert.equal(result.itiValidatorUrl, null);
+  assert.equal(result.manifest.signers[0].name, "Cliente identificado");
+  assert.match(result.attestation.code, /^PQC-MLDSA65(?:-[0-9A-HJKMNP-TV-Z]{4}){4}$/);
+});
+
 test("ticket privado vincula PDF, certificado, tarefa e resultado validado", async () => {
   const repository = new MemoryRepository();
   const artifactStore = new MemoryArtifacts();

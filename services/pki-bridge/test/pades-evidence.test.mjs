@@ -191,6 +191,13 @@ test("recusa PDF que já contém ByteRange de assinatura", async () => {
   await assert.rejects(() => inspectUnsignedPdf(Buffer.from("%PDF-1.7\n/ByteRange [0 1 2 3]")), /already contains/);
 });
 
+test("classifica PDF malformado como entrada não processável", async () => {
+  await assert.rejects(
+    () => inspectUnsignedPdf(Buffer.from("%PDF-invalid")),
+    (error) => error.status === 422 && error.message === "source PDF is malformed",
+  );
+});
+
 test("atestado ML-DSA-65 é verificável e detecta alteração", { skip: (() => {
   try { generateKeyPairSync("ml-dsa-65"); return false; } catch { return "runtime sem ML-DSA-65"; }
 })() }, () => {

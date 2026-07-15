@@ -1,6 +1,6 @@
 services:
   docuseal:
-    image: maiocchi/docuseal:3.0.1-maiocchi.6
+    image: maiocchi/docuseal:3.0.1-maiocchi.9
     container_name: docuseal
     restart: unless-stopped
     mem_limit: 1g
@@ -32,8 +32,10 @@ services:
       CERTIFICATE_AUTH_HOST: certificado.assinatura.maiocchi.adv.br
       CERTIFICATE_AUTH_APP_HOST: assinatura.maiocchi.adv.br
       MAIOCCHI_HOME_URL: https://assinatura.maiocchi.adv.br
-      MAIOCCHI_SOURCE_URL: https://github.com/rogermaiocchi/maiocchi-assinaturas/raw/refs/tags/portal-v1.14.1/compliance/docuseal-maiocchi-3.0.1-maiocchi.6.tar.gz
       MAIOCCHI_LICENSE_URL: https://assinatura.maiocchi.adv.br/legal/LICENSE.txt
+      PRIVATE_PADES_BRIDGE_URL: http://pki-bridge:3400/internal/pades/tickets
+      PRIVATE_EVIDENCE_COMPOSER_URL: http://pki-bridge:3400/internal/evidence/compose
+      AUTHENTICITY_INTERNAL_HMAC_KEY: "${AUTHENTICITY_INTERNAL_HMAC_KEY:?defina AUTHENTICITY_INTERNAL_HMAC_KEY em /opt/docuseal/.env}"
     volumes:
       - "${DOCUSEAL_DATA_DIR:-./data}:/data"
     security_opt:

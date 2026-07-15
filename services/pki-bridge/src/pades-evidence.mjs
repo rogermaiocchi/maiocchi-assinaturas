@@ -56,6 +56,19 @@ function normalizedInfrastructure(value) {
     .toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+function normalizedSigners(value) {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, 12).map((entry) => {
+    const signedAt = new Date(entry?.signedAt);
+    return {
+      name: clean(entry?.name, "Signatário identificado no documento", 140),
+      role: clean(entry?.role, "Signatário", 80),
+      identitySource: clean(entry?.identitySource, "Sessão eletrônica rastreada", 100),
+      signedAt: Number.isNaN(signedAt.getTime()) ? null : signedAt.toISOString(),
+    };
+  });
+}
+
 export function isIcpBrasilSignature(signature) {
   return normalizedInfrastructure(signature?.infrastructure) === "icpbrasil";
 }
@@ -66,6 +79,8 @@ export function isItiValidationEligible(signature) {
 
 function signatureTypeLabel(signature) {
   const format = clean(signature?.format, "Assinatura eletrônica", 40);
+  if (!isIcpBrasilSignature(signature)) return format;
+
   const profile = clean(signature?.profile, "", 40);
   const infrastructure = clean(signature?.infrastructure, "", 80);
   const profileSuffix = profile && normalizedInfrastructure(profile) !== normalizedInfrastructure(format)
@@ -287,7 +302,12 @@ export async function inspectUnsignedPdf(pdf) {
   if (/\/ByteRange\s*\[/i.test(pdf.toString("latin1"))) {
     throw Object.assign(new Error("source PDF already contains a digital signature"), { status: 409 });
   }
-  const document = await PDFDocument.load(pdf, { updateMetadata: false });
+  let document;
+  try {
+    document = await PDFDocument.load(pdf, { updateMetadata: false });
+  } catch (error) {
+    throw Object.assign(new Error("source PDF is malformed", { cause: error }), { status: 422 });
+  }
   if (document.isEncrypted) throw Object.assign(new Error("encrypted PDF cannot be prepared"), { status: 422 });
   const pageCount = document.getPageCount();
   if (pageCount < 1) throw new TypeError("source PDF has no pages");
@@ -332,11 +352,12 @@ export function buildEvidenceManifest({ publicId, documentNumber, documentName, 
       capturedAt: new Date(signingMetadata?.capturedAt || createdAt).toISOString(),
     },
     signature: {
-      format: clean(signingMetadata?.format, "PAdES", 24),
+      format: clean(signingMetadata?.format, "PAdES", 48),
       infrastructure,
       profile: clean(signingMetadata?.profile, icpBrasil ? "AD-RB" : "Não informado", 40),
       policyOid: icpBrasil ? ITI_POLICY_OID : null,
       tokenType: clean(signingMetadata?.tokenType, "Não informado", 100),
+      legalBasis: clean(signingMetadata?.legalBasis, "MP 2.200-2/2001, art. 10, § 2º · Lei 14.063/2020, art. 4º.", 180),
       signerIdentitySource: icpBrasil ? "certificado-digital" : "modalidade-informada",
       itiValidationEligible,
       optionalAttributes: icpBrasil ? {
@@ -347,6 +368,7 @@ export function buildEvidenceManifest({ publicId, documentNumber, documentName, 
         contextualOrDefault: [...ITI_OPTIONAL_ATTRIBUTES.contextualOrDefault],
       } : null,
     },
+    signers: normalizedSigners(signingMetadata?.signers),
   };
 }
 
@@ -434,7 +456,7 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
   const evidenceHeader = "EVIDÊNCIAS DA ASSINATURA DIGITAL";
   const modalityHeader = icpBrasil
     ? "MODALIDADE · ICP-BRASIL"
-    : `MODALIDADE · ${manifest.signature.infrastructure.toUpperCase()}`;
+    : `MODALIDADE · ${manifest.signature.profile.toUpperCase()}`;
   const fittedModalityHeader = fitValue(fonts.regular, modalityHeader, 7.5, EVIDENCE_BLOCKS.header.width / 2, 6.4);
   page.drawText(evidenceHeader, {
     x: EVIDENCE_BLOCKS.header.left,
@@ -555,8 +577,8 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
   } else {
     drawSectionHeading(page, fonts, "03", "ATRIBUTOS DA ASSINATURA", EVIDENCE_BLOCKS.attributes, manifest.signature.infrastructure);
     drawAttributeSignal(page, fonts, { label: "FORMATO", value: manifest.signature.format, top: EVIDENCE_BLOCKS.attributes.top + 38, color: BLUE });
-    drawAttributeSignal(page, fonts, { label: "MODALIDADE", value: manifest.signature.infrastructure, top: EVIDENCE_BLOCKS.attributes.top + 54, color: MUTED });
-    drawAttributeSignal(page, fonts, { label: "CONFERÊNCIA", value: "Consultar QR e código de verificação", top: EVIDENCE_BLOCKS.attributes.top + 70, color: MUTED });
+    drawAttributeSignal(page, fonts, { label: "MODALIDADE", value: manifest.signature.profile, top: EVIDENCE_BLOCKS.attributes.top + 54, color: MUTED });
+    drawAttributeSignal(page, fonts, { label: "INFRAESTRUTURA", value: manifest.signature.infrastructure, top: EVIDENCE_BLOCKS.attributes.top + 70, color: MUTED });
   }
 
   drawPanel(page, EVIDENCE_BLOCKS.pqc, { accent: BLUE, opacity: 0.74 });
@@ -682,11 +704,43 @@ export async function composePadesEvidence({ sourcePdf, manifest, attestation, b
     });
   } else {
     drawPadesMark(page, fonts);
+    const allSigners = Array.isArray(manifest.signers) ? manifest.signers : [];
+    const visibleSigners = allSigners.slice(0, 4);
+    if (visibleSigners.length === 0) {
+      page.drawText("Signatário identificado na trilha de auditoria", {
+        x: SIGNATURE_BOX.left,
+        y: SIGNATURE_BOX.bottom + SIGNATURE_BOX.height - 16,
+        font: fonts.regular,
+        size: 7.4,
+        color: MUTED,
+      });
+    } else {
+      visibleSigners.forEach((signer, index) => {
+        const signedAt = signer.signedAt ? formatDate(signer.signedAt) : "instante registrado na trilha";
+        const value = `${signer.name} · ${signer.role} · ${signedAt}`;
+        page.drawText(fitText(fonts.regular, value, 7.2, SIGNATURE_BOX.width - 8), {
+          x: SIGNATURE_BOX.left,
+          y: SIGNATURE_BOX.bottom + SIGNATURE_BOX.height - 15 - index * 13,
+          font: index === 0 ? fonts.bold : fonts.regular,
+          size: 7.2,
+          color: INK,
+        });
+      });
+      if (allSigners.length > visibleSigners.length) {
+        page.drawText(`+ ${allSigners.length - visibleSigners.length} signatário(s) na trilha de auditoria`, {
+          x: SIGNATURE_BOX.left,
+          y: SIGNATURE_BOX.bottom + 1,
+          font: fonts.regular,
+          size: 6.4,
+          color: MUTED,
+        });
+      }
+    }
   }
 
   const legalText = icpBrasil
     ? "MP 2.200-2/2001, art. 10, § 1º · L 14.063/2020, art. 4º, III."
-    : "Assinatura eletrônica conforme a modalidade registrada · MP 2.200-2/2001, art. 10, § 2º · Lei 14.063/2020, art. 4º.";
+    : manifest.signature.legalBasis;
   wrap(fonts.regular, legalText, 6.8, BODY.width, 2).forEach((line, index) => page.drawText(line, {
     x: EVIDENCE_BLOCKS.legal.left,
     y: baseline(EVIDENCE_BLOCKS.legal.top + 14 + index * 10),

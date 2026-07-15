@@ -2,6 +2,7 @@
 .next
 node_modules
 clients
+work
 dist
 out
 tmp

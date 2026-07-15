@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { generateKeyPairSync } from "node:crypto";
+import { createHmac, generateKeyPairSync } from "node:crypto";
 import http from "node:http";
 import test from "node:test";
 import { buildAuthenticityRecord, signAuthenticityRecord } from "../src/authenticity-contract.mjs";
@@ -66,7 +66,7 @@ test("expõe verificação, CORS restrito, redirect e bloqueio do original", asy
 
   const health = await (await fetch(`${base}/healthz`)).json();
   assert.equal(health.service, "pki-bridge");
-  assert.equal(health.version, "1.3.17");
+  assert.equal(health.version, "1.3.19");
 
   const verification = await fetch(`${base}/verificacao/${publicId}`, { headers: { origin: "https://preview.example" } });
   assert.equal(verification.status, 200);
@@ -124,6 +124,16 @@ test("integra verificação privada, folha incorporada, chave PQC e metadados re
       calls.push({ token, metadata });
       return { sessionId: "77777777-7777-4777-8777-777777777777", redirectUrl: "https://psc.example.test/authorize" };
     },
+    async composeEvidence(input) {
+      calls.push({ composeEvidence: input });
+      return {
+        presentation: Buffer.from("%PDF-composed"), evidencePage: Buffer.from("%PDF-evidence"),
+        manifest: { publicId: input.publicId },
+        attestation: { algorithm: "ML-DSA-65", code: "PQC-MLDSA65-1111-2222-3333-4444" },
+        totalPages: 2, verificationUrl: `https://assinatura.maiocchi.adv.br/validar?codigo=${input.publicId}`,
+        barcodeValue: `MAI|${input.publicId}|R1`,
+      };
+    },
   };
   const handler = createRequestHandler({
     repository: { async findByPublicId() { return null; } },
@@ -150,4 +160,25 @@ test("integra verificação privada, folha incorporada, chave PQC e metadados re
   assert.equal(remote.status, 201);
   assert.equal(calls.at(-1).metadata.observedIp, "203.0.113.9");
   assert.equal(calls.at(-1).metadata.clientMetadata.platform, "MacIntel");
+
+  const composeBody = JSON.stringify({
+    pdfBase64: Buffer.from("%PDF-source").toString("base64"),
+    publicId,
+    documentNumber: "20260714015027128612677818923",
+    documentName: "documento.pdf",
+    documentContext: {},
+    signingMetadata: { profile: "SIMPLES RASTREÁVEL" },
+  });
+  const timestamp = Math.floor(Date.now() / 1000).toString();
+  const internalKey = "internal-test-key-with-32-characters";
+  const digest = createHmac("sha256", internalKey).update(timestamp).update(".").update(composeBody).digest("hex");
+  const composed = await fetch(`${base}/internal/evidence/compose`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-maiocchi-signature": `${timestamp}.${digest}` },
+    body: composeBody,
+  });
+  assert.equal(composed.status, 200);
+  const composedBody = await composed.json();
+  assert.equal(Buffer.from(composedBody.presentationPdfBase64, "base64").toString(), "%PDF-composed");
+  assert.equal(composedBody.attestation.algorithm, "ML-DSA-65");
 });

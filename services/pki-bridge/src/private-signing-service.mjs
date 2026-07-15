@@ -80,6 +80,27 @@ function normalizeSigningMetadata(value, { observedIp, modality }) {
   };
 }
 
+function normalizeEvidenceSigningMetadata(value) {
+  const metadata = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const capturedAt = new Date(metadata.capturedAt);
+  return {
+    observedIp: safeDisplay(metadata.observedIp, "Não fornecido", 80),
+    platform: safeDisplay(metadata.platform, "Não fornecida", 120),
+    userAgent: safeDisplay(metadata.userAgent, "Não fornecido", 300),
+    timezone: safeDisplay(metadata.timezone, "Não fornecido", 80),
+    locale: safeDisplay(metadata.locale, "pt-BR", 40),
+    geolocation: normalizeGeolocation(metadata.geolocation),
+    capturedAt: Number.isNaN(capturedAt.getTime()) ? new Date().toISOString() : capturedAt.toISOString(),
+    tokenType: safeDisplay(metadata.tokenType, "Sessão eletrônica rastreada", 100),
+    format: safeDisplay(metadata.format, "Assinatura eletrônica", 40),
+    profile: safeDisplay(metadata.profile, "SIMPLES RASTREÁVEL", 40),
+    infrastructure: safeDisplay(metadata.infrastructure, "Maiocchi. Assinatura", 80),
+    legalBasis: safeDisplay(metadata.legalBasis, "MP 2.200-2/2001, art. 10, § 2º", 180),
+    modality: safeDisplay(metadata.modality, "simple", 40),
+    signers: Array.isArray(metadata.signers) ? metadata.signers : [],
+  };
+}
+
 function documentNumber(now = new Date()) {
   const stamp = now.toISOString().replace(/[-:T.Z]/g, "").slice(0, 14);
   let entropy = "";
@@ -224,6 +245,32 @@ export class PrivateSigningService {
     const url = new URL("/assinar-icp", this.baseUrl);
     url.hash = `ticket=${token}`;
     return { url: url.toString(), expiresAt, sourcePdfSha256: sourceArtifact.sha256, publicId, documentNumber: number };
+  }
+
+  async composeEvidence({ pdf, publicId, documentNumber: number, documentName, documentContext, signingMetadata }) {
+    if (!Buffer.isBuffer(pdf) || pdf.length < 5 || pdf.length > MAX_PDF_BYTES || pdf.subarray(0, 5).toString("ascii") !== "%PDF-") {
+      throw new TypeError("source PDF is invalid");
+    }
+    if (!/^\d{29}$/.test(number || "")) throw new TypeError("document number is invalid");
+    const { pageCount } = await inspectUnsignedPdf(pdf);
+    const normalizedMetadata = normalizeEvidenceSigningMetadata(signingMetadata);
+    const manifest = buildEvidenceManifest({
+      publicId,
+      documentNumber: number,
+      documentName: safeName(documentName),
+      sourceSha256: sha256(pdf),
+      sourceSize: pdf.length,
+      sourcePageCount: pageCount,
+      createdAt: normalizedMetadata.capturedAt,
+      documentContext: safeDocumentContext(documentContext),
+      signingMetadata: normalizedMetadata,
+    });
+    const attestation = this.postQuantumSigner.attest(manifest);
+    if (!this.postQuantumSigner.verify(manifest, attestation)) {
+      throw Object.assign(new Error("post-quantum evidence verification failed"), { status: 503 });
+    }
+    const composed = await composePadesEvidence({ sourcePdf: pdf, manifest, attestation, baseUrl: this.baseUrl });
+    return { ...composed, manifest, attestation };
   }
 
   async status(token) {
