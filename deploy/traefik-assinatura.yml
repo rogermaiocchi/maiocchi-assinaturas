@@ -204,4 +204,4 @@ tls:
       clientAuth:
         caFiles:
           - /etc/traefik/dynamic/icp-trust/icp-client-roots.crt
-        clientAuthType: VerifyClientCertIfGiven
+        clientAuthType: RequireAndVerifyClientCert

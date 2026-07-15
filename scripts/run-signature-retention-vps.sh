@@ -33,19 +33,14 @@ if [[ -e "$LEGAL_HOLD_FILE" ]]; then
   exit 0
 fi
 
-if [[ "$PKI_RETENTION_DRY_RUN" == "true" ]]; then
-  docker exec -w /app docuseal /app/bin/bundle exec rails runner \
-    'puts({ event: "certificate_auth_retention", dry_run: true, candidates: CertificateAuthChallenge.where(expires_at: ...CertificateAuthChallenge::RETENTION_GRACE_PERIOD.ago).count }.to_json)'
-else
-  docker exec -w /app docuseal /app/bin/bundle exec rails maiocchi:prune_certificate_auth_challenges
-fi
-
 marker_value() {
   local marker="$1" name="$2"
   awk -F= -v expected="$name" '$1 == expected { print substr($0, index($0, "=") + 1); exit }' "$marker"
 }
 
 if [[ "$PKI_RETENTION_DRY_RUN" == "true" ]]; then
+  docker exec -w /app docuseal /app/bin/bundle exec rails runner \
+    'puts({ event: "certificate_auth_retention", dry_run: true, candidates: CertificateAuthChallenge.where(expires_at: ...CertificateAuthChallenge::RETENTION_GRACE_PERIOD.ago).count }.to_json)'
   docker exec \
     -e "RETENTION_DAYS=$PKI_RETENTION_DAYS" \
     -e "RETENTION_LIMIT=$PKI_RETENTION_LIMIT" \
@@ -57,18 +52,18 @@ if [[ "$PKI_RETENTION_DRY_RUN" == "true" ]]; then
 fi
 
 [[ -s "$LAST_SUCCESS_FILE" && -s "$OFFSITE_SUCCESS_FILE" ]] || {
-  printf '{"event":"pki_retention","status":"deferred","reason":"backup_markers_missing"}\n' >&2
+  printf '{"event":"signature_retention","status":"deferred","reason":"backup_markers_missing"}\n' >&2
   exit 78
 }
 backup_id="$(marker_value "$LAST_SUCCESS_FILE" BACKUP_ID)"
 offsite_id="$(marker_value "$OFFSITE_SUCCESS_FILE" BACKUP_ID)"
 [[ "$backup_id" =~ ^[0-9]{8}T[0-9]{6}Z$ && "$offsite_id" == "$backup_id" ]] || {
-  printf '{"event":"pki_retention","status":"deferred","reason":"offsite_backup_not_current"}\n' >&2
+  printf '{"event":"signature_retention","status":"deferred","reason":"offsite_backup_not_current"}\n' >&2
   exit 78
 }
 last_success_epoch="$(stat -c %Y "$LAST_SUCCESS_FILE")"
 (( $(date +%s) - last_success_epoch <= BACKUP_MAX_AGE_HOURS * 3600 )) || {
-  printf '{"event":"pki_retention","status":"deferred","reason":"backup_stale"}\n' >&2
+  printf '{"event":"signature_retention","status":"deferred","reason":"backup_stale"}\n' >&2
   exit 78
 }
 backup_path="$BACKUP_ROOT/$backup_id"
@@ -77,6 +72,9 @@ backup_path="$BACKUP_ROOT/$backup_id"
 
 queue_cutoff="${backup_id:0:4}-${backup_id:4:2}-${backup_id:6:2}T${backup_id:9:2}:${backup_id:11:2}:${backup_id:13:2}Z"
 [[ -r "$PKI_COMPOSE_FILE" && -r "$PKI_ENV_FILE" ]]
+
+# Both retention domains are destructive; the shared backup gate above must pass first.
+docker exec -w /app docuseal /app/bin/bundle exec rails maiocchi:prune_certificate_auth_challenges
 
 bridge_stopped=false
 restart_bridge() {

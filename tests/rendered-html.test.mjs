@@ -67,7 +67,7 @@ test("incorpora autenticação e reconduz páginas intermediárias à home", asy
   assert.match(traefik, /sign-in-to-home/i);
   assert.match(
     traefik,
-    /maiocchi-icp-client-auth:[\s\S]*minVersion: VersionTLS12[\s\S]*maxVersion: VersionTLS12[\s\S]*TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256[\s\S]*TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384[\s\S]*clientAuthType: VerifyClientCertIfGiven/i,
+    /maiocchi-icp-client-auth:[\s\S]*minVersion: VersionTLS12[\s\S]*maxVersion: VersionTLS12[\s\S]*TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256[\s\S]*TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384[\s\S]*clientAuthType: RequireAndVerifyClientCert/i,
   );
   assert.match(nginx, /location = \/validar[\s\S]*try_files \/validar\/index[.]html =404;/i);
   assert.match(nginx, /location = \/validar\/[\s\S]*try_files \/validar\/index[.]html =404;/i);

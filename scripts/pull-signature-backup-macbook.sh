@@ -18,6 +18,20 @@ done
 [[ "$REMOTE_HOST" =~ ^[A-Za-z0-9._-]+$ ]]
 [[ "$REMOTE_EXPORT_ROOT" =~ ^/[A-Za-z0-9._/-]+$ ]]
 
+validate_backup_directory() {
+  local backup_path="$1" expected_id="$2" manifest encrypted
+  [[ -d "$backup_path" ]] || return 1
+  [[ "$(find "$backup_path" -maxdepth 1 -type f -name '*.age' | wc -l | tr -d ' ')" == "7" ]] || return 1
+  (cd "$backup_path" && shasum -a 256 -c SHA256SUMS >/dev/null) || return 1
+  for encrypted in "$backup_path"/*.age; do
+    [[ "$(head -n 1 "$encrypted")" == "age-encryption.org/v1" ]] || return 1
+  done
+  manifest="$(age --decrypt -i "$AGE_IDENTITY_FILE" "$backup_path/manifest.txt.age")" || return 1
+  grep -qx 'format=maiocchi-signature-backup-v2' <<<"$manifest" || return 1
+  grep -qx "created_at=$expected_id" <<<"$manifest" || return 1
+  grep -qx 'consistency=application-writers-quiesced' <<<"$manifest" || return 1
+}
+
 mkdir -p "$(dirname "$LOCK_FILE")" "$LOCAL_BACKUP_ROOT"
 chmod 700 "$LOCAL_BACKUP_ROOT"
 exec 9>"$LOCK_FILE"
@@ -37,18 +51,19 @@ trap 'rm -rf "$staging"' EXIT
 rsync -a --delete --chmod=Du=rwx,Dgo=,Fu=rw,Fgo= \
   "$REMOTE_HOST:$REMOTE_EXPORT_ROOT/$backup_id/" "$staging/"
 
-[[ "$(find "$staging" -maxdepth 1 -type f -name '*.age' | wc -l | tr -d ' ')" == "7" ]]
-(cd "$staging" && shasum -a 256 -c SHA256SUMS >/dev/null)
-for encrypted in "$staging"/*.age; do
-  [[ "$(head -n 1 "$encrypted")" == "age-encryption.org/v1" ]]
-done
-manifest="$(age --decrypt -i "$AGE_IDENTITY_FILE" "$staging/manifest.txt.age")"
-grep -qx 'format=maiocchi-signature-backup-v2' <<<"$manifest"
-grep -qx "created_at=$backup_id" <<<"$manifest"
-grep -qx 'consistency=application-writers-quiesced' <<<"$manifest"
+validate_backup_directory "$staging" "$backup_id"
 
 if [[ -e "$destination" ]]; then
-  rm -rf "$staging"
+  if validate_backup_directory "$destination" "$backup_id" && cmp -s "$staging/SHA256SUMS" "$destination/SHA256SUMS"; then
+    rm -rf "$staging"
+  elif validate_backup_directory "$destination" "$backup_id"; then
+    printf 'immutable backup ID collision: %s\n' "$backup_id" >&2
+    exit 79
+  else
+    quarantine="$LOCAL_BACKUP_ROOT/.$backup_id.invalid.$(date -u +%Y%m%dT%H%M%SZ)"
+    mv "$destination" "$quarantine"
+    mv "$staging" "$destination"
+  fi
 else
   mv "$staging" "$destination"
 fi

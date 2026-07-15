@@ -5,6 +5,7 @@ import test from "node:test";
 const backup = await readFile(new URL("../scripts/backup-signature-vps.sh", import.meta.url), "utf8");
 const offsite = await readFile(new URL("../scripts/pull-signature-backup-macbook.sh", import.meta.url), "utf8");
 const retention = await readFile(new URL("../scripts/run-signature-retention-vps.sh", import.meta.url), "utf8");
+const restore = await readFile(new URL("../scripts/verify-signature-backup-restore-macbook.sh", import.meta.url), "utf8");
 const retentionService = await readFile(new URL("../deploy/systemd/maiocchi-signature-retention.service", import.meta.url), "utf8");
 const retentionTimer = await readFile(new URL("../deploy/systemd/maiocchi-signature-retention.timer", import.meta.url), "utf8");
 const portalDockerfile = await readFile(new URL("../Dockerfile", import.meta.url), "utf8");
@@ -32,18 +33,40 @@ test("cópia externa valida ciphertext e prova decriptação antes de confirmar 
   const confirmation = offsite.indexOf(".offsite-success.tmp");
   assert.ok(hashes > 0 && hashes < decrypt && decrypt < confirmation);
   assert.match(offsite, /RESTORE_PROBE=manifest-decrypted-in-memory/);
+  assert.match(offsite, /validate_backup_directory "\$destination" "\$backup_id"/);
+  assert.match(offsite, /immutable backup ID collision/);
   assert.match(offsite, /if \[\[ "\$legal_hold" != "true" \]\]/);
 });
 
 test("retenção exige legal hold livre, backup externo atual e bridge quiescido", () => {
   const hold = retention.indexOf('[[ -e "$LEGAL_HOLD_FILE" ]]');
   const offsiteMatch = retention.indexOf('"$offsite_id" == "$backup_id"');
+  const hashes = retention.indexOf("sha256sum --check SHA256SUMS");
+  const docusealPrune = retention.indexOf("maiocchi:prune_certificate_auth_challenges");
   const stop = retention.indexOf("docker stop --time 45 pki-bridge");
   const authorization = retention.indexOf("RETENTION_ARTIFACT_DELETE_ALLOWED=true");
-  assert.ok(hold > 0 && hold < offsiteMatch && offsiteMatch < stop && stop < authorization);
+  assert.ok(
+    hold > 0 &&
+      hold < offsiteMatch &&
+      offsiteMatch < hashes &&
+      hashes < docusealPrune &&
+      docusealPrune < stop &&
+      stop < authorization,
+  );
   assert.match(retention, /sha256sum --check SHA256SUMS/);
   assert.match(retention, /docker exec -w \/app docuseal \/app\/bin\/bundle exec rails/);
   assert.match(retention, /RETENTION_QUEUE_CUTOFF=\$queue_cutoff/);
   assert.match(retentionService, /OFFSITE_SUCCESS_FILE=.*signature-backup-export\/\.offsite-success/);
   assert.match(retentionTimer, /OnCalendar=hourly/);
+});
+
+test("restore drill extrai e valida os quatro arquivos cifrados antes de aprovar", () => {
+  for (const archive of ["portal", "docuseal", "pki-bridge", "traefik-signature"]) {
+    assert.match(restore, new RegExp(`restore_archive .*${archive}\\.tar\\.gz\\.age`));
+  }
+  assert.match(restore, /\[\[ -d "\$tmpdir\/traefik\/dynamic" \]\]/);
+  assert.match(restore, /portalFiles/);
+  assert.match(restore, /docusealFiles/);
+  assert.match(restore, /pkiFiles/);
+  assert.match(restore, /traefikFiles/);
 });

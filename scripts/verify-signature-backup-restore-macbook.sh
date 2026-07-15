@@ -5,6 +5,9 @@ umask 077
 
 LOCAL_BACKUP_ROOT="${LOCAL_BACKUP_ROOT:-$HOME/.local/share/maiocchi-signature/backups}"
 AGE_IDENTITY_FILE="${AGE_IDENTITY_FILE:-$HOME/.config/age/maiocchi-signature-backup.key}"
+PORTAL_ARCHIVE_ROOT="${PORTAL_ARCHIVE_ROOT:-assinatura-portal}"
+DOCUSEAL_ARCHIVE_ROOT="${DOCUSEAL_ARCHIVE_ROOT:-docuseal}"
+PKI_ARCHIVE_ROOT="${PKI_ARCHIVE_ROOT:-pki-bridge}"
 backup_id="${1:-}"
 
 for command_name in age docker shasum tar; do
@@ -27,6 +30,31 @@ cleanup() {
   rm -rf "$tmpdir"
 }
 trap cleanup EXIT
+
+restore_archive() {
+  local encrypted="$1" destination="$2" expected_path="$3"
+  mkdir -p "$destination"
+  age --decrypt -i "$AGE_IDENTITY_FILE" "$encrypted" | tar -xzf - -C "$destination"
+  [[ -e "$destination/$expected_path" ]]
+}
+
+archive_file_count() {
+  local archive_root="$1" count
+  count="$(find "$archive_root" -type f | wc -l | tr -d ' ')"
+  [[ "$count" =~ ^[1-9][0-9]*$ ]]
+  printf '%s' "$count"
+}
+
+restore_archive "$backup_path/portal.tar.gz.age" "$tmpdir/portal" "$PORTAL_ARCHIVE_ROOT"
+restore_archive "$backup_path/docuseal.tar.gz.age" "$tmpdir/docuseal" "$DOCUSEAL_ARCHIVE_ROOT"
+restore_archive "$backup_path/pki-bridge.tar.gz.age" "$tmpdir/pki" "$PKI_ARCHIVE_ROOT"
+restore_archive "$backup_path/traefik-signature.tar.gz.age" "$tmpdir/traefik" "docker-compose.yml"
+[[ -d "$tmpdir/traefik/dynamic" ]]
+
+portal_files="$(archive_file_count "$tmpdir/portal")"
+docuseal_files="$(archive_file_count "$tmpdir/docuseal")"
+pki_files="$(archive_file_count "$tmpdir/pki")"
+traefik_files="$(archive_file_count "$tmpdir/traefik")"
 
 docker run -d --name "$db_container" \
   -e POSTGRES_HOST_AUTH_METHOD=trust postgres:16-alpine >/dev/null
@@ -66,15 +94,14 @@ docker exec "$db_container" psql -U postgres -d pki_restore -Atc \
      ) referenced WHERE storage_key IS NOT NULL ORDER BY storage_key
    ) TO STDOUT" > "$tmpdir/referenced-storage-keys"
 
-age --decrypt -i "$AGE_IDENTITY_FILE" "$backup_path/pki-bridge.tar.gz.age" \
-  | tar -tzf - > "$tmpdir/pki-tree"
-
 referenced_count=0
 while IFS= read -r storage_key; do
   [[ -n "$storage_key" ]]
+  [[ "$storage_key" != /* && "$storage_key" != *"../"* && "$storage_key" != *"/.."* ]]
   referenced_count=$((referenced_count + 1))
-  grep -Fxq "pki-bridge/artifacts/$storage_key" "$tmpdir/pki-tree"
+  [[ -e "$tmpdir/pki/$PKI_ARCHIVE_ROOT/artifacts/$storage_key" ]]
 done < "$tmpdir/referenced-storage-keys"
 
-printf '{"event":"signature_restore_drill","backupId":"%s","docusealTables":%s,"pkiMigrations":%s,"referencedArtifacts":%s,"status":"valid"}\n' \
-  "$backup_id" "$docuseal_tables" "$pki_migrations" "$referenced_count"
+printf '{"event":"signature_restore_drill","backupId":"%s","docusealTables":%s,"pkiMigrations":%s,"referencedArtifacts":%s,"portalFiles":%s,"docusealFiles":%s,"pkiFiles":%s,"traefikFiles":%s,"status":"valid"}\n' \
+  "$backup_id" "$docuseal_tables" "$pki_migrations" "$referenced_count" \
+  "$portal_files" "$docuseal_files" "$pki_files" "$traefik_files"

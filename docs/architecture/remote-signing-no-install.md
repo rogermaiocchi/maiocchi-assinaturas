@@ -63,6 +63,7 @@ O security context deve exigir cadeia ICP-Brasil e política PAdES aprovada. A c
 ## Fontes rastreáveis
 
 - [REST PKI Core: signature sessions](https://docs.lacunasoftware.com/en-us/articles/rest-pki/core/integration/signature-sessions/index.html)
+- [REST PKI Core: requisito `CryptoDevice` para certificados A3/A4](https://docs.lacunasoftware.com/pt-br/articles/rest-pki/core/integration/signature-sessions/certificate-requirements.html)
 - [Lacuna Cloudhub](https://cloudhub.lacunasoftware.com/)
 - [REST PKI Core on-premises e licenças](https://docs.lacunasoftware.com/pt-br/articles/rest-pki/core/on-premises/docker.html)
 - [Manual da API de Assinatura Eletrônica GOV.BR](https://manual-integracao-assinatura-eletronica.servicos.gov.br/pt-br/latest/iniciarintegracao.html)
