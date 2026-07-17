@@ -117,6 +117,11 @@ test("aplica o sistema visual translúcido com imagens responsivas em alta resol
       "hero-evidence-gold.webp",
       "hero-security-architecture-4k.webp",
       "hero-courthouse-4k.webp",
+      "hero-govbr-glass.webp",
+      "hero-certification-pillars.webp",
+      "hero-privacy-abstract.webp",
+      "hero-security-financial.webp",
+      "hero-terms-legal.webp",
     ].map((asset) => stat(new URL(`../public/${asset}`, import.meta.url))),
   ]);
 
@@ -152,20 +157,21 @@ test("aplica o sistema visual translúcido com imagens responsivas em alta resol
 
 test("aplica um único contrato de hero e caminho a todas as páginas internas", async () => {
   const routes = [
-    ["ajuda/index.html", "Central de ajuda"],
-    ["assinar-icp/index.html", "Assinar com ICP-Brasil"],
-    ["assinatura-gov-br/index.html", "Assinatura GOV.BR"],
-    ["assinaturas-eletronicas/index.html", "Assinaturas eletrônicas"],
-    ["certificacao-digital/index.html", "Certificação digital"],
-    ["certificado-icp-brasil/index.html", "Certificado ICP-Brasil"],
-    ["privacidade/index.html", "Política de privacidade"],
-    ["seguranca/index.html", "Segurança"],
-    ["termos/index.html", "Termos de serviço"],
-    ["validar/index.html", "Validar assinatura"],
-    ["404.html", "Esta página não está disponível"],
+    ["ajuda/index.html", "Central de ajuda", "hero-support-maiocchi.jpg"],
+    ["assinar-icp/index.html", "Assinar com ICP-Brasil", "hero-security-architecture-4k.webp"],
+    ["assinatura-gov-br/index.html", "Assinatura GOV.BR", "hero-govbr-glass.webp"],
+    ["assinaturas-eletronicas/index.html", "Assinaturas eletrônicas", "hero-evidence-gold.webp"],
+    ["certificacao-digital/index.html", "Certificação digital", "hero-certification-pillars.webp"],
+    ["certificado-icp-brasil/index.html", "Certificado ICP-Brasil", "hero-courthouse-4k.webp"],
+    ["privacidade/index.html", "Política de privacidade", "hero-privacy-abstract.webp"],
+    ["seguranca/index.html", "Segurança", "hero-security-financial.webp"],
+    ["termos/index.html", "Termos de serviço", "hero-terms-legal.webp"],
+    ["validar/index.html", "Validar assinatura", "hero-validation-glass.webp"],
+    ["404.html", "Esta página não está disponível", "hero-security-architecture-4k.webp"],
   ];
 
-  for (const [file, title] of routes) {
+  const routeHeroImages = new Set();
+  for (const [file, title, image] of routes) {
     const html = await readFile(new URL(file, outputRoot), "utf8");
     const hero = html.match(/<section class="page-hero page-hero--dark[^\"]*"[\s\S]*?<\/section>/i)?.[0];
     assert.ok(hero, `${file} deve usar o PageHero compartilhado`);
@@ -179,11 +185,19 @@ test("aplica um único contrato de hero e caminho a todas as páginas internas",
     assert.doesNotMatch(hero, /status-dot|<p class="eyebrow">[\s\S]*?<svg/i);
     assert.match(hero, new RegExp(`<h1[^>]*>${title}`, "i"));
     assert.match(hero, /class="legal-lead"/i);
+    assert.match(hero, new RegExp(`src="/${image.replace(/[.]/g, "[.]")}"`, "i"));
+    if (file !== "404.html") routeHeroImages.add(image);
     assert.equal((html.match(/<h1\b/gi) || []).length, 1, `${file} deve ter um único h1`);
     assert.match(html, /maiocchi-mark-light\.svg/i);
     assert.match(html, /Termos de serviço/i);
     assert.match(html, /Política de privacidade/i);
   }
+  assert.equal(routeHeroImages.size, 10, "cada página interna deve ter uma imagem de hero própria");
+});
+
+test("padroniza os links universais do rodapé com risco laranja", async () => {
+  const theme = await readFile(new URL("../app/glass-system.css", import.meta.url), "utf8");
+  assert.match(theme, /site-footer__policy-links a[\s\S]*text-decoration-color: var\(--yellow\)[\s\S]*text-decoration-thickness: 2px/i);
 });
 
 test("mantém estados de erro dentro do mesmo sistema visual", async () => {

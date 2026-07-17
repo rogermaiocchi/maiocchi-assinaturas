@@ -573,7 +573,19 @@ body { background: var(--paper); }
 .footer-bottom--minimal .brand,
 .footer-bottom--minimal .brand__mark { width: 48px; min-width: 48px; height: 48px; min-height: 48px; }
 .site-footer__policy-links { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px 24px; }
-.site-footer__policy-links a { min-height: 44px; display: inline-flex; align-items: center; color: rgba(255, 255, 255, 0.68); font-size: 13px; font-weight: 400; text-transform: none; }
+.site-footer__policy-links a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 13px;
+  font-weight: 400;
+  text-transform: none;
+  text-decoration-line: underline;
+  text-decoration-color: var(--yellow);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 5px;
+}
 .site-footer__policy-links a:hover,
 .site-footer__policy-links a:focus-visible { color: var(--yellow); }
 

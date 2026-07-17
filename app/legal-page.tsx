@@ -20,7 +20,7 @@ const heroByPath: Record<string, HeroConfiguration> = {
     position: "center 34%",
   },
   "/assinatura-gov-br/": {
-    src: "/hero-security-architecture-4k.webp",
+    src: "/hero-govbr-glass.webp",
     eyebrow: "Serviço oficial externo",
     position: "center 40%",
   },
@@ -30,7 +30,7 @@ const heroByPath: Record<string, HeroConfiguration> = {
     position: "center",
   },
   "/certificacao-digital/": {
-    src: "/hero-security-architecture-4k.webp",
+    src: "/hero-certification-pillars.webp",
     eyebrow: "Identidade criptográfica",
     position: "center 38%",
   },
@@ -40,17 +40,17 @@ const heroByPath: Record<string, HeroConfiguration> = {
     position: "center 44%",
   },
   "/privacidade/": {
-    src: "/hero-security-architecture-4k.webp",
+    src: "/hero-privacy-abstract.webp",
     eyebrow: "Proteção de dados",
     position: "center 44%",
   },
   "/seguranca/": {
-    src: "/hero-security-architecture-4k.webp",
+    src: "/hero-security-financial.webp",
     eyebrow: "Segurança por projeto",
     position: "center 42%",
   },
   "/termos/": {
-    src: "/hero-courthouse-4k.webp",
+    src: "/hero-terms-legal.webp",
     eyebrow: "Regras e responsabilidade",
     position: "center 45%",
   },
