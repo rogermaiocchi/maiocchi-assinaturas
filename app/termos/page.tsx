@@ -3,10 +3,10 @@ import { BadgeCheck, Eye, FileSignature, UserCheck } from "lucide-react";
 import { FlowMap } from "../flow-map";
 import { LegalPage } from "../legal-page";
 
-export const metadata: Metadata = { title: "Termos de uso" };
+export const metadata: Metadata = { title: "Termos de serviço" };
 
 export default function TermsPage() {
-  return <LegalPage title="Termos de uso" lead="Condições para acessar, conferir e assinar documentos no portal do Maiocchi Advogado." currentPath="/termos/">
+  return <LegalPage title="Termos de serviço" lead="Condições para acessar, conferir e assinar documentos no portal do Maiocchi Advogado." currentPath="/termos/">
     <p className="legal-meta">Versão de 12 de julho de 2026.</p>
     <FlowMap eyebrow="Uso responsável" title="Acesso pessoal. Decisão consciente. Evidência preservada." description="O uso do portal pressupõe conferência do conteúdo e interrupção imediata diante de dúvida, erro ou acesso indevido." ariaLabel="Fluxo de responsabilidades para uso do portal" steps={[
       { title: "Acessar pessoalmente", description: "Use apenas o link individual destinado a você.", icon: UserCheck },

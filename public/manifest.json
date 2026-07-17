@@ -1,5 +1,5 @@
 {
-  "name": "Maiocchi. Assinatura — Maiocchi Advogado",
+  "name": "Maiocchi — documentos e assinaturas",
   "short_name": "Maiocchi",
   "description": "Portal seguro de documentos e assinaturas do Maiocchi Advogado.",
   "start_url": "/",
@@ -7,6 +7,12 @@
   "background_color": "#f5f5f3",
   "theme_color": "#ffb800",
   "icons": [
+    {
+      "src": "/maiocchi-mark.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
     {
       "src": "/icon-192.png",
       "sizes": "192x192",

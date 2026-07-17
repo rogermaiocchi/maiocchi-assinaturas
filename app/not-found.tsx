@@ -1,19 +1,22 @@
-import Link from "next/link";
-import { ArrowRight, CircleHelp, Home } from "lucide-react";
+import type { Metadata } from "next";
+import { PageHero } from "./page-hero";
 import { SiteFooter, SiteHeader } from "./site-chrome";
+
+export const metadata: Metadata = { title: "Página não encontrada" };
 
 export default function NotFound() {
   return (
-    <div className="portal-404">
+    <div className="legal-page not-found-page">
       <SiteHeader />
-      <main className="shell portal-404__content" id="conteudo-principal">
-        <p className="eyebrow"><span className="status-dot" /> Erro 404</p>
-        <h1>Esta página não foi encontrada.</h1>
-        <p>Confira o endereço recebido ou volte ao portal seguro do Maiocchi Advogado.</p>
-        <div className="hero-actions">
-          <Link className="button button--yellow" href="/"><Home aria-hidden="true" size={18} /><span>Ir para o início</span></Link>
-          <Link className="text-link" href="/ajuda/"><CircleHelp aria-hidden="true" size={17} /><span>Central de ajuda</span><ArrowRight aria-hidden="true" size={16} /></Link>
-        </div>
+      <main id="conteudo-principal">
+        <PageHero
+          title="Esta página não está disponível."
+          lead="Se recebeu um link para assinar, abra-o novamente na mensagem original. Você também pode voltar ao início e informar o código do documento."
+          eyebrow="Endereço não encontrado"
+          image="/hero-security-architecture-4k.webp"
+          currentLabel="Página não encontrada"
+          className="page-hero--not-found"
+        />
       </main>
       <SiteFooter />
     </div>

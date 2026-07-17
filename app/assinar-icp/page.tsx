@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { FileKey } from "lucide-react";
+import { PageHero } from "../page-hero";
 import { SiteFooter, SiteHeader } from "../site-chrome";
 import { PrivatePadesPanel } from "./private-pades-panel";
 
@@ -10,15 +10,13 @@ export default function PrivatePadesSigningPage() {
     <div className="signing-page">
       <SiteHeader />
       <main id="conteudo-principal">
-        <section className="signing-masthead" aria-labelledby="signing-title">
-          <div className="signing-masthead__media" aria-hidden="true" />
-          <div className="signing-masthead__shade" aria-hidden="true" />
-          <div className="shell signing-masthead__content">
-            <p className="eyebrow"><FileKey aria-hidden="true" size={14} /> Certificado digital</p>
-            <h1 id="signing-title">Assinar com ICP-Brasil</h1>
-            <p>Confira o documento e escolha a modalidade disponível para concluir a assinatura PAdES.</p>
-          </div>
-        </section>
+        <PageHero
+          title="Assinar com ICP-Brasil"
+          lead="Confira o documento e escolha a modalidade disponível para concluir a assinatura PAdES."
+          eyebrow="Certificado digital"
+          image="/hero-security-architecture-4k.webp"
+          imagePosition="center 40%"
+        />
         <section className="signing-workspace-band">
           <div className="shell"><PrivatePadesPanel /></div>
         </section>

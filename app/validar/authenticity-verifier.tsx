@@ -12,7 +12,6 @@ import {
   FileSearch,
   Fingerprint,
   LoaderCircle,
-  QrCode,
   Search,
   ShieldAlert,
 } from "lucide-react";
@@ -219,7 +218,7 @@ export function AuthenticityVerifier({ officialValidatorMode = "external" }: { o
   return (
     <section className="auth-verifier" aria-labelledby="auth-verifier-title">
       <div className="auth-verifier__heading">
-        <p className="eyebrow"><QrCode aria-hidden="true" size={14} /> Chave de autenticidade</p>
+        <p className="eyebrow">Chave de autenticidade</p>
         <h2 id="auth-verifier-title">Conferir documento eletrônico.</h2>
         <p>Digite a chave impressa ou abra esta página pelo QR Code.</p>
       </div>

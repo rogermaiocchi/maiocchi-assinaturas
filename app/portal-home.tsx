@@ -7,20 +7,17 @@ import {
   ArrowDown,
   ArrowRight,
   BadgeCheck,
+  ChevronRight,
   CircleHelp,
   ExternalLink,
-  FileCheck2,
   FileKey,
   FilePlus2,
   FileSignature,
-  FolderKanban,
   Landmark,
   LockKeyhole,
-  PenLine,
   PenTool,
-  ScanSearch,
   Send,
-  ShieldCheck,
+  Home,
   UserRoundCheck,
 } from "lucide-react";
 import { FlowMap } from "./flow-map";
@@ -89,13 +86,18 @@ export function PortalHome() {
               fill
               priority
               sizes="100vw"
-              quality={90}
+              quality={92}
             />
           </div>
           <div className="hero__shade" aria-hidden="true" />
           <div className="shell hero__content">
             <div className="hero-copy">
-              <p className="eyebrow"><span className="status-dot" /> Serviço de apoio ao cliente</p>
+              <nav className="breadcrumb hero-breadcrumb" aria-label="Caminho da página">
+                <Link href="/"><Home aria-hidden="true" size={14} /><span>Portal</span></Link>
+                <ChevronRight aria-hidden="true" size={13} />
+                <span aria-current="page">Início</span>
+              </nav>
+              <p className="eyebrow">Serviço de apoio ao cliente</p>
               <h1 className="hero-title">Assinatura digital</h1>
               <p className="hero-lead">Abra, assine e valide documentos em um único endereço.</p>
 
@@ -126,42 +128,22 @@ export function PortalHome() {
                 {error && <p className="form-error" id="access-error" role="alert">{error}</p>}
               </form>
 
-              <nav className="hero-actions" aria-label="Acessos rápidos">
-                <Link className="hero-text-link" href="/#advogados"><FolderKanban aria-hidden="true" size={18} /><span>Área dos advogados</span><ArrowRight aria-hidden="true" size={15} /></Link>
-                <Link className="hero-text-link" href="/#validar"><ScanSearch aria-hidden="true" size={18} /><span>Validar documento</span><ArrowRight aria-hidden="true" size={15} /></Link>
-              </nav>
-
-              <div className="trust-row" aria-label="Proteções do portal">
-                <span><ShieldCheck aria-hidden="true" size={15} /> Conexão TLS</span>
-                <span><BadgeCheck aria-hidden="true" size={15} /> Eventos registrados</span>
-                <span><FileKey aria-hidden="true" size={15} /> ICP-Brasil</span>
-              </div>
             </div>
           </div>
-          <a className="hero-scroll" href="#operacoes" aria-label="Ir para os serviços do portal"><ArrowDown aria-hidden="true" size={19} /></a>
-        </section>
-
-        <nav className="operation-rail" id="operacoes" aria-label="Escolha o que deseja fazer">
-          <div className="shell operation-rail__inner">
-            <Link href="/#acessar-documento"><span className="operation-rail__number">01</span><PenLine aria-hidden="true" size={22} /><span><small>Recebi um link</small><strong>Assinar</strong></span><ArrowRight aria-hidden="true" size={17} /></Link>
-            <Link href="/#validar"><span className="operation-rail__number">02</span><FileCheck2 aria-hidden="true" size={22} /><span><small>Tenho o PDF ou a chave</small><strong>Validar</strong></span><ArrowRight aria-hidden="true" size={17} /></Link>
-            <Link href="/#advogados"><span className="operation-rail__number">03</span><FolderKanban aria-hidden="true" size={22} /><span><small>Sou advogado</small><strong>Gerenciar</strong></span><ArrowRight aria-hidden="true" size={17} /></Link>
-          </div>
-        </nav>
-
-        <section className="portal-band portal-band--workspace" id="advogados">
-          <div className="shell"><LawyerAccess /></div>
+          <a className="hero-scroll" href="#validar" aria-label="Continuar para a validação do documento"><ArrowDown aria-hidden="true" size={19} /></a>
         </section>
 
         <section className="portal-band portal-band--verification" id="validar">
-          <div className="shell">
+          <div className="portal-band__media" aria-hidden="true"><Image src="/hero-validation-glass.webp" alt="" fill sizes="100vw" quality={88} /></div>
+          <div className="portal-band__veil" aria-hidden="true" />
+          <div className="shell portal-band__content">
             <div className="editorial-heading">
-              <div><p className="eyebrow"><BadgeCheck aria-hidden="true" size={14} /> Validação integrada</p><h2>Autenticidade conferida no mesmo percurso.</h2></div>
-              <p>Consulte a chave Maiocchi, compare o SHA-256 do PDF e, quando aplicável, prossiga para o serviço oficial do ITI.</p>
+              <div><p className="eyebrow">Validação integrada</p><h2>Autenticidade conferida no mesmo percurso.</h2></div>
+              <p>Consulte a chave, compare o SHA-256 do PDF e, quando aplicável, prossiga para o serviço oficial do ITI.</p>
             </div>
             <AuthenticityVerifier officialValidatorMode="embedded" />
             <details className="official-validator" id="validar-iti">
-              <summary><span><Landmark aria-hidden="true" size={20} /><span><small>Serviço oficial externo</small><strong>VALIDAR ITI</strong></span></span><span className="official-validator__action">Abrir verificador <ArrowDown aria-hidden="true" size={17} /></span></summary>
+              <summary><span><Landmark aria-hidden="true" size={20} /><strong>VALIDAR ITI</strong></span><span className="official-validator__action">Abrir verificador <ArrowDown aria-hidden="true" size={17} /></span></summary>
               <div className="official-validator__body">
                 <div className="official-validator__notice">
                   <p>O conteúdo abaixo é fornecido por <strong>validar.iti.gov.br</strong>. Caso o serviço impeça a incorporação, abra-o em uma nova aba.</p>
@@ -174,7 +156,9 @@ export function PortalHome() {
         </section>
 
         <section className="portal-band portal-band--process" id="como-funciona">
-          <div className="shell">
+          <div className="portal-band__media" aria-hidden="true"><Image src="/hero-evidence-gold.webp" alt="" fill sizes="100vw" quality={88} /></div>
+          <div className="portal-band__veil" aria-hidden="true" />
+          <div className="shell portal-band__content">
             <FlowMap
               eyebrow="Fluxo único"
               title="Do envio à prova de autenticidade."
@@ -184,14 +168,16 @@ export function PortalHome() {
                 { title: "Preparar", description: "O advogado define documento, participantes e modalidade.", icon: FilePlus2 },
                 { title: "Identificar", description: "O signatário acessa o link individual e confere o conteúdo.", icon: UserRoundCheck },
                 { title: "Assinar", description: "A manifestação ocorre na modalidade indicada para o caso.", icon: PenTool, tone: "yellow" },
-                { title: "Validar", description: "PDF, hash, QR Code e histórico conduzem à conferência.", icon: BadgeCheck, href: "/#validar", linkLabel: "Validar agora" },
+                { title: "Validar", description: "PDF, hash, QR Code e histórico conduzem à conferência.", icon: BadgeCheck },
               ]}
             />
           </div>
         </section>
 
         <section className="portal-band portal-band--modalities" id="modalidades">
-          <div className="shell modalities-layout">
+          <div className="portal-band__media" aria-hidden="true"><Image src="/hero-courthouse-4k.webp" alt="" fill sizes="100vw" quality={86} /></div>
+          <div className="portal-band__veil" aria-hidden="true" />
+          <div className="shell portal-band__content modalities-layout">
             <div className="modalities-layout__intro"><p className="eyebrow">Modalidade adequada</p><h2>Uma escolha jurídica, não apenas técnica.</h2><p>O portal mantém as alternativas no mesmo contexto e indica o percurso aplicável ao documento.</p></div>
             <div className="modality-list">
               <details open><summary><span><FileSignature aria-hidden="true" size={19} /> Eletrônica</span><strong>Fluxo com trilha de eventos</strong></summary><div><p>O aceite por link registra as evidências do fluxo. A classificação jurídica depende do documento e do método de identificação.</p><Link href="/assinaturas-eletronicas/">Entender modalidades <ArrowRight aria-hidden="true" size={15} /></Link></div></details>
@@ -201,7 +187,13 @@ export function PortalHome() {
           </div>
         </section>
 
+        <section className="portal-band portal-band--workspace" id="advogados">
+          <div className="shell portal-band__content"><LawyerAccess /></div>
+        </section>
+
         <section className="help-cta" aria-labelledby="help-cta-title">
+          <div className="help-cta__media" aria-hidden="true"><Image src="/hero-support-maiocchi.jpg" alt="" fill sizes="100vw" quality={88} /></div>
+          <div className="help-cta__veil" aria-hidden="true" />
           <div className="shell help-cta__inner">
             <div className="help-cta__copy"><p className="eyebrow">Atendimento direto</p><h2 id="help-cta-title">Orientação para acessar, assinar e validar.</h2><p>Instruções objetivas sobre documentos recebidos, certificado digital, autenticidade e dificuldades de acesso.</p><Link className="hero-text-link" href="/ajuda/"><CircleHelp aria-hidden="true" size={19} /><span>Acessar central de ajuda</span><ArrowRight aria-hidden="true" size={16} /></Link></div>
           </div>

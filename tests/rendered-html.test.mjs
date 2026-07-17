@@ -6,23 +6,46 @@ import test from "node:test";
 const outputRoot = new URL("../out/", import.meta.url);
 
 test("renderiza a porta de entrada Maiocchi", async () => {
-  const html = await readFile(new URL("index.html", outputRoot), "utf8");
-  assert.match(html, /<title>Maiocchi\. Assinatura \| Maiocchi Advogado<\/title>/i);
+  const [html, mark, lightMark] = await Promise.all([
+    readFile(new URL("index.html", outputRoot), "utf8"),
+    readFile(new URL("../public/maiocchi-mark.svg", import.meta.url), "utf8"),
+    readFile(new URL("../public/maiocchi-mark-light.svg", import.meta.url), "utf8"),
+  ]);
+  assert.match(html, /<title>Documentos e assinaturas \| Maiocchi Advogado<\/title>/i);
   assert.match(html, /Recebeu um documento\?/i);
   assert.match(html, /Serviço de apoio ao cliente/i);
   assert.match(html, /<h1 class="hero-title">Assinatura digital<\/h1>/i);
+  assert.match(html, /class="breadcrumb hero-breadcrumb" aria-label="Caminho da página"/i);
+  assert.match(html, /aria-current="page">Início</i);
+  assert.doesNotMatch(html, /class="trust-row"/i);
+  assert.match(html, /<p class="eyebrow">Validação integrada<\/p>/i);
+  assert.match(html, /<p class="eyebrow">Chave de autenticidade<\/p>/i);
+  assert.doesNotMatch(html, /Consulte a chave Maiocchi|<small>Serviço oficial externo<\/small>/i);
   assert.doesNotMatch(html, /Maiocchi<span>\.<\/span> <strong>Assinatura<\/strong>/i);
-  assert.equal((html.match(/class="icon-nav-link"/g) || []).length, 3);
+  assert.equal((html.match(/site-menu-toggle/g) || []).length, 1);
+  assert.doesNotMatch(html, /class="icon-nav-link"|class="operation-rail"|class="portal-sections"|class="next-actions"/i);
   assert.match(html, /class="brand__mark"/i);
-  assert.doesNotMatch(html, /class="brand__mark"[^>]*src=/i);
+  assert.match(html, /aria-label="Maiocchi — início"/i);
+  assert.doesNotMatch(html, /Maiocchi\. Assinatura/i);
+  assert.match(html, /brand__mark-image--dark" src="\/maiocchi-mark\.svg"/i);
+  assert.match(html, /brand__mark-image--light" src="\/maiocchi-mark-light\.svg"/i);
   assert.doesNotMatch(html, /class="brand__name"/i);
-  assert.doesNotMatch(html, /Ir para o conteúdo principal/i);
+  assert.match(mark, /viewBox="0 0 512 512"/i);
+  assert.match(mark, /<text x="38" y="405"[^>]*>m<\/text>/i);
+  assert.match(mark, /<circle cx="410" cy="371" r="36" fill="#ffb800"\/>/i);
+  assert.match(lightMark, /<text x="38" y="405" fill="#ffffff"[^>]*>m<\/text>/i);
+  assert.match(html, /Ir para o conteúdo principal/i);
   assert.match(html, /id="conteudo-principal"/i);
   assert.match(html, /href="\/ajuda\/"[^>]*>[\s\S]*Acessar central de ajuda/i);
   assert.doesNotMatch(html, /<div class="footer-summary">\s*<strong>Maiocchi\. Assinatura<\/strong>/i);
-  assert.match(html, /Área dos advogados/i);
-  assert.match(html, /Área dos advogados, sem página intermediária/i);
-  assert.match(html, /Entrar com certificado digital/i);
+  assert.match(html, /Acesso restrito/i);
+  assert.match(html, /Gestão de documentos/i);
+  assert.match(html, /Para assinar, use o link ou código no início desta página/i);
+  assert.doesNotMatch(html, /Sessão protegida na mesma origem|Certificado digital disponível|Segundo fator quando habilitado/i);
+  assert.doesNotMatch(html, /Documentos e evidências em um endereço/i);
+  assert.ok(html.indexOf('id="validar"') < html.indexOf('id="advogados"'), "a validação deve anteceder a gestão interna");
+  assert.ok(html.indexOf('id="modalidades"') < html.indexOf('id="advogados"'), "a jornada do cliente deve anteceder a gestão interna");
+  assert.match(html, /Entrar com certificado/i);
   assert.doesNotMatch(html, /href="[^"]*\/dashboard/i);
   assert.doesNotMatch(html, /href="[^"]*\/sign_in/i);
   assert.doesNotMatch(html, /documentos\.assinatura\.maiocchi\.adv\.br/i);
@@ -30,7 +53,9 @@ test("renderiza a porta de entrada Maiocchi", async () => {
   assert.match(html, /\/certificado-icp-brasil\//i);
   assert.doesNotMatch(html, /roger@maiocchi\.adv\.br/i);
   assert.match(html, /src="https:\/\/validar\.iti\.gov\.br\/"/i);
-  assert.match(html, /Responsável: Roger Maiocchi, OAB\/DF 31\.249\./i);
+  assert.doesNotMatch(html, /Responsável: Roger Maiocchi|©\s*\d{4}\s*Maiocchi Advogado/i);
+  assert.match(html, /Termos de serviço/i);
+  assert.match(html, /Política de privacidade/i);
   assert.match(html, /\/assinaturas-eletronicas\//i);
   assert.match(html, /\/assinatura-gov-br\//i);
   assert.doesNotMatch(html, /admin@maiocchi\.adv\.br|contato@maiocchi\.adv\.br|Maiocchi Advocacia/i);
@@ -64,6 +89,9 @@ test("incorpora autenticação e reconduz páginas intermediárias à home", asy
   assert.doesNotMatch(accessSource, /response\.ok && destination === "\/" \|\| destination === "\/dashboard"/i);
   assert.match(accessSource, /role="tablist"/i);
   assert.match(accessSource, /aria-selected=\{accessMethod === "certificate"\}/i);
+  assert.match(accessSource, /aria-orientation="horizontal"[\s\S]*onKeyDown=\{handleTabKeyDown\}/i);
+  assert.match(accessSource, /ArrowRight[\s\S]*ArrowLeft[\s\S]*Home[\s\S]*End/i);
+  assert.match(accessSource, /tabIndex=\{accessMethod === "certificate" \? 0 : -1\}/i);
   assert.match(dashboardPatch, /redirect_to.*#advogados/i);
   assert.match(traefik, /replacePath:[\s\S]*path: \/sign_in/i);
   assert.match(traefik, /sign-in-to-home/i);
@@ -84,28 +112,94 @@ test("aplica o sistema visual translúcido com imagens responsivas em alta resol
     readFile(new URL("index.html", outputRoot), "utf8"),
     ...[
       "hero-home-maiocchi.webp",
-      "hero-roger-maiocchi-hd.webp",
-      "hero-access-professional.webp",
+      "hero-assinaturas.webp",
       "hero-validation-glass.webp",
       "hero-evidence-gold.webp",
+      "hero-security-architecture-4k.webp",
+      "hero-courthouse-4k.webp",
     ].map((asset) => stat(new URL(`../public/${asset}`, import.meta.url))),
   ]);
 
   assert.match(layout, /import "[.]\/glass-system[.]css"/i);
-  assert.match(theme, /--glass-blur: blur\(24px\) saturate\(118%\)/i);
+  assert.match(theme, /--glass-blur: blur\(26px\) saturate\(122%\)/i);
   assert.match(home, /src="\/hero-home-maiocchi[.]webp"/i);
-  assert.match(theme, /hero--institutional[\s\S]*height: max\(780px, 100svh\)/i);
+  assert.match(theme, /hero--institutional[\s\S]*min-height: clamp\(680px, 88svh, 900px\)/i);
+  assert.match(theme, /hero--institutional[\s\S]*min-height: clamp\(680px, 88dvh, 900px\)/i);
+  assert.match(theme, /hero--institutional::after[\s\S]*var\(--hero-floor\) 100%/i);
+  assert.match(theme, /hero--institutional \.hero__content[\s\S]*min-height: inherit[\s\S]*align-items: flex-end/i);
   assert.match(theme, /hero--institutional \.hero__image[\s\S]*object-fit: cover/i);
-  assert.match(theme, /url\("\/hero-roger-maiocchi-hd[.]webp"\)/i);
-  assert.match(theme, /url\("\/hero-access-professional[.]webp"\)/i);
-  assert.match(theme, /url\("\/hero-validation-glass[.]webp"\)/i);
-  assert.match(theme, /url\("\/hero-evidence-gold[.]webp"\)/i);
-  assert.match(theme, /@media \(max-width: 720px\)/i);
+  assert.doesNotMatch(home, /id="advogados"[\s\S]{0,400}src="\/hero-assinaturas[.]webp"/i);
+  assert.match(home, /src="\/hero-validation-glass[.]webp"/i);
+  assert.match(home, /src="\/hero-evidence-gold[.]webp"/i);
+  assert.match(home, /src="\/hero-courthouse-4k[.]webp"/i);
+  assert.match(theme, /portal-band::before,[\s\S]*height: 190px/i);
+  assert.match(theme, /page-hero::after[\s\S]*height: 260px/i);
+  assert.match(theme, /page-hero[\s\S]*min-height: clamp\(680px, 88dvh, 900px\)/i);
+  assert.match(theme, /page-hero--dark \.page-hero__shade[\s\S]*linear-gradient\(to bottom, rgba\(8, 9, 8, 0\.58\)/i);
+  assert.match(theme, /hero--institutional \.eyebrow,[\s\S]*\.page-hero \.eyebrow[\s\S]*color: var\(--yellow\); font-weight: 400/i);
+  assert.doesNotMatch(theme, /signing-masthead/i);
+  assert.match(theme, /site-header\.site-header--on-light/i);
+  assert.match(theme, /@media \(min-width: 1400px\)[\s\S]*--max: 2080px/i);
+  assert.match(theme, /portal-band--verification \.portal-band__content[\s\S]*grid-template-columns: minmax\(320px, 0\.62fr\) minmax\(760px, 1\.38fr\)/i);
+  assert.match(theme, /legal-content[\s\S]*1480px[\s\S]*legal-body > p[\s\S]*max-width: 940px/i);
+  assert.match(theme, /@media \(max-width: 780px\)/i);
   assert.match(theme, /@media \(prefers-reduced-motion: reduce\)/i);
-  assert.match(home, /Método de acesso profissional/i);
+  assert.match(home, /Método de acesso/i);
   assert.match(home, /Certificado/i);
   assert.match(home, /Senha/i);
-  for (const asset of assets) assert.ok(asset.size > 100_000, "cada imagem editorial deve ser um WebP real de alta resolução");
+  for (const asset of assets) assert.ok(asset.size > 90_000, "cada imagem editorial deve ser um WebP real de alta resolução");
+});
+
+test("aplica um único contrato de hero e caminho a todas as páginas internas", async () => {
+  const routes = [
+    ["ajuda/index.html", "Central de ajuda"],
+    ["assinar-icp/index.html", "Assinar com ICP-Brasil"],
+    ["assinatura-gov-br/index.html", "Assinatura GOV.BR"],
+    ["assinaturas-eletronicas/index.html", "Assinaturas eletrônicas"],
+    ["certificacao-digital/index.html", "Certificação digital"],
+    ["certificado-icp-brasil/index.html", "Certificado ICP-Brasil"],
+    ["privacidade/index.html", "Política de privacidade"],
+    ["seguranca/index.html", "Segurança"],
+    ["termos/index.html", "Termos de serviço"],
+    ["validar/index.html", "Validar assinatura"],
+    ["404.html", "Esta página não está disponível"],
+  ];
+
+  for (const [file, title] of routes) {
+    const html = await readFile(new URL(file, outputRoot), "utf8");
+    const hero = html.match(/<section class="page-hero page-hero--dark[^\"]*"[\s\S]*?<\/section>/i)?.[0];
+    assert.ok(hero, `${file} deve usar o PageHero compartilhado`);
+    assert.match(hero, /class="page-hero__media"[\s\S]*aria-hidden="true"/i);
+    assert.match(hero, /class="page-hero__shade"/i);
+    assert.match(hero, /class="shell page-hero__content"/i);
+    assert.match(hero, /aria-label="Caminho da página"/i);
+    assert.match(hero, /href="\/"[\s\S]*>Portal</i);
+    assert.match(hero, /aria-current="page"/i);
+    assert.match(hero, /<p class="eyebrow">[^<]+<\/p>/i);
+    assert.doesNotMatch(hero, /status-dot|<p class="eyebrow">[\s\S]*?<svg/i);
+    assert.match(hero, new RegExp(`<h1[^>]*>${title}`, "i"));
+    assert.match(hero, /class="legal-lead"/i);
+    assert.equal((html.match(/<h1\b/gi) || []).length, 1, `${file} deve ter um único h1`);
+    assert.match(html, /maiocchi-mark-light\.svg/i);
+    assert.match(html, /Termos de serviço/i);
+    assert.match(html, /Política de privacidade/i);
+  }
+});
+
+test("mantém estados de erro dentro do mesmo sistema visual", async () => {
+  const [errorPage, globalError, errorState, pageHero] = await Promise.all([
+    readFile(new URL("../app/error.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/global-error.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/portal-error-state.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/page-hero.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(errorPage, /^"use client";/i);
+  assert.match(globalError, /^"use client";/i);
+  assert.match(globalError, /<html lang="pt-BR">[\s\S]*<body>/i);
+  assert.match(errorState, /<SiteHeader \/>[\s\S]*<PageHero[\s\S]*page-hero--not-found[\s\S]*<SiteFooter \/>/i);
+  assert.match(pageHero, /aria-label="Caminho da página"/i);
+  assert.match(pageHero, /<p className="eyebrow">\{eyebrow\}<\/p>/i);
+  assert.doesNotMatch(pageHero, /status-dot/);
 });
 
 test("publica páginas legais e de ajuda", async () => {
@@ -117,6 +211,9 @@ test("publica páginas legais e de ajuda", async () => {
   assert.match(privacy, /Política de privacidade/i);
   assert.match(privacy, /OAB\/DF 31\.249/i);
   assert.match(privacy, /Direitos do titular/i);
+  assert.doesNotMatch(privacy, /Versão de 15 de julho de 2026/i);
+  assert.match(privacy, /class="mermaid-diagram"/i);
+  assert.doesNotMatch(privacy, /class="flow-map"/i);
   assert.match(terms, /Condições para acessar/i);
   assert.match(terms, /OAB\/DF/i);
   assert.match(help, /Assinatura com certificado ICP-Brasil/i);
@@ -169,7 +266,7 @@ test("publica e conecta o conteúdo de assinaturas e segurança", async () => {
   }
 });
 
-test("mantém navegação contextual e fluxos visuais em todo o portal", async () => {
+test("mantém uma navegação global e fluxos visuais em todo o portal", async () => {
   const routes = [
     "assinaturas-eletronicas",
     "certificado-icp-brasil",
@@ -182,15 +279,45 @@ test("mantém navegação contextual e fluxos visuais em todo o portal", async (
     "termos",
   ];
   const pages = await Promise.all(routes.map((route) => readFile(new URL(`${route}/index.html`, outputRoot), "utf8")));
-  const home = await readFile(new URL("index.html", outputRoot), "utf8");
+  const [home, chromeSource] = await Promise.all([
+    readFile(new URL("index.html", outputRoot), "utf8"),
+    readFile(new URL("../app/site-chrome.tsx", import.meta.url), "utf8"),
+  ]);
 
   assert.match(home, /class="flow-map"/i);
-  for (const html of pages) {
-    assert.match(html, /aria-label="Acessos diretos do portal"/i);
-    assert.match(html, /class="flow-map"/i);
-    assert.match(html, /aria-label="Ações diretas recomendadas"/i);
+  assert.match(chromeSource, /id="global-navigation"/i);
+  assert.match(chromeSource, /Operações|Assinaturas|Confiança|Institucional/i);
+  assert.match(chromeSource, /\.skip-link, \.site-header \.brand, #conteudo-principal, \.site-footer/i);
+  assert.match(chromeSource, /target\.inert = true/i);
+  assert.match(chromeSource, /event\.key !== "Tab"[\s\S]*event\.preventDefault\(\)/i);
+  assert.doesNotMatch(chromeSource, /PortalSectionNav|NextActions|icon-nav-link/i);
+  for (const [index, html] of pages.entries()) {
+    if (routes[index] === "privacidade") assert.match(html, /class="mermaid-diagram"/i);
+    else assert.match(html, /class="flow-map"/i);
     assert.match(html, /aria-label="Abrir navegação"/i);
+    assert.doesNotMatch(html, /aria-label="Acessos diretos do portal"|aria-label="Ações diretas recomendadas"|class="portal-sections"|class="next-actions"/i);
   }
+});
+
+test("renderiza o ciclo de privacidade como Mermaid vetorial e responsivo", async () => {
+  const [source, privacy, theme, packageJson] = await Promise.all([
+    readFile(new URL("../app/mermaid-diagram.tsx", import.meta.url), "utf8"),
+    readFile(new URL("privacidade/index.html", outputRoot), "utf8"),
+    readFile(new URL("../app/glass-system.css", import.meta.url), "utf8"),
+    readFile(new URL("../package.json", import.meta.url), "utf8"),
+  ]);
+  assert.match(packageJson, /"mermaid": "\^11\.16\.0"/i);
+  assert.match(source, /await import\("mermaid"\)/i);
+  assert.match(source, /IntersectionObserver[\s\S]*rootMargin: "320px 0px"/i);
+  assert.match(source, /if \(!shouldRender\) return/i);
+  assert.match(source, /securityLevel: "strict"/i);
+  assert.match(source, /window\.matchMedia\("\(max-width: 780px\)"\)/i);
+  assert.match(source, /htmlLabels: true[\s\S]*flowchart:/i);
+  assert.match(source, /role=\{failed \? undefined : "img"\}[\s\S]*aria-label=\{failed \? undefined : ariaLabel\}/i);
+  assert.match(privacy, /Ciclo dos dados[\s\S]*Finalidade do início ao encerramento/i);
+  assert.match(privacy, /Coletar o necessário[\s\S]*Usar com finalidade[\s\S]*Proteger e limitar[\s\S]*Reter ou eliminar/i);
+  assert.match(theme, /\.mermaid-diagram__surface svg[\s\S]*width: 100% !important/i);
+  assert.doesNotMatch(theme, /\.legal-body > h2::before/i);
 });
 
 test("publica sem alteração a cadeia GOV.BR indicada na fonte oficial", async () => {
@@ -277,7 +404,7 @@ test("não expõe código no portal e conserva a fonte correspondente fora da ra
 test("publica identidade de navegador Maiocchi", async () => {
   const manifest = JSON.parse(await readFile(new URL("site.webmanifest", outputRoot), "utf8"));
   assert.equal(manifest.short_name, "Maiocchi");
-  assert.match(manifest.name, /Maiocchi Advogado/i);
+  assert.equal(manifest.name, "Maiocchi — documentos e assinaturas");
 
   for (const asset of ["favicon.ico", "favicon-16x16.png", "favicon-32x32.png", "apple-touch-icon.png", "icon-192.png", "icon-512.png"]) {
     const bytes = await readFile(new URL(asset, outputRoot));
@@ -292,8 +419,16 @@ test("padroniza páginas inexistentes e redirecionamentos internos", async () =>
     readFile(new URL("../deploy/traefik-assinatura.yml", import.meta.url), "utf8"),
     readFile(new URL("../deploy/docuseal.yml", import.meta.url), "utf8"),
   ]);
-  assert.match(notFound, /Esta página não foi encontrada/i);
-  assert.match(notFound, /Maiocchi Advogado/i);
+  assert.match(notFound, /Esta página não está disponível/i);
+  assert.match(notFound, /Endereço não encontrado/i);
+  assert.match(notFound, /page-hero page-hero--dark page-hero--not-found/i);
+  assert.match(notFound, /aria-label="Caminho da página"/i);
+  assert.match(notFound, /<p class="eyebrow">Endereço não encontrado<\/p>/i);
+  assert.doesNotMatch(notFound, /status-dot/);
+  assert.match(notFound, /maiocchi-mark-light\.svg/i);
+  assert.doesNotMatch(notFound, /not-found-actions|>Voltar ao início<|>Preciso de ajuda<|Erro 404|Responsável: Roger Maiocchi/i);
+  assert.match(notFound, /Termos de serviço/i);
+  assert.match(notFound, /Política de privacidade/i);
   assert.match(nginx, /absolute_redirect off;/i);
   assert.match(nginx, /error_page 404 \/404\.html;/i);
   assert.match(nginx, /frame-src 'self' https:\/\/validar\.iti\.gov\.br/i);

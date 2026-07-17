@@ -1,8 +1,8 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { useRef, useState } from "react";
+import type { FormEvent, KeyboardEvent } from "react";
 import {
-  BadgeCheck,
   Eye,
   EyeOff,
   IdCard,
@@ -66,6 +66,8 @@ export function LawyerAccess() {
   const [otp, setOtp] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [state, setState] = useState<AccessState>({ kind: "idle" });
+  const certificateTab = useRef<HTMLButtonElement>(null);
+  const passwordTab = useRef<HTMLButtonElement>(null);
 
   function enterProfessionalEnvironment() {
     setPassword("");
@@ -188,39 +190,50 @@ export function LawyerAccess() {
     setState({ kind: "idle" });
   }
 
+  function handleTabKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    const methods: AccessMethod[] = ["certificate", "password"];
+    const currentIndex = methods.indexOf(accessMethod);
+    let nextMethod: AccessMethod | undefined;
+
+    if (event.key === "ArrowRight") nextMethod = methods[(currentIndex + 1) % methods.length];
+    if (event.key === "ArrowLeft") nextMethod = methods[(currentIndex - 1 + methods.length) % methods.length];
+    if (event.key === "Home") nextMethod = methods[0];
+    if (event.key === "End") nextMethod = methods.at(-1);
+    if (!nextMethod) return;
+
+    event.preventDefault();
+    selectAccessMethod(nextMethod);
+    (nextMethod === "certificate" ? certificateTab : passwordTab).current?.focus();
+  }
+
   return (
     <section className="lawyer-access" aria-labelledby="lawyer-access-title">
       <div className="lawyer-access__intro">
-        <p className="eyebrow"><KeyRound aria-hidden="true" size={14} /> Acesso profissional</p>
-        <h2 id="lawyer-access-title">Área dos advogados, sem página intermediária.</h2>
-        <p>Entre aqui para preparar, enviar e acompanhar documentos. A gestão somente é aberta depois da autenticação.</p>
-        <ul>
-          <li><BadgeCheck aria-hidden="true" size={17} /> Sessão protegida na mesma origem</li>
-          <li><BadgeCheck aria-hidden="true" size={17} /> Certificado digital disponível</li>
-          <li><BadgeCheck aria-hidden="true" size={17} /> Segundo fator quando habilitado</li>
-        </ul>
+        <p className="eyebrow"><KeyRound aria-hidden="true" size={14} /> Acesso restrito</p>
+        <h2 id="lawyer-access-title">Gestão de documentos</h2>
+        <p>Para profissionais autorizados. Para assinar, use o link ou código no início desta página.</p>
       </div>
 
       <div className="lawyer-access__panel">
-        <div className="access-methods" role="tablist" aria-label="Método de acesso profissional">
-          <button id="certificate-access-tab" type="button" role="tab" aria-selected={accessMethod === "certificate"} aria-controls="certificate-access-panel" onClick={() => selectAccessMethod("certificate")}>
+        <div className="access-methods" role="tablist" aria-label="Método de acesso" aria-orientation="horizontal" onKeyDown={handleTabKeyDown}>
+          <button ref={certificateTab} id="certificate-access-tab" type="button" role="tab" tabIndex={accessMethod === "certificate" ? 0 : -1} aria-selected={accessMethod === "certificate"} aria-controls="certificate-access-panel" onClick={() => selectAccessMethod("certificate")}>
             <IdCard aria-hidden="true" size={18} /><span>Certificado</span>
           </button>
-          <button id="password-access-tab" type="button" role="tab" aria-selected={accessMethod === "password"} aria-controls="password-access-panel" onClick={() => selectAccessMethod("password")}>
+          <button ref={passwordTab} id="password-access-tab" type="button" role="tab" tabIndex={accessMethod === "password" ? 0 : -1} aria-selected={accessMethod === "password"} aria-controls="password-access-panel" onClick={() => selectAccessMethod("password")}>
             <KeyRound aria-hidden="true" size={18} /><span>Senha</span>
           </button>
         </div>
 
         {accessMethod === "certificate" ? (
-          <div className="access-method-panel" id="certificate-access-panel" role="tabpanel" aria-labelledby="certificate-access-tab">
+          <div className="access-method-panel" id="certificate-access-panel" role="tabpanel" aria-labelledby="certificate-access-tab" tabIndex={0}>
             <button className="certificate-access" type="button" onClick={startCertificateAccess} disabled={busy}>
               <IdCard aria-hidden="true" size={22} />
-              <span><strong>Entrar com certificado digital</strong><small>Use o A1, A3 ou certificado em nuvem já vinculado ao seu perfil.</small></span>
+              <span><strong>Entrar com certificado</strong><small>A1, A3 ou certificado em nuvem vinculado ao perfil.</small></span>
             </button>
-            <p className="certificate-enrollment">Primeiro acesso neste certificado? <button type="button" onClick={() => selectAccessMethod("password")}>Entre com senha para vinculá-lo</button>.</p>
+            <p className="certificate-enrollment">Primeiro acesso? <button type="button" onClick={() => selectAccessMethod("password")}>Entre com senha para vincular o certificado</button>.</p>
           </div>
         ) : (
-          <div className="access-method-panel" id="password-access-panel" role="tabpanel" aria-labelledby="password-access-tab">
+          <div className="access-method-panel" id="password-access-panel" role="tabpanel" aria-labelledby="password-access-tab" tabIndex={0}>
             <form className="credentials-form" onSubmit={submit} noValidate>
                   <div className="access-field">
                     <label htmlFor="lawyer-email">E-mail</label>
@@ -271,7 +284,7 @@ export function LawyerAccess() {
                     <span>{busy ? "Confirmando..." : needsOtp ? "Confirmar código" : "Entrar"}</span>
                   </button>
             </form>
-            <a className="access-help" href="/ajuda/">Recuperar ou solicitar acesso</a>
+            <a className="access-help" href="/ajuda/">Solicitar ou recuperar acesso</a>
           </div>
         )}
 

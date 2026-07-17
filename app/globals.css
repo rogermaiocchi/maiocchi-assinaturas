@@ -47,15 +47,19 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .mobile-nav nav a[aria-current="page"] { color: var(--yellow); }
 .mobile-nav nav a:last-child { border-bottom: 0; }
 
-.brand { min-width: 58px; min-height: 58px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.brand__mark { width: 58px; height: 58px; display: inline-flex; align-items: baseline; justify-content: center; font-size: 45px; line-height: 1; font-weight: 900; letter-spacing: 0; transition: transform .2s ease; }
-.brand__mark span { color: var(--ink); }
-.brand__mark i { color: var(--yellow); font-style: normal; }
+.brand { min-width: 58px; min-height: 58px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--ink); }
+.brand__mark { width: 58px; height: 58px; display: block; position: relative; overflow: visible; transition: transform .2s ease; }
+.brand__mark-image { width: 100%; height: 100%; position: absolute; inset: 0; display: block; object-fit: contain; }
+.brand__mark-image--light { display: none; }
+.site-header:not(.is-scrolled):not(.site-header--on-light) .brand__mark-image--dark,
+footer .brand__mark-image--dark { display: none; }
+.site-header:not(.is-scrolled):not(.site-header--on-light) .brand__mark-image--light,
+footer .brand__mark-image--light { display: block; }
 .brand:hover .brand__mark { transform: translateY(-2px) scale(1.04); }
-.site-header .brand__mark span, footer .brand__mark span { color: var(--white); }
-.site-header.is-scrolled .brand__mark span { color: var(--ink); }
+.site-header .brand, footer .brand { color: var(--white); }
+.site-header.is-scrolled .brand { color: var(--ink); }
 .brand--compact { min-width: 68px; min-height: 68px; }
-.brand--compact .brand__mark { width: 68px; height: 68px; font-size: 53px; }
+.brand--compact .brand__mark { width: 68px; height: 68px; }
 
 .button { min-height: 48px; padding: 0 22px; display: inline-flex; align-items: center; justify-content: center; gap: 10px; border: 1px solid var(--ink); border-radius: 4px; font-size: 14px; font-weight: 800; cursor: pointer; transition: transform .18s ease, background-color .18s ease, color .18s ease, border-color .18s ease; }
 .button svg, .text-link svg, .inline-light-link svg, .desktop-nav svg, .footer-links svg, .mobile-nav svg { flex: 0 0 auto; }
@@ -100,8 +104,6 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .hero-access small { display: block; margin-top: 8px; color: rgba(255,255,255,.58); font-size: 11px; }
 .form-error { color: #ffaaa4; font-size: 12px; font-weight: 700; margin: 8px 0 0; }
 .hero-actions { margin-top: 20px; display: flex; align-items: center; gap: 12px; }
-.trust-row { display: flex; flex-wrap: wrap; gap: 12px 22px; align-items: center; margin-top: 18px; color: rgba(255,255,255,.66); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; }
-.trust-row span { display: inline-flex; align-items: center; gap: 6px; }
 #advogados, #validar, #validar-iti, #como-funciona, #modalidades { scroll-margin-top: 76px; }
 
 .service-strip { background: var(--white); border-bottom: 1px solid var(--line); }
@@ -263,8 +265,9 @@ footer { background: var(--ink); color: var(--white); }
 .page-hero::after { content: ""; position: absolute; inset: 0; background: rgba(6,7,6,.58); }
 .page-hero__media { position: absolute; inset: -24px; background-image: url("/hero-assinaturas.webp"); background-size: cover; background-position: 60% center; transform: scale(1.04); }
 .page-hero__content { min-height: 480px; position: relative; z-index: 2; padding-top: 150px; padding-bottom: 54px; display: flex; flex-direction: column; justify-content: flex-end; text-shadow: 0 2px 16px rgba(0,0,0,.58); }
-.breadcrumb { display: flex; align-items: center; gap: 9px; margin: 0 0 28px; color: rgba(255,255,255,.68); font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.breadcrumb { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin: 0 0 28px; color: rgba(255,255,255,.68); font-size: 10px; font-weight: 800; text-transform: uppercase; }
 .breadcrumb a { min-height: 36px; text-decoration: underline; text-underline-offset: 3px; display: inline-flex; align-items: center; gap: 6px; }
+.breadcrumb [aria-current="page"] { overflow-wrap: anywhere; }
 .page-hero h1 { max-width: 920px; margin: 0; font-size: 58px; letter-spacing: 0; line-height: 1; overflow-wrap: anywhere; }
 .legal-lead { max-width: 760px; margin: 20px 0 0; color: rgba(255,255,255,.82); font-size: 18px; line-height: 1.55; }
 .legal-content { padding: 62px 0 104px; max-width: 860px; }
@@ -433,7 +436,6 @@ footer { background: var(--ink); color: var(--white); }
   .hero-actions { margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; }
   .hero-actions .button { min-height: 44px; padding-inline: 12px; font-size: 12px; }
   .hero-actions .button svg:last-child { display: none; }
-  .trust-row { display: none; }
   .service-strip__grid > a { min-height: 88px; padding: 18px 14px; grid-template-columns: 20px 38px 1fr auto; gap: 9px; }
   .service-strip__icon { width: 38px; height: 38px; }
   .workspace-section, .verification-section { padding: 58px 0; }
@@ -646,7 +648,12 @@ footer { background: var(--ink); color: var(--white); }
 .official-validator__notice { min-height: 78px; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; gap: 28px; background: var(--white); }
 .official-validator__notice p { max-width: 760px; margin: 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
 .official-validator__notice a { min-height: 44px; display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 800; border-bottom: 2px solid var(--yellow); }
-.official-validator__frame { height: min(820px,86svh); min-height: 680px; background: var(--white); }
+.official-validator__frame {
+  height: clamp(640px, 78svh, 820px);
+  height: clamp(640px, 78dvh, 820px);
+  min-height: 0;
+  background: var(--white);
+}
 .official-validator__frame iframe { width: 100%; height: 100%; border: 0; }
 
 .portal-band--process .flow-map { margin: 0; padding: 0; background: transparent; }
@@ -684,14 +691,6 @@ footer { background: var(--ink); color: var(--white); }
 
 .signing-page { min-height: 100vh; display: flex; flex-direction: column; background: var(--paper); }
 .signing-page main { flex: 1; }
-.signing-masthead { min-height: 410px; position: relative; overflow: hidden; color: var(--white); background: #dfe0e3; }
-.signing-masthead::after { content: ""; height: 110px; position: absolute; inset: auto 0 0; z-index: 1; background: linear-gradient(to bottom, transparent, var(--paper)); }
-.signing-masthead__media { position: absolute; inset: -24px; background: #dfe0e3 url("/hero-portal-maiocchi.jpg") no-repeat right 30% center / auto calc(100% + 48px); filter: saturate(.78) contrast(1.03); }
-.signing-masthead__shade { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(10,10,11,.93) 0%, rgba(10,10,11,.8) 40%, rgba(10,10,11,.22) 75%, transparent 100%); }
-.signing-masthead__content { min-height: 410px; position: relative; z-index: 2; padding-top: 126px; padding-bottom: 76px; display: flex; flex-direction: column; justify-content: flex-end; }
-.signing-masthead__content .eyebrow { margin-bottom: 12px; }
-.signing-masthead__content h1 { max-width: 760px; margin: 0; font-size: 54px; line-height: 1; letter-spacing: 0; }
-.signing-masthead__content > p:last-child { max-width: 650px; margin: 16px 0 0; color: rgba(255,255,255,.78); font-size: 17px; line-height: 1.55; }
 .signing-workspace-band { padding: 34px 0 104px; }
 
 .pades-workspace { border: 1px solid var(--line); border-radius: 8px; background: var(--white); box-shadow: var(--shadow-soft); overflow: hidden; }
@@ -773,7 +772,6 @@ footer { background: var(--ink); color: var(--white); }
   .hero--institutional .hero-access small { display: block; }
   .hero-actions { margin-top: 10px; display: flex; align-items: flex-start; gap: 10px 18px; flex-direction: column; }
   .hero-scroll { display: none; }
-  .trust-row { display: none; }
   .operation-rail__inner { grid-template-columns: 1fr; }
   .operation-rail__inner > a { min-height: 82px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
   .operation-rail__inner > a:first-child { border-left: 1px solid var(--line); }
@@ -784,7 +782,11 @@ footer { background: var(--ink); color: var(--white); }
   .portal-band--workspace .lawyer-access__panel { padding: 28px 20px; }
   .official-validator summary { min-height: 98px; align-items: flex-start; flex-direction: column; justify-content: center; gap: 8px; }
   .official-validator__notice { align-items: flex-start; flex-direction: column; }
-  .official-validator__frame { height: 720px; min-height: 720px; }
+  .official-validator__frame {
+    height: clamp(560px, 82svh, 720px);
+    height: clamp(560px, 82dvh, 720px);
+    min-height: 0;
+  }
   .portal-band--process .flow-map__caption h2 { font-size: 34px; }
   .modality-list summary { min-height: 96px; grid-template-columns: 1fr 22px; gap: 8px; }
   .modality-list summary span { grid-column: 1 / -1; }
@@ -795,12 +797,6 @@ footer { background: var(--ink); color: var(--white); }
   .footer-primary { grid-template-columns: 1fr; }
   .footer-primary a { padding-inline: 0; border-left: 0; }
 
-  .signing-masthead,
-  .signing-masthead__content { min-height: 360px; }
-  .signing-masthead__media { background-size: cover; background-position: 58% 22%; }
-  .signing-masthead__shade { background: linear-gradient(0deg, rgba(10,10,11,.94), rgba(10,10,11,.28)); }
-  .signing-masthead__content { padding-top: 104px; padding-bottom: 54px; }
-  .signing-masthead__content h1 { font-size: 38px; }
   .signing-workspace-band { padding: 24px 0 68px; }
   .pades-workspace__header { padding: 26px 22px; align-items: flex-start; flex-direction: column; }
   .pades-workspace__header h2 { font-size: 30px; }

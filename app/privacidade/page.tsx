@@ -1,19 +1,45 @@
 import type { Metadata } from "next";
-import { Archive, FileInput, Scale, ShieldCheck } from "lucide-react";
-import { FlowMap } from "../flow-map";
 import { LegalPage } from "../legal-page";
+import { MermaidDiagram } from "../mermaid-diagram";
 
 export const metadata: Metadata = { title: "Privacidade" };
 
 export default function PrivacyPage() {
   return <LegalPage title="Política de privacidade" lead="Como o Maiocchi Advogado trata dados pessoais durante a preparação e a assinatura de documentos." currentPath="/privacidade/">
-    <p className="legal-meta">Versão de 15 de julho de 2026.</p>
-    <FlowMap eyebrow="Ciclo dos dados" title="Finalidade do início ao encerramento." description="O tratamento acompanha o serviço jurídico, com acesso limitado, segurança proporcional e retenção justificada." ariaLabel="Ciclo de tratamento de dados pessoais no portal" steps={[
-      { title: "Coletar o necessário", description: "Dados entram pelo documento, convite, assinatura e suporte, sempre de forma limitada.", icon: FileInput },
-      { title: "Usar com finalidade", description: "O tratamento serve ao fluxo, à evidência e aos deveres profissionais.", icon: Scale, tone: "yellow" },
-      { title: "Proteger e limitar", description: "Acesso, isolamento e controles reduzem exposição indevida.", icon: ShieldCheck },
-      { title: "Reter ou eliminar", description: "Prazos consideram serviço, lei, direitos e cópias de segurança.", icon: Archive },
-    ]} />
+    <MermaidDiagram
+      eyebrow="Ciclo dos dados"
+      title="Finalidade do início ao encerramento."
+      description="O tratamento acompanha o serviço jurídico, com acesso limitado, segurança proporcional e retenção justificada."
+      ariaLabel="Ciclo de tratamento de dados pessoais no portal"
+      definition={`
+flowchart LR
+  A["01<br/><b>Coletar o necessário</b><br/>Documento · convite<br/>assinatura · suporte"] --> B["02<br/><b>Usar com finalidade</b><br/>Fluxo · evidência<br/>deveres profissionais"]
+  B --> C["03<br/><b>Proteger e limitar</b><br/>Acesso · isolamento<br/>controles"]
+  C --> D["04<br/><b>Reter ou eliminar</b><br/>Serviço · lei · direitos<br/>segurança"]
+  classDef stage fill:#191b18,color:#f7f7f4,stroke:#666960,stroke-width:1px;
+  classDef active fill:#ffb800,color:#111210,stroke:#ffb800,stroke-width:2px;
+  class A,C,D stage;
+  class B active;
+  linkStyle default stroke:#ffb800,stroke-width:2px;
+      `}
+      mobileDefinition={`
+flowchart TB
+  A["01<br/><b>Coletar o necessário</b><br/>Documento · convite<br/>assinatura · suporte"] --> B["02<br/><b>Usar com finalidade</b><br/>Fluxo · evidência<br/>deveres profissionais"]
+  B --> C["03<br/><b>Proteger e limitar</b><br/>Acesso · isolamento<br/>controles"]
+  C --> D["04<br/><b>Reter ou eliminar</b><br/>Serviço · lei · direitos<br/>segurança"]
+  classDef stage fill:#191b18,color:#f7f7f4,stroke:#666960,stroke-width:1px;
+  classDef active fill:#ffb800,color:#111210,stroke:#ffb800,stroke-width:2px;
+  class A,C,D stage;
+  class B active;
+  linkStyle default stroke:#ffb800,stroke-width:2px;
+      `}
+      steps={[
+        ["Coletar o necessário", "Documento, convite, assinatura e suporte."],
+        ["Usar com finalidade", "Fluxo, evidência e deveres profissionais."],
+        ["Proteger e limitar", "Acesso, isolamento e controles."],
+        ["Reter ou eliminar", "Serviço, lei, direitos e segurança."],
+      ]}
+    />
     <h2>1. Controlador e contato</h2><p>O tratamento é realizado no contexto da atividade profissional do Maiocchi Advogado, sob responsabilidade de Roger Maiocchi, OAB/DF 31.249. Solicitações de titulares e comunicações de privacidade devem ser encaminhadas pela <a href="/ajuda/">Central de ajuda</a>.</p>
     <h2>2. Alcance</h2><p>Esta política abrange o portal público, o ambiente DocuSeal, convites, preenchimento, assinaturas, validação, suporte e registros técnicos associados. Sites oficiais ou serviços externos acessados por link possuem políticas próprias.</p>
     <h2>3. Dados tratados</h2><p>Podem ser tratados nome, contato, função, dados de identificação presentes no documento, conteúdo documental, campos preenchidos, assinatura desenhada, certificado público, resultado de validação, eventos e comunicações de suporte. Ao iniciar uma assinatura remota, o servidor deriva o endereço IP da conexão e registra data e hora; o navegador envia user agent, plataforma, fuso horário, idioma e dimensões da tela. A localização é opcional: latitude, longitude e precisão somente são recebidas quando o titular autoriza expressamente o navegador, e a recusa ou indisponibilidade não impede a assinatura. A verificação acessível a quem possui o ID opaco exibe hashes, perfil, política, horários, resultado técnico, nome do signatário e CPF mascarado; não expõe o certificado completo nem a chave pública individual do titular.</p>
