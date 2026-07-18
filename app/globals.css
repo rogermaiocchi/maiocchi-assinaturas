@@ -131,6 +131,12 @@ footer .brand__mark-image--light { display: block; }
 .lawyer-access__intro li { display: flex; align-items: center; gap: 10px; }
 .lawyer-access__intro li svg { color: var(--yellow); flex: 0 0 auto; }
 .lawyer-access__panel { min-width: 0; padding: 44px; display: flex; flex-direction: column; justify-content: center; }
+.integrated-access { width: 100%; min-height: 82px; padding: 16px 18px; border: 1px solid var(--ink); background: var(--ink); color: var(--white); display: grid; grid-template-columns: 28px 1fr; align-items: center; gap: 13px; text-align: left; cursor: pointer; transition: background-color .18s ease, border-color .18s ease, transform .18s ease; }
+.integrated-access:hover, .integrated-access:focus-visible { border-color: #8b6500; background: #292a27; transform: translateY(-2px); }
+.integrated-access:disabled { cursor: wait; opacity: .68; transform: none; }
+.integrated-access strong, .integrated-access small { display: block; }
+.integrated-access strong { font-size: 15px; }
+.integrated-access small { margin-top: 5px; color: #d8d7d0; font-size: 12px; line-height: 1.4; }
 .certificate-access { width: 100%; min-height: 78px; padding: 16px 18px; border: 1px solid var(--ink); background: var(--white); color: var(--ink); display: grid; grid-template-columns: 28px 1fr; align-items: center; gap: 13px; text-align: left; cursor: pointer; transition: background-color .18s ease, transform .18s ease; }
 .certificate-access:hover { background: #fff8df; transform: translateY(-2px); }
 .certificate-access:disabled { cursor: wait; opacity: .68; transform: none; }

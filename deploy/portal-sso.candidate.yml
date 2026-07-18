@@ -1,0 +1,26 @@
+services:
+  portal-sso-candidate:
+    image: maiocchi/assinatura-portal:1.15.1
+    container_name: assinatura-portal-sso-candidate
+    restart: "no"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    mem_limit: 128m
+    networks:
+      - signature-sso-candidate
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+networks:
+  signature-sso-candidate:
+    name: signature-sso-candidate
+    internal: true

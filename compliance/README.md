@@ -14,6 +14,10 @@ scripts/configurações críticos de backup, retenção e mTLS.
 - `releases/`: manifestos imutáveis das releases históricas.
 - `docuseal-*.tar.gz`: código-fonte correspondente do fork DocuSeal.
 - `SHA256SUMS`: integridade dos artefatos da release corrente.
+- `releases/docuseal-sso-v3.0.1-maiocchi.15-candidate.SHA256SUMS`: cadeia
+  source-plus-patch do candidato SSO; não equivale a uma imagem aprovada.
+- `releases/portal-v1.15.1-sso-candidate.contract.json`: contrato fail-closed
+  para build isolado, SBOM, scan e promoção do portal estático candidato.
 
 ## Verificação
 

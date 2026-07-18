@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "candidate": "portal-v1.15.1-sso",
+  "status": "no-go-evidence-pending",
+  "base_commit": "7e864d548b39ff3bbdcc6693f0bc05b3a72ed44d",
+  "source_patch": {
+    "path": "patches/portal/0001-maiocchi-sso-portal-1.15.1.patch",
+    "sha256": "a9e42edd54ab3e4143f60adfd0873b6b8d22bf6c27217b3c028a3797625d2a0d"
+  },
+  "build_script": {
+    "path": "scripts/build-portal-sso-candidate.sh",
+    "sha256": "ef1ba6a2a47bc8349bfafedf90e3b81fc361e3428fac83d2fa4f53ab17e499cc"
+  },
+  "image": "maiocchi/assinatura-portal:1.15.1",
+  "required_labels": {
+    "org.opencontainers.image.version": "1.15.1",
+    "org.opencontainers.image.revision": "source_patch.sha256",
+    "br.adv.maiocchi.base-commit": "base_commit",
+    "br.adv.maiocchi.patch-sha256": "source_patch.sha256"
+  },
+  "required_evidence": [
+    {
+      "kind": "image-inspect",
+      "path": "portal-1.15.1.image-inspect.json",
+      "generator": "docker image inspect"
+    },
+    {
+      "kind": "sbom",
+      "format": "CycloneDX JSON",
+      "path": "portal-1.15.1.cdx.json",
+      "generator": "syft"
+    },
+    {
+      "kind": "vulnerability-report",
+      "format": "Grype JSON, raw and unsuppressed",
+      "path": "portal-1.15.1.grype.json",
+      "generator": "grype"
+    },
+    {
+      "kind": "artifact-manifest",
+      "path": "SHA256SUMS",
+      "generator": "shasum -a 256"
+    }
+  ],
+  "gates": {
+    "source_snapshot": "git archive of exact base commit plus exact patch; dirty and untracked files excluded",
+    "source_tests": "npm run build, the portal tests in tests/*.test.mjs, and npm run lint must exit zero inside the reconstructed snapshot; PKI Bridge is a separate image and suite",
+    "base_images": "all Dockerfile FROM references must include sha256 digests",
+    "vulnerability_policy": "grype --fail-on high",
+    "canary": "candidate service has a unique container name and an internal-only network; no public router",
+    "promotion": "production 1.15.0 is unchanged until explicit image promotion after E2E"
+  }
+}

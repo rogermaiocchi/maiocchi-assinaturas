@@ -1,0 +1,1161 @@
+diff --git a/.version b/.version
+index 40a8695f3eb81c9a2706dfad1887f5ee8e8ea111..2aa8be2ad760dd424af14f5a983c91e061ecea02 100644
+--- a/.version
++++ b/.version
+@@ -1 +1 @@
+-3.0.1-maiocchi.14
++3.0.1-maiocchi.15
+diff --git a/Dockerfile b/Dockerfile
+index 4efd49aa95b5ace6ece46eee6438b9d3c68db97a..ddb378156cc1a1ac5c6fb9342248e64e4dac47aa 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -103,7 +103,7 @@ RUN mkdir -p /app/public/legal && \
+ ARG SOURCE_REVISION=unknown
+ LABEL org.opencontainers.image.title="Maiocchi. Assinatura" \
+       org.opencontainers.image.vendor="Maiocchi Advogado" \
+-      org.opencontainers.image.version="3.0.1-maiocchi.14" \
++      org.opencontainers.image.version="3.0.1-maiocchi.15" \
+       org.opencontainers.image.revision="${SOURCE_REVISION}" \
+       org.opencontainers.image.licenses="AGPL-3.0-only"
+ 
+diff --git a/app/controllers/maiocchi_sso_controller.rb b/app/controllers/maiocchi_sso_controller.rb
+new file mode 100644
+index 0000000000000000000000000000000000000000..d7df96de15fddded7fa07ece4cdb6c000c1ef8fe
+--- /dev/null
++++ b/app/controllers/maiocchi_sso_controller.rb
+@@ -0,0 +1,116 @@
++# frozen_string_literal: true
++
++require 'base64'
++require 'digest'
++
++class MaiocchiSsoController < ApplicationController
++  skip_authorization_check
++  skip_before_action :authenticate_user!
++  skip_before_action :maybe_redirect_to_setup
++
++  before_action :ensure_exact_callback_host!
++  before_action :ensure_enabled!
++  after_action :set_private_response_headers
++
++  rescue_from MaiocchiSso::FlowError, ActionController::ParameterMissing do
++    clear_flow!
++    render plain: 'Não foi possível concluir o acesso integrado. Inicie uma nova tentativa.',
++           status: :unprocessable_content
++  end
++
++  def start
++    return redirect_to(dashboard_index_path, status: :see_other) if signed_in?
++
++    reset_session
++    state = random_browser_value(32)
++    nonce = random_browser_value(32)
++    verifier = random_browser_value(64)
++    session[:maiocchi_sso] = {
++      'state_sha256' => Digest::SHA256.hexdigest(state),
++      'nonce' => nonce,
++      'verifier' => verifier,
++      'issued_at' => Time.current.to_i
++    }
++
++    redirect_to authorization_url(state:, nonce:, verifier:), allow_other_host: true, status: :see_other
++  end
++
++  def callback
++    raise MaiocchiSso::FlowError unless request.query_parameters.keys.sort == %w[code state]
++
++    flow = session.delete(:maiocchi_sso)
++    raise MaiocchiSso::FlowError unless valid_flow?(flow, params.require(:state))
++
++    code = params.require(:code).to_s
++    raise MaiocchiSso::FlowError unless code.match?(/\A[A-Za-z0-9_-]{43}\z/)
++
++    claims = MaiocchiSso::TokenExchange.call(
++      code:,
++      verifier: flow.fetch('verifier'),
++      nonce: flow.fetch('nonce')
++    )
++    user = MaiocchiSso::IdentityResolver.call(claims)
++
++    reset_session
++    sign_in(:user, user)
++    redirect_to dashboard_index_path, notice: 'Acesso integrado realizado com segurança.', status: :see_other
++  end
++
++  private
++
++  def ensure_exact_callback_host!
++    raise MaiocchiSso::FlowError unless request.ssl?
++    raise MaiocchiSso::FlowError unless request.host.downcase == MaiocchiSso::Configuration.callback_host
++  end
++
++  def ensure_enabled!
++    MaiocchiSso::Configuration.validate!
++  end
++
++  def authorization_url(state:, nonce:, verifier:)
++    uri = URI.parse(MaiocchiSso::Configuration::AUTHORIZE_URL)
++    uri.query = URI.encode_www_form(
++      response_type: 'code',
++      client_id: MaiocchiSso::Configuration::CLIENT_ID,
++      redirect_uri: MaiocchiSso::Configuration::REDIRECT_URI,
++      code_challenge: Base64.urlsafe_encode64(Digest::SHA256.digest(verifier), padding: false),
++      code_challenge_method: 'S256',
++      state:,
++      nonce:,
++      scope: MaiocchiSso::Configuration::SCOPE,
++      audience: MaiocchiSso::Configuration::AUDIENCE
++    )
++    uri.to_s
++  end
++
++  def valid_flow?(flow, returned_state)
++    return false unless flow.is_a?(Hash)
++    return false unless returned_state.is_a?(String) && returned_state.match?(/\A[A-Za-z0-9_-]{43}\z/)
++    return false unless flow['nonce'].to_s.match?(/\A[A-Za-z0-9_-]{43}\z/)
++    return false unless flow['verifier'].to_s.match?(/\A[A-Za-z0-9_-]{43,128}\z/)
++
++    issued_at = Integer(flow['issued_at'], exception: false)
++    return false unless issued_at
++
++    age = Time.current.to_i - issued_at
++    return false unless age.between?(0, MaiocchiSso::Configuration::FLOW_TTL.to_i)
++
++    actual = Digest::SHA256.hexdigest(returned_state)
++    expected = flow['state_sha256'].to_s
++    expected.bytesize == actual.bytesize && ActiveSupport::SecurityUtils.secure_compare(expected, actual)
++  end
++
++  def random_browser_value(bytes)
++    SecureRandom.urlsafe_base64(bytes, false)
++  end
++
++  def clear_flow!
++    session.delete(:maiocchi_sso)
++  end
++
++  def set_private_response_headers
++    response.headers['Cache-Control'] = 'no-store, max-age=0'
++    response.headers['Pragma'] = 'no-cache'
++    response.headers['Referrer-Policy'] = 'no-referrer'
++  end
++end
+diff --git a/app/models/account.rb b/app/models/account.rb
+index 7158cf1a8b6ec94580c925e68d3022a1b2a0fc54..fcba406821e483a30d734841f2f740010bfcef55 100644
+--- a/app/models/account.rb
++++ b/app/models/account.rb
+@@ -21,6 +21,7 @@ class Account < ApplicationRecord
+   attribute :uuid, :string, default: -> { SecureRandom.uuid }
+ 
+   has_many :users, dependent: :destroy
++  has_many :maiocchi_sso_identities, dependent: :restrict_with_exception
+   has_many :encrypted_configs, dependent: :destroy
+   has_many :account_configs, dependent: :destroy
+   has_many :email_messages, dependent: :destroy
+diff --git a/app/models/maiocchi_sso_exchange.rb b/app/models/maiocchi_sso_exchange.rb
+new file mode 100644
+index 0000000000000000000000000000000000000000..06da592485f0845c2d72d911750b42d300775f93
+--- /dev/null
++++ b/app/models/maiocchi_sso_exchange.rb
+@@ -0,0 +1,13 @@
++# frozen_string_literal: true
++
++class MaiocchiSsoExchange < ApplicationRecord
++  belongs_to :maiocchi_sso_identity
++
++  validates :provider, inclusion: { in: [MaiocchiSso::Configuration::PROVIDER] }
++  validates :exchange_id, presence: true, uniqueness: { scope: :provider }
++  validates :observed_at, presence: true
++
++  def readonly?
++    persisted?
++  end
++end
+diff --git a/app/models/maiocchi_sso_identity.rb b/app/models/maiocchi_sso_identity.rb
+new file mode 100644
+index 0000000000000000000000000000000000000000..af025f6c3cbda6a2dedcae1b95c7a298017ebcf1
+--- /dev/null
++++ b/app/models/maiocchi_sso_identity.rb
+@@ -0,0 +1,23 @@
++# frozen_string_literal: true
++
++class MaiocchiSsoIdentity < ApplicationRecord
++  BINDING_FIELDS = %w[provider subject account_id user_id email_at_link].freeze
++
++  belongs_to :account
++  belongs_to :user
++  has_many :maiocchi_sso_exchanges, dependent: :restrict_with_exception
++
++  validates :provider, inclusion: { in: [MaiocchiSso::Configuration::PROVIDER] }
++  validates :subject, format: { with: MaiocchiSso::Configuration::UUID_PATTERN }
++  validates :email_at_link, length: { maximum: 320 }, format: { with: User::FULL_EMAIL_REGEXP }
++  validates :external_role, inclusion: { in: MaiocchiSso::Configuration::ALLOWED_EXTERNAL_ROLES }
++  validate :binding_is_immutable, on: :update
++
++  private
++
++  def binding_is_immutable
++    return unless BINDING_FIELDS.any? { |field| will_save_change_to_attribute?(field) }
++
++    errors.add(:base, 'SSO identity binding is immutable')
++  end
++end
+diff --git a/app/models/user.rb b/app/models/user.rb
+index 1fc829749a8d7ba39843f3c076c4da1b4c7c5678..2d64c0f09f5f508b94b2809bd5e70adf815b9672 100644
+--- a/app/models/user.rb
++++ b/app/models/user.rb
+@@ -65,6 +65,7 @@ class User < ApplicationRecord
+   has_many :mcp_tokens, dependent: :destroy
+   has_many :certificate_identities, dependent: :destroy
+   has_many :certificate_auth_challenges, dependent: :destroy
++  has_one :maiocchi_sso_identity, dependent: :restrict_with_exception
+   has_many :templates, dependent: :destroy, foreign_key: :author_id, inverse_of: :author
+   has_many :template_folders, dependent: :destroy, foreign_key: :author_id, inverse_of: :author
+   has_many :user_configs, dependent: :destroy
+diff --git a/config/initializers/devise.rb b/config/initializers/devise.rb
+index efa97448c8fbb806418d08fbdf29603b8b2d9dc4..062e2ae630110753c2b5844078e533eac33975dc 100644
+--- a/config/initializers/devise.rb
++++ b/config/initializers/devise.rb
+@@ -201,7 +201,11 @@ Devise.setup do |config|
+ 
+   # Options to be passed to the created cookie. For instance, you can set
+   # secure: true in order to force SSL only cookies.
+-  # config.rememberable_options = {}
++  config.rememberable_options = {
++    secure: Rails.env.production? || ENV['FORCE_SSL'] == 'true',
++    httponly: true,
++    same_site: :lax
++  }
+ 
+   # ==> Configuration for :validatable
+   # Range for password length.
+diff --git a/config/initializers/maiocchi_session_store.rb b/config/initializers/maiocchi_session_store.rb
+new file mode 100644
+index 0000000000000000000000000000000000000000..fa08d3bda4fdd354e6303666fa962b09b9461c5c
+--- /dev/null
++++ b/config/initializers/maiocchi_session_store.rb
+@@ -0,0 +1,13 @@
++# frozen_string_literal: true
++
++secure_cookie = Rails.env.production? || ENV['FORCE_SSL'] == 'true'
++session_key = secure_cookie ? '__Host-docuseal_session' : '_docuseal_session'
++
++Rails.application.config.session_store(
++  :cookie_store,
++  key: session_key,
++  path: '/',
++  secure: secure_cookie,
++  httponly: true,
++  same_site: :lax
++)
+diff --git a/config/routes.rb b/config/routes.rb
+index 766967f3a4f1108b59267b5f64b9f10bf3176ff9..b04c717a799e66e7dca8d9abc88c44a56d9f1fc2 100644
+--- a/config/routes.rb
++++ b/config/routes.rb
+@@ -19,6 +19,9 @@ Rails.application.routes.draw do
+   get 'up' => 'rails/health#show'
+   get 'manifest' => 'pwa#manifest'
+ 
++  get 'sso/maiocchi/start', to: 'maiocchi_sso#start', as: :maiocchi_sso_start
++  get 'sso/maiocchi/callback', to: 'maiocchi_sso#callback', as: :maiocchi_sso_callback
++
+   devise_for :users, path: '/', only: %i[sessions passwords],
+                      controllers: { sessions: 'sessions', passwords: 'passwords' }
+ 
+diff --git a/db/migrate/20260718090000_create_maiocchi_sso_identities.rb b/db/migrate/20260718090000_create_maiocchi_sso_identities.rb
+new file mode 100644
+index 0000000000000000000000000000000000000000..9ebc877b9f4c074a2d9bbc86bc420cda01ec1630
+--- /dev/null
++++ b/db/migrate/20260718090000_create_maiocchi_sso_identities.rb
+@@ -0,0 +1,87 @@
++# frozen_string_literal: true
++
++class CreateMaiocchiSsoIdentities < ActiveRecord::Migration[8.1]
++  def up
++    create_table :maiocchi_sso_identities do |t|
++      t.references :account, null: false, foreign_key: { on_delete: :restrict }
++      t.references :user, null: false, foreign_key: { on_delete: :restrict }
++      t.string :provider, null: false, limit: 64
++      t.string :subject, null: false, limit: 128
++      t.string :email_at_link, null: false, limit: 320
++      t.string :external_role, null: false, limit: 32
++      t.datetime :last_authenticated_at, null: false
++
++      t.timestamps
++    end
++
++    add_index :maiocchi_sso_identities, %i[provider subject], unique: true,
++                                                              name: 'idx_maiocchi_sso_provider_subject'
++    add_index :maiocchi_sso_identities, %i[provider user_id], unique: true,
++                                                              name: 'idx_maiocchi_sso_provider_user'
++
++    create_table :maiocchi_sso_exchanges do |t|
++      t.references :maiocchi_sso_identity, null: false,
++                                            foreign_key: { on_delete: :restrict },
++                                            index: { name: 'idx_maiocchi_sso_exchanges_identity' }
++      t.string :provider, null: false, limit: 64
++      t.uuid :exchange_id, null: false
++      t.datetime :observed_at, null: false
++
++      t.timestamps
++    end
++
++    add_index :maiocchi_sso_exchanges, %i[provider exchange_id], unique: true,
++                                                                name: 'idx_maiocchi_sso_provider_exchange'
++
++    install_postgresql_immutability_guards if connection.adapter_name == 'PostgreSQL'
++  end
++
++  def down
++    remove_postgresql_immutability_guards if connection.adapter_name == 'PostgreSQL'
++    drop_table :maiocchi_sso_exchanges
++    drop_table :maiocchi_sso_identities
++  end
++
++  private
++
++  def install_postgresql_immutability_guards
++    execute <<~SQL
++      CREATE FUNCTION guard_maiocchi_sso_identity_binding()
++      RETURNS trigger LANGUAGE plpgsql AS $$
++      BEGIN
++        IF ROW(NEW.provider, NEW.subject, NEW.account_id, NEW.user_id, NEW.email_at_link, NEW.created_at)
++           IS DISTINCT FROM
++           ROW(OLD.provider, OLD.subject, OLD.account_id, OLD.user_id, OLD.email_at_link, OLD.created_at)
++        THEN
++          RAISE EXCEPTION 'Maiocchi SSO identity binding is immutable';
++        END IF;
++        RETURN NEW;
++      END;
++      $$;
++
++      CREATE TRIGGER trg_maiocchi_sso_identity_binding
++      BEFORE UPDATE ON maiocchi_sso_identities
++      FOR EACH ROW EXECUTE FUNCTION guard_maiocchi_sso_identity_binding();
++
++      CREATE FUNCTION guard_maiocchi_sso_exchange_append_only()
++      RETURNS trigger LANGUAGE plpgsql AS $$
++      BEGIN
++        RAISE EXCEPTION 'Maiocchi SSO exchange ledger is append-only';
++      END;
++      $$;
++
++      CREATE TRIGGER trg_maiocchi_sso_exchange_append_only
++      BEFORE UPDATE OR DELETE ON maiocchi_sso_exchanges
++      FOR EACH ROW EXECUTE FUNCTION guard_maiocchi_sso_exchange_append_only();
++    SQL
++  end
++
++  def remove_postgresql_immutability_guards
++    execute <<~SQL
++      DROP TRIGGER IF EXISTS trg_maiocchi_sso_exchange_append_only ON maiocchi_sso_exchanges;
++      DROP FUNCTION IF EXISTS guard_maiocchi_sso_exchange_append_only();
++      DROP TRIGGER IF EXISTS trg_maiocchi_sso_identity_binding ON maiocchi_sso_identities;
++      DROP FUNCTION IF EXISTS guard_maiocchi_sso_identity_binding();
++    SQL
++  end
++end
+diff --git a/db/schema.rb b/db/schema.rb
+index 9db43d616c3379a9a38d9785a766acb963afb6ab..14d797fd05bf8ffaf209df66c072f93d0233ff69 100644
+--- a/db/schema.rb
++++ b/db/schema.rb
+@@ -10,7 +10,7 @@
+ #
+ # It's strongly recommended that you check this file into your version control system.
+ 
+-ActiveRecord::Schema[8.1].define(version: 2026_07_15_103000) do
++ActiveRecord::Schema[8.1].define(version: 2026_07_18_090000) do
+   # These are extensions that must be enabled in order to support this database
+   enable_extension "btree_gin"
+   enable_extension "pg_catalog.plpgsql"
+@@ -308,6 +308,33 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_15_103000) do
+     t.index ["user_id"], name: "index_mcp_tokens_on_user_id"
+   end
+ 
++  create_table "maiocchi_sso_exchanges", force: :cascade do |t|
++    t.datetime "created_at", null: false
++    t.uuid "exchange_id", null: false
++    t.bigint "maiocchi_sso_identity_id", null: false
++    t.datetime "observed_at", null: false
++    t.string "provider", limit: 64, null: false
++    t.datetime "updated_at", null: false
++    t.index ["maiocchi_sso_identity_id"], name: "idx_maiocchi_sso_exchanges_identity"
++    t.index ["provider", "exchange_id"], name: "idx_maiocchi_sso_provider_exchange", unique: true
++  end
++
++  create_table "maiocchi_sso_identities", force: :cascade do |t|
++    t.bigint "account_id", null: false
++    t.datetime "created_at", null: false
++    t.string "email_at_link", limit: 320, null: false
++    t.string "external_role", limit: 32, null: false
++    t.datetime "last_authenticated_at", null: false
++    t.string "provider", limit: 64, null: false
++    t.string "subject", limit: 128, null: false
++    t.datetime "updated_at", null: false
++    t.bigint "user_id", null: false
++    t.index ["account_id"], name: "index_maiocchi_sso_identities_on_account_id"
++    t.index ["provider", "subject"], name: "idx_maiocchi_sso_provider_subject", unique: true
++    t.index ["provider", "user_id"], name: "idx_maiocchi_sso_provider_user", unique: true
++    t.index ["user_id"], name: "index_maiocchi_sso_identities_on_user_id"
++  end
++
+   create_table "oauth_access_grants", force: :cascade do |t|
+     t.bigint "application_id", null: false
+     t.string "code_challenge"
+@@ -644,6 +671,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_15_103000) do
+   add_foreign_key "encrypted_configs", "accounts"
+   add_foreign_key "encrypted_user_configs", "users"
+   add_foreign_key "mcp_tokens", "users"
++  add_foreign_key "maiocchi_sso_exchanges", "maiocchi_sso_identities", on_delete: :restrict
++  add_foreign_key "maiocchi_sso_identities", "accounts", on_delete: :restrict
++  add_foreign_key "maiocchi_sso_identities", "users", on_delete: :restrict
+   add_foreign_key "oauth_access_grants", "oauth_applications", column: "application_id"
+   add_foreign_key "oauth_access_grants", "users", column: "resource_owner_id"
+   add_foreign_key "oauth_access_tokens", "oauth_applications", column: "application_id"
+diff --git a/lib/maiocchi_sso.rb b/lib/maiocchi_sso.rb
+new file mode 100644
+index 0000000000000000000000000000000000000000..3432ff1e2cc3b64d26f388ff811b776404b01864
+--- /dev/null
++++ b/lib/maiocchi_sso.rb
+@@ -0,0 +1,6 @@
++# frozen_string_literal: true
++
++module MaiocchiSso
++  class FlowError < StandardError; end
++  class ConfigurationError < FlowError; end
++end
+diff --git a/lib/maiocchi_sso/configuration.rb b/lib/maiocchi_sso/configuration.rb
+new file mode 100644
+index 0000000000000000000000000000000000000000..4f04527d1fadfb78c25a8311835d26d136e6a373
+--- /dev/null
++++ b/lib/maiocchi_sso/configuration.rb
+@@ -0,0 +1,87 @@
++# frozen_string_literal: true
++
++require 'uri'
++
++module MaiocchiSso
++  module Configuration
++    PROVIDER = 'maiocchi_uno'
++    CLIENT_ID = 'maiocchi-signature'
++    ISSUER = 'https://www.maiocchi.adv.br'
++    AUTHORIZE_URL = 'https://www.maiocchi.adv.br/api/auth/sso/authorize'
++    TOKEN_URL = 'https://www.maiocchi.adv.br/api/auth/sso/token'
++    REDIRECT_URI = 'https://assinatura.maiocchi.adv.br/sso/maiocchi/callback'
++    AUDIENCE = 'maiocchi-signature'
++    SCOPE = 'openid profile signature.manage'
++    TOKEN_TYPE = 'urn:maiocchi:backchannel-identity'
++    ALLOWED_EXTERNAL_ROLES = %w[admin advogado staff].freeze
++    LOCAL_ROLE = User::ADMIN_ROLE
++    FLOW_TTL = 5.minutes
++    MAX_TOKEN_TTL_SECONDS = 30
++    UUID_PATTERN = /\A[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z/
++
++    module_function
++
++    def enabled?
++      ENV['MAIOCCHI_SSO_ENABLED'] == 'true'
++    end
++
++    def account_uuid
++      exact_uuid!(ENV['MAIOCCHI_SSO_ACCOUNT_UUID'], 'account allowlist')
++    end
++
++    def bootstrap_user_uuid
++      value = ENV['MAIOCCHI_SSO_BOOTSTRAP_USER_UUID'].presence
++      value && exact_uuid!(value, 'bootstrap user')
++    end
++
++    def client_secret
++      value = read_secret_file || ENV['MAIOCCHI_SSO_CLIENT_SECRET'].to_s
++      raise ConfigurationError, 'SSO client credential is unavailable' unless value.bytesize.between?(32, 512)
++      raise ConfigurationError, 'SSO client credential is malformed' if value.match?(/[\0\r\n]/)
++
++      value
++    end
++
++    def validate!
++      raise ConfigurationError, 'SSO is disabled' unless enabled?
++
++      account_uuid
++      bootstrap_user_uuid
++      client_secret
++      [ISSUER, AUTHORIZE_URL, TOKEN_URL, REDIRECT_URI].each do |value|
++        uri = URI.parse(value)
++        raise ConfigurationError, 'SSO endpoint is not exact HTTPS' unless uri.is_a?(URI::HTTPS)
++        raise ConfigurationError, 'SSO endpoint contains userinfo' if uri.userinfo
++        raise ConfigurationError, 'SSO endpoint contains a fragment' if uri.fragment
++      end
++      true
++    rescue URI::InvalidURIError
++      raise ConfigurationError, 'SSO endpoint is invalid'
++    end
++
++    def callback_host
++      URI.parse(REDIRECT_URI).host
++    end
++
++    def exact_uuid!(value, label)
++      normalized = value.to_s.downcase
++      raise ConfigurationError, "SSO #{label} is invalid" unless normalized.match?(UUID_PATTERN)
++
++      normalized
++    end
++    private_class_method :exact_uuid!
++
++    def read_secret_file
++      path = ENV['MAIOCCHI_SSO_CLIENT_SECRET_FILE'].presence
++      return if path.nil?
++
++      stat = File.stat(path)
++      raise ConfigurationError, 'SSO client credential file is invalid' unless stat.file? && stat.size.between?(32, 513)
++
++      File.binread(path, 513).delete_suffix("\n")
++    rescue Errno::ENOENT, Errno::EACCES, Errno::EISDIR, SystemCallError
++      raise ConfigurationError, 'SSO client credential file is unavailable'
++    end
++    private_class_method :read_secret_file
++  end
++end
+diff --git a/lib/maiocchi_sso/identity_resolver.rb b/lib/maiocchi_sso/identity_resolver.rb
+new file mode 100644
+index 0000000000000000000000000000000000000000..a664afa9c342455708b1e4ef9fa54ed27f9efb92
+--- /dev/null
++++ b/lib/maiocchi_sso/identity_resolver.rb
+@@ -0,0 +1,109 @@
++# frozen_string_literal: true
++
++module MaiocchiSso
++  class IdentityResolver
++    def self.call(claims, now: Time.current)
++      new(claims, now:).call
++    end
++
++    def initialize(claims, now:)
++      @claims = claims
++      @now = now
++    end
++
++    def call
++      identity = nil
++
++      ActiveRecord::Base.transaction do
++        account = Account.active.lock.find_by!(uuid: MaiocchiSso::Configuration.account_uuid)
++        identity = MaiocchiSsoIdentity.lock.find_by(
++          provider: MaiocchiSso::Configuration::PROVIDER,
++          subject: @claims.fetch('subject')
++        )
++        identity ||= link_identity!(account)
++        validate_existing_identity!(identity, account)
++        record_exchange!(identity)
++        identity.update!(external_role: @claims.fetch('role'), last_authenticated_at: @now)
++      end
++
++      identity.user
++    rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotFound, ActiveRecord::RecordNotUnique,
++           KeyError, MaiocchiSso::ConfigurationError
++      raise MaiocchiSso::FlowError, 'SSO identity rejected'
++    end
++
++    private
++
++    def link_identity!(account)
++      email = normalized_email
++      user = bootstrap_user(account, email) || provision_user!(account, email)
++
++      MaiocchiSsoIdentity.create!(
++        account:,
++        user:,
++        provider: MaiocchiSso::Configuration::PROVIDER,
++        subject: @claims.fetch('subject'),
++        email_at_link: email,
++        external_role: @claims.fetch('role'),
++        last_authenticated_at: @now
++      )
++    end
++
++    def bootstrap_user(account, email)
++      uuid = MaiocchiSso::Configuration.bootstrap_user_uuid
++      return if uuid.nil?
++
++      user = User.active.lock.find_by!(uuid:, account:)
++      raise MaiocchiSso::FlowError unless user.email.casecmp?(email)
++      raise MaiocchiSso::FlowError unless user.role == MaiocchiSso::Configuration::LOCAL_ROLE
++      raise MaiocchiSso::FlowError if MaiocchiSsoIdentity.exists?(provider: MaiocchiSso::Configuration::PROVIDER,
++                                                                  user:)
++
++      user
++    end
++
++    def provision_user!(account, email)
++      raise MaiocchiSso::FlowError if User.where('LOWER(email) = ?', email).exists?
++
++      first_name, last_name = normalized_names
++      User.create!(
++        account:,
++        email:,
++        first_name:,
++        last_name:,
++        role: MaiocchiSso::Configuration::LOCAL_ROLE,
++        **{ :password => SecureRandom.urlsafe_base64(48) }
++      )
++    end
++
++    def validate_existing_identity!(identity, account)
++      user = identity.user
++      raise MaiocchiSso::FlowError unless identity.account_id == account.id && user.account_id == account.id
++      raise MaiocchiSso::FlowError unless identity.email_at_link.casecmp?(normalized_email)
++      raise MaiocchiSso::FlowError unless user.email.casecmp?(normalized_email)
++      raise MaiocchiSso::FlowError unless user.role == MaiocchiSso::Configuration::LOCAL_ROLE
++      raise MaiocchiSso::FlowError unless user.active_for_authentication?
++      raise MaiocchiSso::FlowError unless @claims.fetch('role').in?(MaiocchiSso::Configuration::ALLOWED_EXTERNAL_ROLES)
++    end
++
++    def record_exchange!(identity)
++      MaiocchiSsoExchange.create!(
++        maiocchi_sso_identity: identity,
++        provider: MaiocchiSso::Configuration::PROVIDER,
++        exchange_id: @claims.fetch('exchange_id'),
++        observed_at: @now
++      )
++    end
++
++    def normalized_email
++      @normalized_email ||= @claims.fetch('email').to_s.strip.downcase.tap do |email|
++        raise MaiocchiSso::FlowError unless email.match?(User::FULL_EMAIL_REGEXP)
++      end
++    end
++
++    def normalized_names
++      parts = @claims['name'].to_s.strip.split(/\s+/, 2)
++      [parts.first.presence, parts.second.presence]
++    end
++  end
++end
+diff --git a/lib/maiocchi_sso/token_exchange.rb b/lib/maiocchi_sso/token_exchange.rb
+new file mode 100644
+index 0000000000000000000000000000000000000000..6b8fc7b125ad03e9ad82230b7d78f4bff367200a
+--- /dev/null
++++ b/lib/maiocchi_sso/token_exchange.rb
+@@ -0,0 +1,131 @@
++# frozen_string_literal: true
++
++require 'json'
++require 'net/http'
++require 'time'
++require 'uri'
++
++module MaiocchiSso
++  class TokenExchange
++    MAX_RESPONSE_BYTES = 32.kilobytes
++    REQUIRED_KEYS = %w[
++      ok token_type expires_in issued_at expires_at issuer audience scope nonce subject email name role
++      auth_time exchange_id
++    ].freeze
++    EMAIL_PATTERN = /\A[A-Za-z0-9.!#$%&'*+\/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+\z/
++
++    def self.call(code:, verifier:, nonce:, now: Time.current)
++      new(code:, verifier:, nonce:, now:).call
++    end
++
++    def initialize(code:, verifier:, nonce:, now:)
++      @code = code
++      @verifier = verifier
++      @nonce = nonce
++      @now = now
++    end
++
++    def call
++      MaiocchiSso::Configuration.validate!
++      started_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
++      response = perform_request
++      elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started_at
++      claims = parse_response(response)
++      validate_claims!(claims, elapsed:)
++      claims
++    rescue JSON::ParserError, URI::InvalidURIError, Timeout::Error, SocketError, SystemCallError,
++           OpenSSL::SSL::SSLError, Net::HTTPBadResponse, Net::HTTPHeaderSyntaxError,
++           MaiocchiSso::ConfigurationError => e
++      Rails.logger.warn(event: 'maiocchi_sso_exchange_failed', error_class: e.class.name)
++      raise MaiocchiSso::FlowError, 'SSO exchange failed'
++    end
++
++    private
++
++    def perform_request
++      uri = URI.parse(MaiocchiSso::Configuration::TOKEN_URL)
++      raise MaiocchiSso::FlowError unless uri.is_a?(URI::HTTPS) && uri.userinfo.nil? && uri.fragment.nil?
++
++      request = Net::HTTP::Post.new(uri)
++      request.basic_auth(MaiocchiSso::Configuration::CLIENT_ID, MaiocchiSso::Configuration.client_secret)
++      request['Accept'] = 'application/json'
++      request['Content-Type'] = 'application/x-www-form-urlencoded'
++      request['Cache-Control'] = 'no-store'
++      request.body = URI.encode_www_form(
++        grant_type: 'authorization_code',
++        code: @code,
++        redirect_uri: MaiocchiSso::Configuration::REDIRECT_URI,
++        code_verifier: @verifier,
++        nonce: @nonce
++      )
++
++      Net::HTTP.start(uri.host, uri.port, use_ssl: true, verify_mode: OpenSSL::SSL::VERIFY_PEER,
++                                          open_timeout: 3, read_timeout: 5, write_timeout: 5) do |http|
++        http.request(request) do |response|
++          raise MaiocchiSso::FlowError unless response.is_a?(Net::HTTPSuccess)
++          raise MaiocchiSso::FlowError unless response['content-type'].to_s.split(';').first == 'application/json'
++
++          declared_length = Integer(response['content-length'], exception: false)
++          raise MaiocchiSso::FlowError if declared_length && declared_length > MAX_RESPONSE_BYTES
++
++          body = +''
++          response.read_body do |chunk|
++            raise MaiocchiSso::FlowError if body.bytesize + chunk.bytesize > MAX_RESPONSE_BYTES
++
++            body << chunk
++          end
++          return body
++        end
++      end
++    end
++
++    def parse_response(body)
++      JSON.parse(body)
++    end
++
++    def validate_claims!(claims, elapsed:)
++      raise MaiocchiSso::FlowError unless claims.is_a?(Hash) && claims.keys.sort == REQUIRED_KEYS.sort
++      raise MaiocchiSso::FlowError unless claims['ok'] == true
++      raise MaiocchiSso::FlowError unless claims['token_type'] == MaiocchiSso::Configuration::TOKEN_TYPE
++      raise MaiocchiSso::FlowError unless claims['issuer'] == MaiocchiSso::Configuration::ISSUER
++      raise MaiocchiSso::FlowError unless claims['audience'] == MaiocchiSso::Configuration::AUDIENCE
++      raise MaiocchiSso::FlowError unless claims['scope'] == MaiocchiSso::Configuration::SCOPE
++      raise MaiocchiSso::FlowError unless secure_equal?(claims['nonce'], @nonce)
++      raise MaiocchiSso::FlowError unless claims['subject'].to_s.match?(MaiocchiSso::Configuration::UUID_PATTERN)
++      raise MaiocchiSso::FlowError unless claims['exchange_id'].to_s.match?(MaiocchiSso::Configuration::UUID_PATTERN)
++      raise MaiocchiSso::FlowError unless claims['role'].in?(MaiocchiSso::Configuration::ALLOWED_EXTERNAL_ROLES)
++      raise MaiocchiSso::FlowError unless valid_email?(claims['email'])
++      raise MaiocchiSso::FlowError unless claims['name'].nil? || valid_name?(claims['name'])
++
++      ttl = claims['expires_in']
++      raise MaiocchiSso::FlowError unless ttl.is_a?(Integer) && ttl.between?(1, MaiocchiSso::Configuration::MAX_TOKEN_TTL_SECONDS)
++
++      issued_at = Time.iso8601(claims['issued_at'].to_s)
++      expires_at = Time.iso8601(claims['expires_at'].to_s)
++      absolute_ttl = expires_at - issued_at
++      remaining = expires_at - @now
++      raise MaiocchiSso::FlowError unless issued_at.between?(@now - 30.seconds, @now + 5.seconds)
++      raise MaiocchiSso::FlowError unless absolute_ttl.positive? && absolute_ttl <= MaiocchiSso::Configuration::MAX_TOKEN_TTL_SECONDS
++      raise MaiocchiSso::FlowError unless absolute_ttl == ttl && remaining.positive?
++      raise MaiocchiSso::FlowError unless elapsed >= 0 && elapsed < remaining
++
++      auth_time = Time.iso8601(claims['auth_time'].to_s)
++      raise MaiocchiSso::FlowError if auth_time > issued_at || auth_time < @now - 30.days
++    rescue ArgumentError
++      raise MaiocchiSso::FlowError
++    end
++
++    def valid_email?(value)
++      value.is_a?(String) && value.bytesize.between?(3, 320) && value.match?(EMAIL_PATTERN)
++    end
++
++    def valid_name?(value)
++      value.is_a?(String) && value.strip.present? && value.bytesize <= 200 && !value.match?(/[\0\r\n]/)
++    end
++
++    def secure_equal?(left, right)
++      left.is_a?(String) && right.is_a?(String) && left.bytesize == right.bytesize &&
++        ActiveSupport::SecurityUtils.secure_compare(left, right)
++    end
++  end
++end
+diff --git a/spec/lib/maiocchi_sso_configuration_spec.rb b/spec/lib/maiocchi_sso_configuration_spec.rb
+new file mode 100644
+index 0000000000000000000000000000000000000000..a8da6782b6edc884d4c3a080435ff40f3820ee38
+--- /dev/null
++++ b/spec/lib/maiocchi_sso_configuration_spec.rb
+@@ -0,0 +1,47 @@
++# frozen_string_literal: true
++
++require 'tempfile'
++
++RSpec.describe MaiocchiSso::Configuration do
++  around do |example|
++    keys = %w[
++      MAIOCCHI_SSO_ENABLED MAIOCCHI_SSO_ACCOUNT_UUID MAIOCCHI_SSO_BOOTSTRAP_USER_UUID
++      MAIOCCHI_SSO_CLIENT_SECRET MAIOCCHI_SSO_CLIENT_SECRET_FILE
++    ]
++    previous = ENV.to_h.slice(*keys)
++    keys.each { |key| ENV.delete(key) }
++    example.run
++  ensure
++    keys.each { |key| ENV.delete(key) }
++    previous.each { |key, value| ENV[key] = value }
++  end
++
++  it 'fails closed unless enabled with exact account allowlist and a strong client credential' do
++    expect { described_class.validate! }.to raise_error(MaiocchiSso::ConfigurationError)
++
++    ENV['MAIOCCHI_SSO_ENABLED'] = 'true'
++    ENV['MAIOCCHI_SSO_ACCOUNT_UUID'] = SecureRandom.uuid
++    ENV['MAIOCCHI_SSO_CLIENT_SECRET'] = 'short'
++    expect { described_class.validate! }.to raise_error(MaiocchiSso::ConfigurationError)
++
++    ENV['MAIOCCHI_SSO_CLIENT_SECRET'] = 's' * 48
++    expect(described_class.validate!).to be(true)
++  end
++
++  it 'prefers a bounded secret file and never accepts embedded line breaks' do
++    Tempfile.create('sso-client-secret') do |file|
++      file.binmode
++      file.write(('f' * 48) + "\n")
++      file.flush
++      ENV['MAIOCCHI_SSO_CLIENT_SECRET_FILE'] = file.path
++      ENV['MAIOCCHI_SSO_CLIENT_SECRET'] = 'e' * 48
++      expect(described_class.client_secret).to eq('f' * 48)
++
++      file.rewind
++      file.truncate(0)
++      file.write("#{'f' * 32}\nsecond-line")
++      file.flush
++      expect { described_class.client_secret }.to raise_error(MaiocchiSso::ConfigurationError)
++    end
++  end
++end
+diff --git a/spec/lib/maiocchi_sso_identity_resolver_spec.rb b/spec/lib/maiocchi_sso_identity_resolver_spec.rb
+new file mode 100644
+index 0000000000000000000000000000000000000000..c462fafe5b433d5f0068223ccb42d6aa19e82c23
+--- /dev/null
++++ b/spec/lib/maiocchi_sso_identity_resolver_spec.rb
+@@ -0,0 +1,101 @@
++# frozen_string_literal: true
++
++RSpec.describe MaiocchiSso::IdentityResolver do
++  let(:account) { create(:account) }
++  let(:now) { Time.utc(2026, 7, 18, 12) }
++  let(:claims) do
++    {
++      'subject' => 'f3065564-0e72-480f-bd82-60d951ab909b',
++      'email' => 'advogado@maiocchi.adv.br',
++      'name' => 'Advogado Maiocchi',
++      'role' => 'advogado',
++      'exchange_id' => SecureRandom.uuid
++    }
++  end
++
++  before do
++    allow(MaiocchiSso::Configuration).to receive(:account_uuid).and_return(account.uuid)
++    allow(MaiocchiSso::Configuration).to receive(:bootstrap_user_uuid).and_return(nil)
++  end
++
++  it 'provisions only into the allowlisted account and persists subject binding plus exchange ledger' do
++    user = described_class.call(claims, now:)
++
++    identity = MaiocchiSsoIdentity.find_by!(subject: claims.fetch('subject'))
++    expect(user.account).to eq(account)
++    expect(user.role).to eq(User::ADMIN_ROLE)
++    expect(user.email).to eq(claims.fetch('email'))
++    expect(identity).to have_attributes(account:, user:, email_at_link: claims.fetch('email'),
++                                        external_role: 'advogado', last_authenticated_at: now)
++    expect(identity.maiocchi_sso_exchanges.sole.exchange_id).to eq(claims.fetch('exchange_id'))
++  end
++
++  it 'rejects replay of a previously accepted exchange id' do
++    described_class.call(claims, now:)
++
++    expect { described_class.call(claims, now: now + 1.second) }
++      .to raise_error(MaiocchiSso::FlowError)
++    expect(MaiocchiSsoExchange.count).to eq(1)
++  end
++
++  it 'keeps the identity binding immutable and the exchange ledger append-only' do
++    user = described_class.call(claims, now:)
++    identity = user.maiocchi_sso_identity
++
++    expect { identity.update!(subject: SecureRandom.uuid) }.to raise_error(ActiveRecord::RecordInvalid)
++    expect(identity.reload.subject).to eq(claims.fetch('subject'))
++    expect { identity.maiocchi_sso_exchanges.sole.destroy! }.to raise_error(ActiveRecord::ReadOnlyRecord)
++  end
++
++  it 'rejects email collision instead of taking over an existing local user' do
++    existing = create(:user, email: claims.fetch('email'))
++
++    expect { described_class.call(claims, now:) }.to raise_error(MaiocchiSso::FlowError)
++    expect(existing.reload.maiocchi_sso_identity).to be_nil
++    expect(MaiocchiSsoIdentity.count).to eq(0)
++  end
++
++  it 'links an explicitly allowlisted bootstrap user without relying on email discovery' do
++    bootstrap = create(:user, account:, email: claims.fetch('email'))
++    allow(MaiocchiSso::Configuration).to receive(:bootstrap_user_uuid).and_return(bootstrap.uuid)
++
++    expect(described_class.call(claims, now:)).to eq(bootstrap)
++    expect(bootstrap.reload.maiocchi_sso_identity.subject).to eq(claims.fetch('subject'))
++  end
++
++  it 'rejects bootstrap email mismatch and an identity bound to another account' do
++    bootstrap = create(:user, account:, email: 'outro@maiocchi.adv.br')
++    allow(MaiocchiSso::Configuration).to receive(:bootstrap_user_uuid).and_return(bootstrap.uuid)
++    expect { described_class.call(claims, now:) }.to raise_error(MaiocchiSso::FlowError)
++
++    other_account = create(:account)
++    other_user = create(:user, account: other_account, email: claims.fetch('email'))
++    create_identity(other_user, other_account)
++    allow(MaiocchiSso::Configuration).to receive(:bootstrap_user_uuid).and_return(nil)
++    expect { described_class.call(claims.merge('exchange_id' => SecureRandom.uuid), now:) }
++      .to raise_error(MaiocchiSso::FlowError)
++  end
++
++  it 'rejects non-staff role and archived allowlisted account' do
++    expect { described_class.call(claims.merge('role' => 'cliente'), now:) }
++      .to raise_error(MaiocchiSso::FlowError)
++
++    account.update!(archived_at: now)
++    expect { described_class.call(claims.merge('exchange_id' => SecureRandom.uuid), now:) }
++      .to raise_error(MaiocchiSso::FlowError)
++  end
++
++  private
++
++  def create_identity(identity_user, identity_account)
++    MaiocchiSsoIdentity.create!(
++      account: identity_account,
++      user: identity_user,
++      provider: MaiocchiSso::Configuration::PROVIDER,
++      subject: claims.fetch('subject'),
++      email_at_link: claims.fetch('email'),
++      external_role: 'advogado',
++      last_authenticated_at: now
++    )
++  end
++end
+diff --git a/spec/lib/maiocchi_sso_token_exchange_spec.rb b/spec/lib/maiocchi_sso_token_exchange_spec.rb
+new file mode 100644
+index 0000000000000000000000000000000000000000..17dcfeb3c6d8268fa1737ab97dd2b755a661f889
+--- /dev/null
++++ b/spec/lib/maiocchi_sso_token_exchange_spec.rb
+@@ -0,0 +1,108 @@
++# frozen_string_literal: true
++
++RSpec.describe MaiocchiSso::TokenExchange do
++  let(:secret) { 's' * 48 }
++  let(:nonce) { 'n' * 43 }
++  let(:code) { 'c' * 43 }
++  let(:verifier) { 'v' * 64 }
++  let(:now) { Time.utc(2026, 7, 18, 12) }
++  let(:claims) do
++    {
++      'ok' => true,
++      'token_type' => MaiocchiSso::Configuration::TOKEN_TYPE,
++      'expires_in' => 30,
++      'issued_at' => now.iso8601,
++      'expires_at' => (now + 30.seconds).iso8601,
++      'issuer' => MaiocchiSso::Configuration::ISSUER,
++      'audience' => MaiocchiSso::Configuration::AUDIENCE,
++      'scope' => MaiocchiSso::Configuration::SCOPE,
++      'nonce' => nonce,
++      'subject' => 'f3065564-0e72-480f-bd82-60d951ab909b',
++      'email' => 'advogado@maiocchi.adv.br',
++      'name' => 'Advogado Maiocchi',
++      'role' => 'advogado',
++      'auth_time' => now.iso8601,
++      'exchange_id' => 'ef1961c8-ecc9-426c-92bb-7d87994f2883'
++    }
++  end
++
++  before do
++    allow(MaiocchiSso::Configuration).to receive(:validate!).and_return(true)
++    allow(MaiocchiSso::Configuration).to receive(:client_secret).and_return(secret)
++  end
++
++  it 'uses exact HTTPS backchannel, distinct Basic credential, PKCE verifier and nonce' do
++    request = stub_request(:post, MaiocchiSso::Configuration::TOKEN_URL)
++      .with do |incoming|
++        body = Rack::Utils.parse_query(incoming.body)
++        incoming.headers['Authorization'] ==
++          "Basic #{Base64.strict_encode64("#{MaiocchiSso::Configuration::CLIENT_ID}:#{secret}")}" &&
++          body == {
++            'grant_type' => 'authorization_code',
++            'code' => code,
++            'redirect_uri' => MaiocchiSso::Configuration::REDIRECT_URI,
++            'code_verifier' => verifier,
++            'nonce' => nonce
++          }
++      end
++      .to_return(status: 200, headers: { 'Content-Type' => 'application/json' }, body: claims.to_json)
++
++    result = described_class.call(code:, verifier:, nonce:, now:)
++
++    expect(result).to eq(claims)
++    expect(request).to have_been_requested.once
++  end
++
++  it 'fails closed for nonce, issuer, audience, scope, role and expiry divergence' do
++    mutations = [
++      { 'nonce' => 'x' * 43 },
++      { 'issuer' => 'https://evil.invalid' },
++      { 'audience' => 'outro' },
++      { 'scope' => 'openid' },
++      { 'role' => 'cliente' },
++      { 'expires_in' => 0 },
++      { 'expires_in' => 31 },
++      { 'issued_at' => (now - 31.seconds).iso8601 },
++      { 'expires_at' => (now - 1.second).iso8601 }
++    ]
++
++    mutations.each do |mutation|
++      stub_request(:post, MaiocchiSso::Configuration::TOKEN_URL)
++        .to_return(status: 200, headers: { 'Content-Type' => 'application/json' },
++                   body: claims.merge(mutation).to_json)
++
++      expect { described_class.call(code:, verifier:, nonce:, now:) }
++        .to raise_error(MaiocchiSso::FlowError)
++      WebMock.reset!
++    end
++  end
++
++  it 'rejects provider-side PKCE failure, malformed fields, extra claims and oversized responses' do
++    responses = [
++      { status: 400, headers: { 'Content-Type' => 'application/json' }, body: '{"error":"invalid_grant"}' },
++      { status: 200, headers: { 'Content-Type' => 'application/json' }, body: claims.merge('subject' => 'not-a-uuid').to_json },
++      { status: 200, headers: { 'Content-Type' => 'application/json' }, body: claims.merge('unexpected' => true).to_json },
++      { status: 200, headers: { 'Content-Type' => 'application/json', 'Content-Length' => '40000' }, body: claims.to_json },
++      { status: 200, headers: { 'Content-Type' => 'application/json' }, body: 'x' * (32.kilobytes + 1) }
++    ]
++
++    responses.each do |response|
++      stub_request(:post, MaiocchiSso::Configuration::TOKEN_URL).to_return(**response)
++      expect { described_class.call(code:, verifier:, nonce:, now:) }
++        .to raise_error(MaiocchiSso::FlowError)
++      WebMock.reset!
++    end
++  end
++
++  it 'rejects an expired/future authentication context' do
++    ['2026-06-17T11:59:59Z', '2026-07-18T12:00:01Z'].each do |auth_time|
++      stub_request(:post, MaiocchiSso::Configuration::TOKEN_URL)
++        .to_return(status: 200, headers: { 'Content-Type' => 'application/json' },
++                   body: claims.merge('auth_time' => auth_time).to_json)
++
++      expect { described_class.call(code:, verifier:, nonce:, now:) }
++        .to raise_error(MaiocchiSso::FlowError)
++      WebMock.reset!
++    end
++  end
++end
+diff --git a/spec/requests/maiocchi_sso_spec.rb b/spec/requests/maiocchi_sso_spec.rb
+new file mode 100644
+index 0000000000000000000000000000000000000000..6049e4e879a0b2c63b779dc5d82bd012195e14e6
+--- /dev/null
++++ b/spec/requests/maiocchi_sso_spec.rb
+@@ -0,0 +1,110 @@
++# frozen_string_literal: true
++
++require 'uri'
++
++RSpec.describe 'Maiocchi SSO' do
++  let(:app_host) { 'assinatura.maiocchi.adv.br' }
++  let(:user) { create(:user) }
++  let(:claims) do
++    {
++      'subject' => SecureRandom.uuid,
++      'email' => user.email,
++      'role' => 'advogado',
++      'exchange_id' => SecureRandom.uuid
++    }
++  end
++
++  before do
++    host! app_host
++    https!
++    allow(MaiocchiSso::Configuration).to receive(:validate!).and_return(true)
++    allow(MaiocchiSso::Configuration).to receive(:callback_host).and_return(app_host)
++    allow(MaiocchiSso::IdentityResolver).to receive(:call).and_return(user)
++  end
++
++  it 'creates state, nonce and PKCE S256, then rotates into a local DocuSeal session' do
++    get maiocchi_sso_start_path
++
++    expect(response).to have_http_status(:see_other)
++    authorize_uri = URI.parse(response.location)
++    query = Rack::Utils.parse_query(authorize_uri.query)
++    expect(authorize_uri.to_s).to start_with(MaiocchiSso::Configuration::AUTHORIZE_URL)
++    expect(query).to include(
++      'response_type' => 'code',
++      'client_id' => MaiocchiSso::Configuration::CLIENT_ID,
++      'redirect_uri' => MaiocchiSso::Configuration::REDIRECT_URI,
++      'code_challenge_method' => 'S256',
++      'scope' => MaiocchiSso::Configuration::SCOPE,
++      'audience' => MaiocchiSso::Configuration::AUDIENCE
++    )
++    expect(query.fetch('state')).to match(/\A[A-Za-z0-9_-]{43}\z/)
++    expect(query.fetch('nonce')).to match(/\A[A-Za-z0-9_-]{43}\z/)
++    expect(query.fetch('code_challenge')).to match(/\A[A-Za-z0-9_-]{43}\z/)
++
++    captured = nil
++    allow(MaiocchiSso::TokenExchange).to receive(:call) do |**input|
++      captured = input
++      claims
++    end
++
++    get maiocchi_sso_callback_path, params: { code: 'c' * 43, state: query.fetch('state') }
++
++    expect(response).to redirect_to(dashboard_index_path)
++    expect(captured.fetch(:nonce)).to eq(query.fetch('nonce'))
++    expected_challenge = Base64.urlsafe_encode64(Digest::SHA256.digest(captured.fetch(:verifier)), padding: false)
++    expect(expected_challenge).to eq(query.fetch('code_challenge'))
++    expect(controller.current_user).to eq(user)
++    expect(response.headers['Cache-Control']).to eq('no-store, max-age=0')
++    expect(response.headers['Referrer-Policy']).to eq('no-referrer')
++  end
++
++  it 'consumes the browser state on first callback and rejects replay' do
++    get maiocchi_sso_start_path
++    state = Rack::Utils.parse_query(URI.parse(response.location).query).fetch('state')
++    allow(MaiocchiSso::TokenExchange).to receive(:call).and_return(claims)
++
++    get maiocchi_sso_callback_path, params: { code: 'c' * 43, state: }
++    expect(response).to redirect_to(dashboard_index_path)
++
++    get maiocchi_sso_callback_path, params: { code: 'c' * 43, state: }
++    expect(response).to have_http_status(:unprocessable_content)
++    expect(MaiocchiSso::TokenExchange).to have_received(:call).once
++  end
++
++  it 'rejects a wrong state without calling the backchannel' do
++    get maiocchi_sso_start_path
++    allow(MaiocchiSso::TokenExchange).to receive(:call)
++
++    get maiocchi_sso_callback_path, params: { code: 'c' * 43, state: 'x' * 43 }
++
++    expect(response).to have_http_status(:unprocessable_content)
++    expect(MaiocchiSso::TokenExchange).not_to have_received(:call)
++  end
++
++  it 'rejects an expired browser flow before exchanging the code' do
++    travel_to Time.utc(2026, 7, 18, 12) do
++      get maiocchi_sso_start_path
++      @state = Rack::Utils.parse_query(URI.parse(response.location).query).fetch('state')
++    end
++    allow(MaiocchiSso::TokenExchange).to receive(:call)
++
++    travel_to Time.utc(2026, 7, 18, 12, 6) do
++      get maiocchi_sso_callback_path, params: { code: 'c' * 43, state: @state }
++    end
++
++    expect(response).to have_http_status(:unprocessable_content)
++    expect(MaiocchiSso::TokenExchange).not_to have_received(:call)
++  end
++
++  it 'rejects extra callback parameters and a non-canonical host' do
++    get maiocchi_sso_start_path
++    state = Rack::Utils.parse_query(URI.parse(response.location).query).fetch('state')
++
++    get maiocchi_sso_callback_path, params: { code: 'c' * 43, state:, extra: '1' }
++    expect(response).to have_http_status(:unprocessable_content)
++
++    host! 'assinatura.maiocchi.adv.br.evil.invalid'
++    get maiocchi_sso_start_path
++    expect(response).to have_http_status(:unprocessable_content)
++  end
++end

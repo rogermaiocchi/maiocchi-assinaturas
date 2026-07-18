@@ -1,0 +1,97 @@
+# ADR 0005 — SSO host-only entre Portal Maiocchi e DocuSeal
+
+- Estado: candidato implementado; ativação bloqueada até os gates finais
+- Data: 2026-07-18
+- Fonte do fork: `compliance/docuseal-maiocchi-3.0.1-maiocchi.14.tar.gz`
+- SHA-256 da fonte: `e8f3b6e8ba3a8e70c7ea66846b57f6c0bddcd582be87bd4ae3ee074c2f9ff26c`
+- Patch derivado: `patches/docuseal/0009-maiocchi-uno-sso.patch`
+
+## Decisão
+
+O `www.maiocchi.adv.br` autentica a pessoa e emite um authorization code de uso
+único. O DocuSeal continua sendo responsável pela própria sessão, sempre em
+cookie host-only. Não há cookie com `Domain=.maiocchi.adv.br`, token reutilizável
+no navegador nem compartilhamento de sessão entre hosts.
+
+O fluxo usa `/sso/maiocchi/start` e `/sso/maiocchi/callback`, `state`, `nonce` e
+PKCE S256 gerados por `SecureRandom`. O callback consome o estado da sessão antes
+do backchannel. O code é trocado em HTTPS com credencial Basic própria, lida do
+arquivo montado `/run/signature-secrets/api_signature_sso_client_secret`; a
+credencial não integra query string, browser storage ou log.
+
+O DTO aceito é uma allowlist exata. O DocuSeal exige `issuer`, `audience`,
+`scope`, `nonce`, `subject`, `role`, `auth_time`, `exchange_id`, `issued_at`,
+`expires_at` e `expires_in`. `issued_at` precisa ser fresco, `expires_at` futuro e
+o intervalo absoluto deve coincidir com `expires_in`, limitado a 30 segundos.
+
+## Vínculo de identidade
+
+O par imutável `provider + subject` é a chave externa. O vínculo persiste o
+`user_id` e o `account_id` locais, com unicidade também por usuário. Cada
+`exchange_id` aceito entra em ledger próprio e único, impedindo replay local.
+
+O account de destino é uma allowlist exata por UUID. Roles externas aceitas:
+`admin`, `advogado` e `staff`; todas mapeiam para o único papel administrativo
+existente no fork DocuSeal. Um e-mail local já existente nunca é descoberto ou
+vinculado automaticamente. Para o usuário histórico, o primeiro vínculo depende
+de `MAIOCCHI_SSO_BOOTSTRAP_USER_UUID`, UUID local escolhido explicitamente e com
+igualdade de account e e-mail. Sem bootstrap, só é criado usuário quando o e-mail
+é globalmente inédito. Qualquer drift posterior de subject, account, e-mail ou
+role falha fechado e exige reconciliação administrativa rastreável.
+
+## Sessão e fallback
+
+A autenticação bem-sucedida executa `reset_session` antes do `sign_in`. Em
+produção, o cookie é `__Host-docuseal_session`, `Secure`, `HttpOnly`,
+`SameSite=Lax`, `Path=/` e sem atributo `Domain`. Logout, certificado ICP-Brasil
+e senha/OTP locais permanecem disponíveis. O SSO passa a ser o botão principal
+do portal, mas não remove os fallbacks.
+
+## Evidência e testes negativos
+
+O patch contém specs para:
+
+- state divergente, expirado e replay;
+- nonce divergente, PKCE recusado pelo provider e code inválido;
+- issuer, audience, scope, role e prazo divergentes;
+- resposta extra/malformada ou acima de 32 KiB;
+- replay de `exchange_id`;
+- colisão de e-mail, account incorreto, role não permitida e bootstrap divergente;
+- derivação da fonte `.14`, cookie host-only, Traefik e preservação dos fallbacks.
+
+`tests/maiocchi-sso-contract.test.mjs` verifica localmente o contrato rastreável
+sem depender de runtime. As specs Rails acompanham o patch e somente contam como
+executadas depois da construção da imagem candidata e de PostgreSQL 16 isolado.
+
+## Candidato do portal estático
+
+O botão SSO não integra a imagem produtiva `1.15.0`. Ele compõe o candidato
+`maiocchi/assinatura-portal:1.15.1`, com versão coerente em `package.json`,
+`package-lock.json`, label OCI, fonte OCI e compose. As duas imagens-base do
+Dockerfile estão fixadas por digest.
+
+O contexto de build não nasce da worktree: o script reconstrói o commit exato
+`7e864d548b39ff3bbdcc6693f0bc05b3a72ed44d`, aplica o patch de hash fixo e só
+então executa build, testes e lint. Arquivos sujos ou não rastreados — inclusive
+duplicados locais — não ingressam no snapshot. O canário usa container próprio e
+rede `internal`, sem porta nem router público; portanto não substitui a instância
+produtiva por simples execução do compose candidato.
+
+O contrato `portal-v1.15.1-sso-candidate.contract.json` exige `docker inspect`,
+SBOM CycloneDX bruto do Syft, relatório Grype bruto, gate `--fail-on high` e
+manifesto SHA-256. Ausência de qualquer evidência mantém o status NO-GO; SBOM ou
+scan de versão anterior não podem ser reaproveitados.
+
+## Gates de ativação
+
+1. Construir `maiocchi/assinatura-portal:1.15.1` e
+   `maiocchi/docuseal:3.0.1-maiocchi.15` pelos scripts rastreáveis.
+2. Executar as specs Rails, incluindo concorrência e migração em PostgreSQL 16.
+3. Gerar SBOM CycloneDX e relatório Grype das duas imagens efetivamente construídas.
+4. Instalar a mesma credencial SSO distinta nos dois lados, sem expô-la.
+5. Cadastrar o UUID exato do account e, se necessário, o UUID bootstrap.
+6. Ensaiar backup/restore e rollback em clone isolado.
+7. Ativar primeiro em canário privado e executar E2E navegador completo.
+
+Até todos os gates produzirem evidência, `MAIOCCHI_SSO_ENABLED` permanece
+`false`; este ADR não afirma execução em produção.

@@ -2,6 +2,20 @@
 .next
 node_modules
 clients
+compliance
+deploy
+docs
+patches
+scripts
+services
+!services/
+services/*
+!services/pki-bridge/
+services/pki-bridge/*
+!services/pki-bridge/src/
+services/pki-bridge/src/*
+!services/pki-bridge/src/pades-evidence-layout.mjs
+tests
 work
 dist
 out
@@ -13,3 +27,5 @@ artifacts
 pgdata
 keys
 validator-keys
+**/* 2.*
+**/* 3.*

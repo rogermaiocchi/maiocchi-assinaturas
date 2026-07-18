@@ -181,6 +181,11 @@ export function LawyerAccess() {
     }
   }
 
+  function startIntegratedAccess() {
+    setState({ kind: "loading", message: "Conectando ao ambiente integrado Maiocchi..." });
+    window.location.assign("/sso/maiocchi/start");
+  }
+
   const busy = state.kind === "loading";
   const needsOtp = state.kind === "otp" || Boolean(otp);
 
@@ -215,6 +220,15 @@ export function LawyerAccess() {
       </div>
 
       <div className="lawyer-access__panel">
+        <button className="integrated-access" type="button" onClick={startIntegratedAccess} disabled={busy}>
+          {busy ? <LoaderCircle className="spin" aria-hidden="true" size={22} /> : <LogIn aria-hidden="true" size={22} />}
+          <span>
+            <strong>Entrar com Portal Maiocchi</strong>
+            <small>Uma sessão para clientes, processos, notícias e assinaturas.</small>
+          </span>
+        </button>
+        <div className="access-divider" aria-hidden="true"><span>Alternativas de acesso</span></div>
+
         <div className="access-methods" role="tablist" aria-label="Método de acesso" aria-orientation="horizontal" onKeyDown={handleTabKeyDown}>
           <button ref={certificateTab} id="certificate-access-tab" type="button" role="tab" tabIndex={accessMethod === "certificate" ? 0 : -1} aria-selected={accessMethod === "certificate"} aria-controls="certificate-access-panel" onClick={() => selectAccessMethod("certificate")}>
             <IdCard aria-hidden="true" size={18} /><span>Certificado</span>

@@ -27,8 +27,8 @@ test("renderiza a porta de entrada Maiocchi", async () => {
   assert.match(html, /class="brand__mark"/i);
   assert.match(html, /aria-label="Maiocchi — início"/i);
   assert.doesNotMatch(html, /Maiocchi\. Assinatura/i);
-  assert.match(html, /brand__mark-image--dark" src="\/maiocchi-mark\.svg"/i);
-  assert.match(html, /brand__mark-image--light" src="\/maiocchi-mark-light\.svg"/i);
+  assert.match(html, /<img[^>]*class="brand__mark-image brand__mark-image--dark"[^>]*src="\/maiocchi-mark\.svg"/i);
+  assert.match(html, /<img[^>]*class="brand__mark-image brand__mark-image--light"[^>]*src="\/maiocchi-mark-light\.svg"/i);
   assert.doesNotMatch(html, /class="brand__name"/i);
   assert.match(mark, /viewBox="0 0 512 512"/i);
   assert.match(mark, /<text x="38" y="405"[^>]*>m<\/text>/i);

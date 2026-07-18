@@ -300,6 +300,14 @@ body { background: var(--paper); }
   -webkit-backdrop-filter: var(--glass-blur);
   backdrop-filter: var(--glass-blur);
 }
+.portal-band--workspace .integrated-access {
+  border: 1px solid var(--ink);
+  border-radius: 6px;
+  background: var(--ink);
+  box-shadow: 0 8px 22px rgba(17, 18, 16, 0.14);
+}
+.portal-band--workspace .integrated-access:hover,
+.portal-band--workspace .integrated-access:focus-visible { border-color: #8b6500; background: #292a27; }
 .access-methods {
   margin-bottom: 28px;
   padding: 4px;

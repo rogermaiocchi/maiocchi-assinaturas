@@ -1,4 +1,4 @@
-FROM node:22-alpine AS builder
+FROM node:22-alpine@sha256:16e22a550f3863206a3f701448c45f7912c6896a62de43add43bb9c86130c3e2 AS builder
 WORKDIR /app
 
 COPY package.json package-lock.json ./
@@ -22,8 +22,8 @@ FROM nginxinc/nginx-unprivileged:1.30.3-alpine3.23-slim@sha256:3b24c4bfb2b9f6035
 ARG SOURCE_REVISION=unknown
 LABEL org.opencontainers.image.title="Maiocchi. Assinatura" \
       org.opencontainers.image.vendor="Maiocchi Advogado" \
-      org.opencontainers.image.version="1.15.0" \
-      org.opencontainers.image.source="https://github.com/rogermaiocchi/maiocchi-assinaturas/tree/portal-v1.15.0" \
+      org.opencontainers.image.version="1.15.1" \
+      org.opencontainers.image.source="https://github.com/rogermaiocchi/maiocchi-assinaturas" \
       org.opencontainers.image.revision="${SOURCE_REVISION}"
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/out /usr/share/nginx/html

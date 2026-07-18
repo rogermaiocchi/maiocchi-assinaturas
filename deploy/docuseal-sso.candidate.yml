@@ -1,0 +1,8 @@
+services:
+  docuseal:
+    image: maiocchi/docuseal:3.0.1-maiocchi.15
+    environment:
+      MAIOCCHI_SSO_ENABLED: "${MAIOCCHI_SSO_ENABLED:-false}"
+      MAIOCCHI_SSO_ACCOUNT_UUID: "${MAIOCCHI_SSO_ACCOUNT_UUID:-}"
+      MAIOCCHI_SSO_BOOTSTRAP_USER_UUID: "${MAIOCCHI_SSO_BOOTSTRAP_USER_UUID:-}"
+      MAIOCCHI_SSO_CLIENT_SECRET_FILE: /run/signature-secrets/api_signature_sso_client_secret
