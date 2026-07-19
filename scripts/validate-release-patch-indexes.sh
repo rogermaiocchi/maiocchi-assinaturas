@@ -8,6 +8,7 @@ portal_patch="$repo_dir/patches/portal/0001-maiocchi-sso-portal-1.15.1.patch"
 docuseal_base="$repo_dir/compliance/docuseal-maiocchi-3.0.1-maiocchi.14.tar.gz"
 docuseal_patch="$repo_dir/patches/docuseal/0009-maiocchi-uno-sso.patch"
 docuseal_build_inputs_patch="$repo_dir/patches/docuseal/0010-pin-build-inputs.patch"
+docuseal_native_security_patch="$repo_dir/patches/docuseal/0011-update-native-image-libraries.patch"
 
 audit_root=$(mktemp -d "${TMPDIR:-/tmp}/maiocchi-patch-indexes.XXXXXX")
 cleanup() {
@@ -241,5 +242,11 @@ audit_patch_indexes "$docuseal_source" "$docuseal_build_inputs_patch" before
 git -C "$docuseal_source" apply --check "$docuseal_build_inputs_patch"
 git -C "$docuseal_source" apply "$docuseal_build_inputs_patch"
 audit_patch_indexes "$docuseal_source" "$docuseal_build_inputs_patch" after
+audit_patch_hunks "$docuseal_native_security_patch"
+audit_patch_line_accounting "$docuseal_native_security_patch"
+audit_patch_indexes "$docuseal_source" "$docuseal_native_security_patch" before
+git -C "$docuseal_source" apply --check "$docuseal_native_security_patch"
+git -C "$docuseal_source" apply "$docuseal_native_security_patch"
+audit_patch_indexes "$docuseal_source" "$docuseal_native_security_patch" after
 
-printf '%s\n' 'Metadados de blobs dos patches Portal, DocuSeal SSO e inputs de build: PASS'
+printf '%s\n' 'Metadados de blobs dos patches Portal, DocuSeal SSO, inputs de build e bibliotecas nativas: PASS'

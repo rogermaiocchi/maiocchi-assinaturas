@@ -1,0 +1,46 @@
+# Grype 0.115.0 (git fa8b7e2a528cf1f8b098123f256c61db9e5df69c).
+# Raw results have no VEX/ignore/exclude. A filtered invocation supplies one
+# reviewed OpenVEX document explicitly on the command line.
+log:
+  quiet: false
+  level: warn
+  file: ""
+
+output: json
+pretty: false
+check-for-app-update: false
+only-fixed: false
+only-notfixed: false
+ignore-wontfix: ""
+search:
+  scope: squashed
+  unindexed-archives: false
+  indexed-archives: true
+
+ignore: []
+exclude: []
+external-sources:
+  enable: false
+vex-documents: []
+vex-add: []
+fail-on-severity: ""
+from: docker
+
+registry:
+  insecure-skip-tls-verify: false
+  insecure-use-http: false
+  auth: []
+  ca-cert: ""
+
+db:
+  cache-dir: ~/.cache/grype/db
+  update-url: https://grype.anchore.io/databases
+  ca-cert: ""
+  auto-update: false
+  validate-by-hash-on-start: true
+  validate-age: true
+  max-allowed-built-age: 24h0m0s
+  require-update-check: false
+  update-available-timeout: 30s
+  update-download-timeout: 5m0s
+  max-update-check-frequency: 2h0m0s

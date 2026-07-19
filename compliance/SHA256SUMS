@@ -1,3 +1,5 @@
+50b1ced07b248a9044339b243c85957608de3ed8869f296ec8ed58ef21b11d8d  compliance/config/grype-candidate.yaml
+8d154f9e73d36bc74ae76d45b76020ec3ad591e81325f0a626ec2d9f67d0b893  compliance/config/syft-candidate.yaml
 e8f3b6e8ba3a8e70c7ea66846b57f6c0bddcd582be87bd4ae3ee074c2f9ff26c  compliance/docuseal-maiocchi-3.0.1-maiocchi.14.tar.gz
 66e1e9eeb1f23150bf6480754e1fdb7b5da52a3d51461d5e970dc56b53f88059  compliance/releases/pades-token-extension-v1.0.1.SHA256SUMS
 826833ba008ae8d84b89a1a60b89a936c4b10b8ea33a0b6d524447d510edda51  compliance/research/qwen3-4b-q4-k-m-hf-api.json
@@ -5,7 +7,9 @@ bba6463a4139148c1092d2f6a7254e6027856c65d1a0f373f0dc0e3d031f3fb0  compliance/sbo
 feef8076caccd4a500d3b8ef813b05cd9f1eb9c8ea6dd22ad7d08ab67f2cc3d9  compliance/sbom/pades-provider-1.2.6.cdx.json
 f3f97100f18b266aaa8b1a6cea9e0c02f891072fb97c003d6f4e1eb01b24d9bf  compliance/sbom/pki-bridge-1.3.25.cdx.json
 a0e7f4d7741ac29849c245fc3c7846e0d7b8ed9f770b57ed89cd164a7d2388c8  compliance/sbom/portal-1.14.8.cdx.json
+672bd7d10aee4606171afb864f3570b83340f6a33e2c186dc0512f7145ffdf6a  compliance/sources/tiff-4.7.2.tar.gz
 462047efa8bd6b25be8fc0127720394923e1a75c7b27164c460b266400f481a5  compliance/vex/release-1.14.8.openvex.json
+5b6f912098890a5c5126fa4e9eb410432f3749ec34f7b148b1b82b67108139e3  compliance/vex/docuseal-sso-tiff-4.7.2.openvex.template.json
 376000809ae7ff428a39ad586856767f0fa9242e214cdc818026cbf307cde0eb  compliance/vulnerability/docuseal-3.0.1-maiocchi.14.grype.json
 513366f0f82a7f8c3480ba95d9d4943493dafa2c742b7cdd7e342497f3cd236a  compliance/vulnerability/pades-provider-1.2.6.grype.json
 0c9a5535becafaf8c29bbfccc106b482b256065ee3ac5c24bd77b6a4fd324500  compliance/vulnerability/pki-bridge-1.3.25.grype.json
@@ -23,10 +27,12 @@ b93ae879fa64b3c44843161d53c527a1384e52df5e07a691b1f4db815ab6dcd6  deploy/systemd
 da37df8717501088095f8d3a38e5c647111d2273691e5e95314cf449091dcb83  patches/docuseal/0008-simplified-email-standard.patch
 d37cc6334fc482a9f7a285601a7ec924541b87fe1e793686ba55f8fd3a4a4ffc  patches/docuseal/0009-maiocchi-uno-sso.patch
 0e36b9a594e3da75f64c3c37909be5fa9f57e3eefeeed2d21d993590496a5987  patches/docuseal/0010-pin-build-inputs.patch
+83250e4672db3a4256d7ec44f04f621ef7c1ee178718d9831948f9261580c30c  patches/docuseal/0011-update-native-image-libraries.patch
 d088a5a8fdcde66e12ab747dad9a4477de39513f168dbb61bad264a92e19be66  patches/portal/0001-maiocchi-sso-portal-1.15.1.patch
-d300a2e784420c22cacf01ae7e4ff94ed43a5f445d64e3bff86c35bea5ca0605  compliance/releases/docuseal-sso-v3.0.1-maiocchi.15-candidate.SHA256SUMS
-0b598c27aa4d3f445b987f38a97cb63ef327705f6e20a7314115710a94ddcf8b  compliance/releases/portal-v1.15.1-sso-candidate.contract.json
-9c5732fa7259b54b823d9d2cf5445cba82e44c010acf9053efafc40673db71dc  compliance/releases/portal-v1.15.1-sso-candidate.SHA256SUMS
+8864fd022a3422acf4881af4ddc3d665fc125fa41ef1519ef68f417449eaeee4  compliance/releases/docuseal-sso-v3.0.1-maiocchi.15-candidate.contract.json
+6fb0faa4fe6962ad3cf3a92ce7e49053bca37ca2434edf2b047b54c85d63ffad  compliance/releases/docuseal-sso-v3.0.1-maiocchi.15-candidate.SHA256SUMS
+59ef15d533bb317c7f0004ea2cd0acd6e7d3618c9367bb956027a46a631df89b  compliance/releases/portal-v1.15.1-sso-candidate.contract.json
+adeb3241e62c10b6e8040de3e4861412f10fd908d6c4d4820c3d8ed0ef519082  compliance/releases/portal-v1.15.1-sso-candidate.SHA256SUMS
 b5aeeae6d1e06e6642fae5de30420e7135052447e65c60e1288ac80322318f6d  scripts/backup-signature-vps.sh
 65b7b1c2613834e4e8e0d4053ffc6a57ca96428277d87eacd0c752d9d1d56299  scripts/manage-signature-legal-hold-vps.sh
 d4565f1148b777ae5246de54143a1fb679b43c30040aee2b937d53e71c6ab271  scripts/pull-signature-backup-macbook.sh

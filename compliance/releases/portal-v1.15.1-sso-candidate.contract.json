@@ -9,7 +9,55 @@
   },
   "build_script": {
     "path": "scripts/build-portal-sso-candidate.sh",
-    "sha256": "759df77bfef247703dad9c9a9ed5a298ba51c95953d1201c19b647c6a71ac602"
+    "sha256": "cbcf33db50c1f1e3e24f617b71a79d163e83048089eb863c864dd7f5da010c63"
+  },
+  "scanner_policy": {
+    "syft": {
+      "version": "1.46.0",
+      "git_commit": "b15c5dbfe2bb21c9d73002c1056a829c8c411c75",
+      "binary_sha256": "574df1a0862ff88ad933be214e81069e35b17618a13e019f8f1c84fe063222a2",
+      "release_archive": {
+        "url": "https://github.com/anchore/syft/releases/download/v1.46.0/syft_1.46.0_linux_amd64.tar.gz",
+        "sha256": "d654f678b709eb53c393d38519d5ed7d2e57205529404018614cfefa0fb2b5ca"
+      },
+      "config_path": "compliance/config/syft-candidate.yaml",
+      "config_sha256": "8d154f9e73d36bc74ae76d45b76020ec3ad591e81325f0a626ec2d9f67d0b893"
+    },
+    "grype": {
+      "version": "0.115.0",
+      "git_commit": "fa8b7e2a528cf1f8b098123f256c61db9e5df69c",
+      "binary_sha256": "05ffd2c28a607e48fb2269d9aac5b3d53e8a51bbac501946644745eae2119907",
+      "release_archive": {
+        "url": "https://github.com/anchore/grype/releases/download/v0.115.0/grype_0.115.0_linux_amd64.tar.gz",
+        "sha256": "3fad92940650e514c0aa2dad83526942a055e210cec09a8a59d9c024adc2b90e"
+      },
+      "config_path": "compliance/config/grype-candidate.yaml",
+      "config_sha256": "50b1ced07b248a9044339b243c85957608de3ed8869f296ec8ed58ef21b11d8d",
+      "database_schema": 6,
+      "database_max_age_seconds": 86400,
+      "database_update": "explicit before scans",
+      "database_freeze": "status and file SHA-256 must remain identical across raw scan and severity gate"
+    },
+    "environment": "resolve once to absolute regular non-symlink executables, verify official binary SHA-256 before and after scans, then execute under env -i with only HOME and PATH inherited",
+    "source": "immutable image ID via local Docker source"
+  },
+  "recipe_implementation": {
+    "builder": {
+      "path": "scripts/build-portal-sso-candidate.sh",
+      "sha256": "cbcf33db50c1f1e3e24f617b71a79d163e83048089eb863c864dd7f5da010c63"
+    },
+    "candidate_preflight": {
+      "path": "scripts/validate-sso-candidate-images.sh",
+      "sha256": "4fdc63e9602dfd8eef256d51806d8c2126b8397af0007d957f7e4217d5dd0d9e"
+    },
+    "patch_index_audit": {
+      "path": "scripts/validate-release-patch-indexes.sh",
+      "sha256": "2877016286e7aa18d703f3e9191a2837296baa4ccacf7363123611819e6b8354"
+    },
+    "compose_runner": {
+      "path": "scripts/run-sso-candidate-compose.sh",
+      "sha256": "817691143dd9c9c8d9bdf961780440eca78da6f2b033c8c17dc2b02bb3fa6479"
+    }
   },
   "image": "maiocchi/assinatura-portal:1.15.1-sso-<recipe-sha12>-a<attempt-2d>",
   "required_labels": {
@@ -48,6 +96,11 @@
       "generator": "grype"
     },
     {
+      "kind": "scanner-metadata",
+      "path": "portal-1.15.1.scan-metadata.json",
+      "generator": "validated Syft and Grype version JSON, pinned official binary/archive SHA-256 values, and frozen Grype DB status and SHA-256"
+    },
+    {
       "kind": "artifact-manifest",
       "path": "SHA256SUMS",
       "generator": "shasum -a 256"
@@ -57,8 +110,9 @@
     "source_snapshot": "git archive of exact base commit plus exact patch; dirty and untracked files excluded",
     "source_tests": "npm run build, the portal tests in tests/*.test.mjs, and npm run lint must exit zero inside the reconstructed snapshot; PKI Bridge is a separate image and suite",
     "base_images": "all Dockerfile FROM references must include sha256 digests",
-    "artifact_identity": "inspect, archive, Syft and Grype operate on the captured sha256 image ID with Docker source selected explicitly; the build tag must still resolve to that ID after evidence generation",
-    "vulnerability_policy": "grype --fail-on high",
+    "artifact_identity": "inspect, Docker 29 archive, Syft and Grype operate on the captured sha256 image ID; preflight binds archive manifest, config, layers, inspect, SBOM, embedded Grype manifest/config and signed recipe commit",
+    "scanner_policy": "exact official Syft/Grype linux/amd64 binary SHA-256 values derived from the official GitHub release archives and published archive checksums; version/commit self-report is additionally checked; absolute executable paths are fixed and rehashed before and after scans; versioned configs run under env -i; explicit DB update is followed by status and file-hash freeze with maximum age 24h",
+    "vulnerability_policy": "raw unsuppressed report has no ignoredMatches and every match severity belongs to the closed non-blocking Grype set Unknown/Negligible/Low/Medium; the builder invokes grype --fail-on high and the independent preflight reapplies that closed allowlist to the bound raw JSON before the canary",
     "canary": "candidate service has a unique container name and an internal-only network; no public router",
     "compose_preflight": "scripts/run-sso-candidate-compose.sh reads both IDs from hash-verified evidence and calls scripts/validate-sso-candidate-images.sh immediately before Compose",
     "promotion": "production 1.15.0 is unchanged until explicit image promotion after E2E"

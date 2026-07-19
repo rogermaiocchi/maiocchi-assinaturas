@@ -1,0 +1,251 @@
+diff --git a/Dockerfile b/Dockerfile
+index f4a9ac9f19057f3059a903734f62a725edd4dc47..e475d82c68b2c8612e34a1ae3a286907ea93e998 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -1,3 +1,52 @@
++FROM ruby:4.0.5-alpine@sha256:f48938e9ae72a4d32e728b03c306e7a7ff21f0cb6c2ed33f44a078c700b2aea6 AS tiff-package
++
++ARG TIFF_SOURCE_DATE_EPOCH=1782568942
++ENV PATH=/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin
++
++RUN apk add --no-cache \
++      alpine-sdk \
++      cmake \
++      diffutils \
++      libjpeg-turbo-dev \
++      libwebp-dev \
++      python3 \
++      samurai \
++      zlib-dev \
++      zstd-dev && \
++    addgroup -g 2101 package-builder && \
++    adduser -u 2101 -G package-builder -s /bin/sh -D -h /home/package-builder package-builder && \
++    addgroup package-builder abuild && \
++    install -d -m 0755 -o package-builder -g package-builder /home/package-builder/tiff /repository/x86_64
++
++WORKDIR /home/package-builder/tiff
++
++COPY --chown=package-builder:package-builder ./build/tiff/APKBUILD ./APKBUILD
++COPY --chown=package-builder:package-builder ./build/tiff/tiff-4.7.2.tar.gz ./tiff-4.7.2.tar.gz
++
++RUN touch -d "@${TIFF_SOURCE_DATE_EPOCH}" APKBUILD tiff-4.7.2.tar.gz && \
++    su package-builder -c 'abuild-keygen -a -n' && \
++    generated_private_key=$(sed -n 's/^PACKAGER_PRIVKEY="\([^"]*\)"$/\1/p' /home/package-builder/.abuild/abuild.conf) && \
++    case "$generated_private_key" in /home/package-builder/.abuild/*.rsa) ;; *) exit 1 ;; esac && \
++    fixed_private_key=/home/package-builder/.abuild/maiocchi-tiff.rsa && \
++    mv "$generated_private_key" "$fixed_private_key" && \
++    mv "$generated_private_key.pub" "$fixed_private_key.pub" && \
++    sed -i "s|$generated_private_key|$fixed_private_key|" /home/package-builder/.abuild/abuild.conf && \
++    install -m 0644 "$fixed_private_key.pub" /etc/apk/keys/maiocchi-tiff.rsa.pub && \
++    su package-builder -c "cd /home/package-builder/tiff && SOURCE_DATE_EPOCH=${TIFF_SOURCE_DATE_EPOCH} abuild validate && SOURCE_DATE_EPOCH=${TIFF_SOURCE_DATE_EPOCH} abuild -r" && \
++    set -- /home/package-builder/packages/*/x86_64/tiff-4.7.2-r0.apk && \
++    test "$#" -eq 1 && \
++    install -m 0644 "$1" /repository/x86_64/tiff-4.7.2-r0.apk && \
++    apk index --description 'Maiocchi libtiff 4.7.2 security repository' --output /repository/x86_64/APKINDEX.tar.gz /repository/x86_64/tiff-4.7.2-r0.apk && \
++    abuild-sign -k "$fixed_private_key" /repository/x86_64/APKINDEX.tar.gz && \
++    install -m 0644 "$fixed_private_key.pub" /repository/maiocchi-tiff.rsa.pub && \
++    install -m 0644 APKBUILD /repository/APKBUILD && \
++    printf '%s  %s\n' \
++      'bad66954a7e7e158c6dcbfc0e2d0032b8f3e2a354b6d0fdbb8038a7963e36c5b8a433dd4ee81c6c4dabfb50094152d440aa1f32b5299098c9ae29e55de2e41fc' \
++      'tiff-4.7.2.tar.gz' > /repository/UPSTREAM.SHA512 && \
++    (cd /repository && sha256sum APKBUILD UPSTREAM.SHA512 maiocchi-tiff.rsa.pub x86_64/APKINDEX.tar.gz x86_64/tiff-4.7.2-r0.apk > SHA256SUMS) && \
++    rm -f "$fixed_private_key" && \
++    test ! -e "$fixed_private_key"
++
+ FROM ruby:4.0.5-alpine@sha256:f48938e9ae72a4d32e728b03c306e7a7ff21f0cb6c2ed33f44a078c700b2aea6 AS download
+ 
+ WORKDIR /fonts
+@@ -56,7 +105,26 @@ ENV OPENSSL_CONF=/etc/openssl_legacy.cnf
+ 
+ WORKDIR /app
+ 
+-RUN apk add --no-cache libpq vips redis onnxruntime
++COPY --from=tiff-package /repository /usr/share/maiocchi/tiff-repository
++
++RUN install -m 0644 /usr/share/maiocchi/tiff-repository/maiocchi-tiff.rsa.pub /etc/apk/keys/maiocchi-tiff.rsa.pub && \
++    (cd /usr/share/maiocchi/tiff-repository && sha256sum -c SHA256SUMS) && \
++    apk add --no-cache \
++      --repository /usr/share/maiocchi/tiff-repository \
++      libpq \
++      vips \
++      redis \
++      onnxruntime \
++      'tiff=4.7.2-r0' \
++      'openexr-libiex=3.4.13-r0' \
++      'openexr-libilmthread=3.4.13-r0' \
++      'openexr-libopenexr=3.4.13-r0' \
++      'openexr-libopenexrcore=3.4.13-r0' && \
++    apk info -e 'tiff=4.7.2-r0' && \
++    apk info -e 'openexr-libiex=3.4.13-r0' && \
++    apk info -e 'openexr-libilmthread=3.4.13-r0' && \
++    apk info -e 'openexr-libopenexr=3.4.13-r0' && \
++    apk info -e 'openexr-libopenexrcore=3.4.13-r0'
+ 
+ RUN addgroup -g 2000 docuseal && adduser -u 2000 -G docuseal -s /bin/sh -D -h /home/docuseal docuseal
+ 
+diff --git a/build/tiff/APKBUILD b/build/tiff/APKBUILD
+new file mode 100644
+index 0000000000000000000000000000000000000000..500d6e60143c6a92b4a5b8bd59ef8d777bcddf51
+--- /dev/null
++++ b/build/tiff/APKBUILD
+@@ -0,0 +1,160 @@
++# Contributor: Sergei Lukin <sergej.lukin@gmail.com>
++# Contributor: Leonardo Arena <rnalrd@alpinelinux.org>
++# Maintainer: Michael Mason <ms13sp@gmail.com>
++# Derived from Alpine aports commit 259914876552dabe6576835e874adc99129b58ae.
++# Maiocchi delta: libtiff 4.7.2, vendored upstream source and CVE-2026-4775 record.
++pkgname=tiff
++pkgver=4.7.2
++pkgrel=0
++pkgdesc="Support for the Tag Image File Format or TIFF"
++url="https://gitlab.com/libtiff/libtiff"
++arch="all"
++license="libtiff"
++makedepends="
++	cmake
++	libjpeg-turbo-dev
++	libwebp-dev
++	python3
++	samurai
++	zlib-dev
++	zstd-dev
++	"
++checkdepends="diffutils"
++subpackages="$pkgname-doc $pkgname-dev $pkgname-tools libtiffxx"
++source="tiff-$pkgver.tar.gz"
++
++# secfixes:
++#   4.7.2-r0:
++#     - CVE-2026-4775
++#   4.7.1-r0:
++#     - CVE-2025-8961
++#     - CVE-2025-9165
++#   4.5.0-r5:
++#     - CVE-2023-0795
++#     - CVE-2023-0796
++#     - CVE-2023-0797
++#     - CVE-2023-0798
++#     - CVE-2023-0799
++#     - CVE-2023-0800
++#     - CVE-2023-0801
++#     - CVE-2023-0802
++#     - CVE-2023-0803
++#     - CVE-2023-0804
++#   4.5.0-r3:
++#     - CVE-2022-48281
++#   4.5.0-r0:
++#     - CVE-2022-2953
++#     - CVE-2022-3213
++#     - CVE-2022-3570
++#     - CVE-2022-3597
++#     - CVE-2022-3598
++#     - CVE-2022-3599
++#     - CVE-2022-3626
++#     - CVE-2022-3627
++#     - CVE-2022-3970
++#   4.4.0-r1:
++#     - CVE-2022-2056
++#     - CVE-2022-2057
++#     - CVE-2022-2058
++#     - CVE-2022-2519
++#     - CVE-2022-2520
++#     - CVE-2022-2521
++#     - CVE-2022-34526
++#   4.4.0-r0:
++#     - CVE-2022-2867
++#     - CVE-2022-2868
++#     - CVE-2022-2869
++#   4.3.0-r1:
++#     - CVE-2022-0561
++#     - CVE-2022-0562
++#     - CVE-2022-0865
++#     - CVE-2022-0891
++#     - CVE-2022-0907
++#     - CVE-2022-0908
++#     - CVE-2022-0909
++#     - CVE-2022-0924
++#     - CVE-2022-22844
++#     - CVE-2022-34266
++#   4.2.0-r0:
++#     - CVE-2020-35521
++#     - CVE-2020-35522
++#     - CVE-2020-35523
++#     - CVE-2020-35524
++#   4.1.0-r0:
++#     - CVE-2019-6128
++#   4.0.10-r2:
++#     - CVE-2019-10927
++#   4.0.10-r1:
++#     - CVE-2019-14973
++#   4.0.10-r0:
++#     - CVE-2018-12900
++#     - CVE-2018-18557
++#     - CVE-2018-18661
++#   4.0.9-r8:
++#     - CVE-2018-10779
++#     - CVE-2018-17100
++#     - CVE-2018-17101
++#   4.0.9-r6:
++#     - CVE-2017-9935
++#     - CVE-2017-11613
++#     - CVE-2017-17095
++#     - CVE-2018-10963
++#   4.0.9-r5:
++#     - CVE-2018-8905
++#   4.0.9-r4:
++#     - CVE-2018-7456
++#   4.0.9-r2:
++#     - CVE-2018-5784
++#   4.0.9-r1:
++#     - CVE-2017-18013
++#   4.0.9-r0:
++#     - CVE-2017-16231
++#     - CVE-2017-16232
++#   4.0.8-r1:
++#     - CVE-2017-9936
++#     - CVE-2017-10688
++#   4.0.7-r2:
++#     - CVE-2017-7592
++#     - CVE-2017-7593
++#     - CVE-2017-7594
++#     - CVE-2017-7595
++#     - CVE-2017-7596
++#     - CVE-2017-7598
++#     - CVE-2017-7601
++#     - CVE-2017-7602
++#   4.0.7-r1:
++#     - CVE-2017-5225
++
++build() {
++	CFLAGS="$CFLAGS -flto=auto" \
++	CXXFLAGS="$CXXFLAGS -flto=auto" \
++	cmake3.5 -B build -G Ninja \
++		-DCMAKE_INSTALL_PREFIX=/usr \
++		-DCMAKE_BUILD_TYPE=MinSizeRel
++
++	cmake --build build
++}
++
++check() {
++	ctest --test-dir build
++}
++
++package() {
++	DESTDIR="$pkgdir" cmake --install build
++}
++
++libtiffxx() {
++	pkgdesc="C++ binding to libtiff"
++
++	amove usr/lib/libtiffxx.so.*
++}
++
++tools() {
++	pkgdesc="Command-line utility programs for manipulating TIFF files"
++
++	amove usr/bin
++}
++
++sha512sums="
++bad66954a7e7e158c6dcbfc0e2d0032b8f3e2a354b6d0fdbb8038a7963e36c5b8a433dd4ee81c6c4dabfb50094152d440aa1f32b5299098c9ae29e55de2e41fc  tiff-4.7.2.tar.gz
++"

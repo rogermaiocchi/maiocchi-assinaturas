@@ -1,0 +1,175 @@
+{
+  "schema": "maiocchi.docuseal-sso-candidate-contract.v1",
+  "status": "no-go-evidence-pending",
+  "version": "3.0.1-maiocchi.15",
+  "image": "maiocchi/docuseal:3.0.1-maiocchi.15-sso-<recipe-sha12>-a<attempt-2d>",
+  "platform": "linux/amd64",
+  "base_source": {
+    "path": "compliance/docuseal-maiocchi-3.0.1-maiocchi.14.tar.gz",
+    "sha256": "e8f3b6e8ba3a8e70c7ea66846b57f6c0bddcd582be87bd4ae3ee074c2f9ff26c"
+  },
+  "patch_chain": [
+    {
+      "sequence": 9,
+      "path": "patches/docuseal/0009-maiocchi-uno-sso.patch",
+      "sha256": "d37cc6334fc482a9f7a285601a7ec924541b87fe1e793686ba55f8fd3a4a4ffc"
+    },
+    {
+      "sequence": 10,
+      "path": "patches/docuseal/0010-pin-build-inputs.patch",
+      "sha256": "0e36b9a594e3da75f64c3c37909be5fa9f57e3eefeeed2d21d993590496a5987"
+    },
+    {
+      "sequence": 11,
+      "path": "patches/docuseal/0011-update-native-image-libraries.patch",
+      "sha256": "83250e4672db3a4256d7ec44f04f621ef7c1ee178718d9831948f9261580c30c"
+    }
+  ],
+  "native_libraries": {
+    "tiff": {
+      "version": "4.7.2-r0",
+      "apkbuild_sha256": "f7b0bdc5ae7c8340960afaeed18a1e1e09089a8ec99c2ac0335df70c4f046985",
+      "source_path": "compliance/sources/tiff-4.7.2.tar.gz",
+      "source_url": "https://download.osgeo.org/libtiff/tiff-4.7.2.tar.gz",
+      "source_sha256": "672bd7d10aee4606171afb864f3570b83340f6a33e2c186dc0512f7145ffdf6a",
+      "source_sha512": "bad66954a7e7e158c6dcbfc0e2d0032b8f3e2a354b6d0fdbb8038a7963e36c5b8a433dd4ee81c6c4dabfb50094152d440aa1f32b5299098c9ae29e55de2e41fc",
+      "source_date_epoch": 1782568942,
+      "repository_policy": "ephemeral build key; signed local APKINDEX; trusted install; no private key exported"
+    },
+    "openexr": {
+      "version": "3.4.13-r0",
+      "aports_commit": "13cd1923ba798fc8b1f922418581ad0f64706131",
+      "security_reference": "https://github.com/AcademySoftwareFoundation/openexr/security/advisories/GHSA-777r-f9x8-7r84",
+      "repository_policy": "exact package versions at build time; installed bytes are frozen by the immutable candidate image archive",
+      "packages": [
+        "openexr-libiex",
+        "openexr-libilmthread",
+        "openexr-libopenexr",
+        "openexr-libopenexrcore"
+      ]
+    }
+  },
+  "openvex": {
+    "template_path": "compliance/vex/docuseal-sso-tiff-4.7.2.openvex.template.json",
+    "template_sha256": "5b6f912098890a5c5126fa4e9eb410432f3749ec34f7b148b1b82b67108139e3",
+    "document_identity": "new urn:uuid per evidence build; version 1 is never reused with changed content",
+    "product_binding": "immutable image ID plus the exact TIFF package PURL"
+  },
+  "scanner_policy": {
+    "syft": {
+      "version": "1.46.0",
+      "git_commit": "b15c5dbfe2bb21c9d73002c1056a829c8c411c75",
+      "binary_sha256": "574df1a0862ff88ad933be214e81069e35b17618a13e019f8f1c84fe063222a2",
+      "release_archive": {
+        "url": "https://github.com/anchore/syft/releases/download/v1.46.0/syft_1.46.0_linux_amd64.tar.gz",
+        "sha256": "d654f678b709eb53c393d38519d5ed7d2e57205529404018614cfefa0fb2b5ca"
+      },
+      "config_path": "compliance/config/syft-candidate.yaml",
+      "config_sha256": "8d154f9e73d36bc74ae76d45b76020ec3ad591e81325f0a626ec2d9f67d0b893"
+    },
+    "grype": {
+      "version": "0.115.0",
+      "git_commit": "fa8b7e2a528cf1f8b098123f256c61db9e5df69c",
+      "binary_sha256": "05ffd2c28a607e48fb2269d9aac5b3d53e8a51bbac501946644745eae2119907",
+      "release_archive": {
+        "url": "https://github.com/anchore/grype/releases/download/v0.115.0/grype_0.115.0_linux_amd64.tar.gz",
+        "sha256": "3fad92940650e514c0aa2dad83526942a055e210cec09a8a59d9c024adc2b90e"
+      },
+      "config_path": "compliance/config/grype-candidate.yaml",
+      "config_sha256": "50b1ced07b248a9044339b243c85957608de3ed8869f296ec8ed58ef21b11d8d",
+      "database_schema": 6,
+      "database_max_age_seconds": 86400,
+      "database_update": "explicit before scans",
+      "database_freeze": "status and file SHA-256 must remain identical across raw and filtered scans"
+    },
+    "environment": "resolve once to absolute regular non-symlink executables, verify official binary SHA-256 before and after scans, then execute under env -i with only HOME and PATH inherited",
+    "source": "immutable image ID via local Docker source"
+  },
+  "recipe_implementation": {
+    "builder": {
+      "path": "scripts/build-docuseal-sso-candidate.sh",
+      "sha256": "4a69034d327320ecb4204c57662c6d09c2bb93ca550095c9fc4bce3a26ab7f14"
+    },
+    "postgres_harness": {
+      "path": "scripts/test-docuseal-sso-pg16-isolated.sh",
+      "sha256": "bc1f72160ba949e6728d6fb100b152177bd03ae3b3b2c70f795098ab6e4aa186",
+      "dockerfile_path": "tests/docuseal-sso-pg16/Dockerfile",
+      "dockerfile_sha256": "95c14b2db45e9fa198809fd56bd4664d9256773f4423349c2393cb88058c826d"
+    },
+    "candidate_preflight": {
+      "path": "scripts/validate-sso-candidate-images.sh",
+      "sha256": "4fdc63e9602dfd8eef256d51806d8c2126b8397af0007d957f7e4217d5dd0d9e"
+    },
+    "patch_index_audit": {
+      "path": "scripts/validate-release-patch-indexes.sh",
+      "sha256": "2877016286e7aa18d703f3e9191a2837296baa4ccacf7363123611819e6b8354"
+    },
+    "compose_runner": {
+      "path": "scripts/run-sso-candidate-compose.sh",
+      "sha256": "817691143dd9c9c8d9bdf961780440eca78da6f2b033c8c17dc2b02bb3fa6479"
+    }
+  },
+  "required_labels": [
+    "br.adv.maiocchi.base-source-sha256",
+    "br.adv.maiocchi.patch-sha256",
+    "br.adv.maiocchi.build-inputs-patch-sha256",
+    "br.adv.maiocchi.native-security-patch-sha256",
+    "br.adv.maiocchi.tiff-apkbuild-sha256",
+    "br.adv.maiocchi.tiff-source-sha256",
+    "br.adv.maiocchi.tiff-version",
+    "br.adv.maiocchi.openexr-version",
+    "br.adv.maiocchi.ruby-base-digest",
+    "br.adv.maiocchi.recipe-commit"
+  ],
+  "vulnerability_policy": {
+    "raw_report_preserved": true,
+    "fail_threshold": "high",
+    "allowed_vex": [
+      {
+        "id": "CVE-2023-52356",
+        "package": "tiff",
+        "version": "4.7.2-r0",
+        "status": "not_affected",
+        "justification": "vulnerable_code_not_present",
+        "reference": "https://nvd.nist.gov/vuln/detail/CVE-2023-52356"
+      },
+      {
+        "id": "CVE-2026-4775",
+        "package": "tiff",
+        "version": "4.7.2-r0",
+        "status": "fixed",
+        "references": [
+          "https://nvd.nist.gov/vuln/detail/CVE-2026-4775",
+          "https://gitlab.com/libtiff/libtiff/-/commit/782a11d6b5b61c6dc21e714950a4af5bf89f023c"
+        ]
+      }
+    ],
+    "openexr_vex_allowed": false,
+    "unexpected_high_or_critical": "fail"
+  },
+  "required_evidence": [
+    "immutable-image-id",
+    "image-inspect",
+    "image-archive",
+    "sbom",
+    "raw-vulnerability-report",
+    "openvex",
+    "filtered-vulnerability-report",
+    "scanner-metadata",
+    "tiff-apk",
+    "tiff-repository-manifest",
+    "native-packages-manifest",
+    "artifact-manifest"
+  ],
+  "gates": {
+    "signed_recipe_commit": true,
+    "clean_tracked_tree": true,
+    "patch_index_audit": true,
+    "ruby_syntax": "4.0.5",
+    "postgres_harness": "16",
+    "runtime_user": "docuseal",
+    "candidate_network": "internal-only",
+    "semantic_evidence_binding": true,
+    "production_promotion": "explicit-go-required"
+  }
+}

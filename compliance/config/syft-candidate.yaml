@@ -1,0 +1,41 @@
+# Syft 1.46.0 (git b15c5dbfe2bb21c9d73002c1056a829c8c411c75).
+# This file is intentionally explicit for immutable candidate image scans.
+log:
+  quiet: false
+  level: warn
+  file: ""
+
+output: cyclonedx-json
+format:
+  pretty: false
+  cyclonedx-json:
+    pretty: false
+
+check-for-app-update: false
+scope: squashed
+enrich: []
+exclude: []
+from: docker
+
+package:
+  search-unindexed-archives: false
+  search-indexed-archives: true
+  exclude-binary-overlap-by-ownership: true
+
+relationships:
+  package-file-ownership: true
+  package-file-ownership-overlap: true
+
+registry:
+  insecure-skip-tls-verify: false
+  insecure-use-http: false
+  auth: []
+  ca-cert: ""
+
+source:
+  image:
+    default-pull-source: docker
+
+cache:
+  dir: ""
+  ttl: 0s

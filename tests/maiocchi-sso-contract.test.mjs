@@ -9,6 +9,12 @@ const [
   baseArchive,
   patch,
   buildInputsPatch,
+  nativeSecurityPatch,
+  tiffSource,
+  docusealVexTemplate,
+  syftCandidateConfig,
+  grypeCandidateConfig,
+  docusealContract,
   access,
   traefik,
   overlay,
@@ -22,6 +28,12 @@ const [
   readFile(new URL("../compliance/docuseal-maiocchi-3.0.1-maiocchi.14.tar.gz", import.meta.url)),
   readFile(new URL("../patches/docuseal/0009-maiocchi-uno-sso.patch", import.meta.url), "utf8"),
   readFile(new URL("../patches/docuseal/0010-pin-build-inputs.patch", import.meta.url), "utf8"),
+  readFile(new URL("../patches/docuseal/0011-update-native-image-libraries.patch", import.meta.url), "utf8"),
+  readFile(new URL("../compliance/sources/tiff-4.7.2.tar.gz", import.meta.url)),
+  readFile(new URL("../compliance/vex/docuseal-sso-tiff-4.7.2.openvex.template.json", import.meta.url), "utf8"),
+  readFile(new URL("../compliance/config/syft-candidate.yaml", import.meta.url), "utf8"),
+  readFile(new URL("../compliance/config/grype-candidate.yaml", import.meta.url), "utf8"),
+  readFile(new URL("../compliance/releases/docuseal-sso-v3.0.1-maiocchi.15-candidate.contract.json", import.meta.url), "utf8").then(JSON.parse),
   readFile(new URL("../app/lawyer-access.tsx", import.meta.url), "utf8"),
   readFile(new URL("../deploy/traefik-assinatura.yml", import.meta.url), "utf8"),
   readFile(new URL("../deploy/docuseal-sso.candidate.yml", import.meta.url), "utf8"),
@@ -57,14 +69,108 @@ test("patch SSO deriva exclusivamente da fonte DocuSeal .14 aprovada", () => {
     "0e36b9a594e3da75f64c3c37909be5fa9f57e3eefeeed2d21d993590496a5987",
   );
   assert.equal(
+    createHash("sha256").update(nativeSecurityPatch).digest("hex"),
+    "83250e4672db3a4256d7ec44f04f621ef7c1ee178718d9831948f9261580c30c",
+  );
+  assert.equal(
+    createHash("sha256").update(tiffSource).digest("hex"),
+    "672bd7d10aee4606171afb864f3570b83340f6a33e2c186dc0512f7145ffdf6a",
+  );
+  assert.equal(
     createHash("sha256").update(patch).digest("hex"),
     "d37cc6334fc482a9f7a285601a7ec924541b87fe1e793686ba55f8fd3a4a4ffc",
   );
   assert.match(buildScript, /git -C "\$candidate_work" apply --check "\$sso_patch"/);
   assert.match(buildScript, /git -C "\$candidate_work" apply --check "\$build_inputs_patch"/);
+  assert.match(buildScript, /git -C "\$candidate_work" apply --check "\$native_security_patch"/);
+  const applySso = buildScript.indexOf('apply "$sso_patch"');
+  const applyInputs = buildScript.indexOf('apply "$build_inputs_patch"');
+  const applyNative = buildScript.indexOf('apply "$native_security_patch"');
+  const installTiff = buildScript.indexOf('install -m 0644 "$tiff_source"');
+  assert.ok(applySso >= 0 && applySso < applyInputs && applyInputs < applyNative && applyNative < installTiff);
   assert.match(patch, /20260718090100_install_maiocchi_sso_guards[.]rb/);
   assert.match(patch, /Rails carrega schema[.]rb em bancos vazios/);
   assert.match(patch, /CREATE OR REPLACE FUNCTION guard_maiocchi_sso_identity_binding/);
+});
+
+test("patch nativo deriva receita Alpine e instala TIFF/OpenEXR corrigidos por repositório assinado", () => {
+  assert.equal(
+    createHash("sha256").update(docusealVexTemplate).digest("hex"),
+    "5b6f912098890a5c5126fa4e9eb410432f3749ec34f7b148b1b82b67108139e3",
+  );
+  assert.match(docusealVexTemplate, /"@id": "urn:uuid:__VEX_UUID__"/);
+  assert.doesNotMatch(docusealVexTemplate, /435f85ca-5f9d-4953-bb06-66f7fa7dd2a7/);
+  assert.match(nativeSecurityPatch, /Derived from Alpine aports commit 259914876552dabe6576835e874adc99129b58ae/);
+  assert.match(nativeSecurityPatch, /pkgver=4[.]7[.]2/);
+  assert.match(nativeSecurityPatch, /source="tiff-\$pkgver[.]tar[.]gz"/);
+  assert.match(nativeSecurityPatch, /cmake3[.]5 -B build -G Ninja/);
+  assert.match(nativeSecurityPatch, /bad66954a7e7e158c6dcbfc0e2d0032b8f3e2a354b6d0fdbb8038a7963e36c5b8a433dd4ee81c6c4dabfb50094152d440aa1f32b5299098c9ae29e55de2e41fc/);
+  assert.match(nativeSecurityPatch, /su package-builder -c [^\n]*abuild -r/);
+  assert.match(nativeSecurityPatch, /abuild-sign -k/);
+  assert.match(nativeSecurityPatch, /--repository \/usr\/share\/maiocchi\/tiff-repository/);
+  assert.doesNotMatch(nativeSecurityPatch, /--allow-untrusted/);
+  assert.equal((nativeSecurityPatch.match(/'openexr-lib[^']+=3[.]4[.]13-r0'/g) || []).length, 8);
+  assert.equal((nativeSecurityPatch.match(/'tiff=4[.]7[.]2-r0'/g) || []).length, 2);
+  assert.deepEqual(docusealContract.patch_chain.map(({ sequence }) => sequence), [9, 10, 11]);
+  assert.equal(docusealContract.patch_chain[2].sha256, createHash("sha256").update(nativeSecurityPatch).digest("hex"));
+  assert.equal(docusealContract.native_libraries.tiff.source_sha256, createHash("sha256").update(tiffSource).digest("hex"));
+  assert.equal(docusealContract.native_libraries.tiff.version, "4.7.2-r0");
+  assert.equal(docusealContract.native_libraries.tiff.source_url, "https://download.osgeo.org/libtiff/tiff-4.7.2.tar.gz");
+  assert.equal(docusealContract.native_libraries.openexr.version, "3.4.13-r0");
+  assert.equal(docusealContract.schema, "maiocchi.docuseal-sso-candidate-contract.v1");
+  assert.equal(docusealContract.openvex.template_sha256, createHash("sha256").update(docusealVexTemplate).digest("hex"));
+  assert.match(docusealContract.openvex.document_identity, /new urn:uuid per evidence build/);
+  assert.deepEqual(docusealContract.vulnerability_policy.allowed_vex.map(({ id, status }) => [id, status]), [
+    ["CVE-2023-52356", "not_affected"],
+    ["CVE-2026-4775", "fixed"],
+  ]);
+  assert.match(docusealContract.vulnerability_policy.allowed_vex[0].reference, /nvd[.]nist[.]gov\/vuln\/detail\/CVE-2023-52356/);
+  assert.match(docusealContract.vulnerability_policy.allowed_vex[1].references[1], /782a11d6b5b61c6dc21e714950a4af5bf89f023c/);
+  assert.equal(docusealContract.vulnerability_policy.openexr_vex_allowed, false);
+});
+
+test("scanners candidatos usam configuração versionada, binários exatos e DB congelado", () => {
+  const syftConfigSha = createHash("sha256").update(syftCandidateConfig).digest("hex");
+  const grypeConfigSha = createHash("sha256").update(grypeCandidateConfig).digest("hex");
+  assert.equal(syftConfigSha, "8d154f9e73d36bc74ae76d45b76020ec3ad591e81325f0a626ec2d9f67d0b893");
+  assert.equal(grypeConfigSha, "50b1ced07b248a9044339b243c85957608de3ed8869f296ec8ed58ef21b11d8d");
+  assert.equal(docusealContract.scanner_policy.syft.config_sha256, syftConfigSha);
+  assert.equal(docusealContract.scanner_policy.grype.config_sha256, grypeConfigSha);
+  assert.equal(docusealContract.scanner_policy.syft.version, "1.46.0");
+  assert.equal(docusealContract.scanner_policy.syft.git_commit, "b15c5dbfe2bb21c9d73002c1056a829c8c411c75");
+  assert.equal(docusealContract.scanner_policy.syft.binary_sha256, "574df1a0862ff88ad933be214e81069e35b17618a13e019f8f1c84fe063222a2");
+  assert.equal(docusealContract.scanner_policy.syft.release_archive.sha256, "d654f678b709eb53c393d38519d5ed7d2e57205529404018614cfefa0fb2b5ca");
+  assert.equal(docusealContract.scanner_policy.grype.version, "0.115.0");
+  assert.equal(docusealContract.scanner_policy.grype.git_commit, "fa8b7e2a528cf1f8b098123f256c61db9e5df69c");
+  assert.equal(docusealContract.scanner_policy.grype.binary_sha256, "05ffd2c28a607e48fb2269d9aac5b3d53e8a51bbac501946644745eae2119907");
+  assert.equal(docusealContract.scanner_policy.grype.release_archive.sha256, "3fad92940650e514c0aa2dad83526942a055e210cec09a8a59d9c024adc2b90e");
+  assert.equal(docusealContract.scanner_policy.grype.database_max_age_seconds, 86400);
+  assert.deepEqual(portalContract.scanner_policy.syft, docusealContract.scanner_policy.syft);
+  assert.deepEqual(portalContract.scanner_policy.grype, {
+    ...docusealContract.scanner_policy.grype,
+    database_freeze: "status and file SHA-256 must remain identical across raw scan and severity gate",
+  });
+  assert.match(syftCandidateConfig, /^check-for-app-update: false$/m);
+  assert.match(syftCandidateConfig, /^from: docker$/m);
+  assert.match(grypeCandidateConfig, /^ignore: \[\]$/m);
+  assert.match(grypeCandidateConfig, /^vex-documents: \[\]$/m);
+  assert.match(grypeCandidateConfig, /^  auto-update: false$/m);
+  assert.match(grypeCandidateConfig, /^  validate-by-hash-on-start: true$/m);
+  assert.match(grypeCandidateConfig, /^  max-allowed-built-age: 24h0m0s$/m);
+  for (const scannerBuilder of [buildScript, portalBuild]) {
+    assert.match(scannerBuilder, /syft_bin=\$\(command -v syft\)/);
+    assert.match(scannerBuilder, /grype_bin=\$\(command -v grype\)/);
+    assert.match(scannerBuilder, /"\$syft_bin" --config "\$syft_config"/);
+    assert.match(scannerBuilder, /"\$grype_bin" --config "\$grype_config"/);
+    assert.equal((scannerBuilder.match(/verify_scanner_binary "\$syft_bin"/g) || []).length, 2);
+    assert.equal((scannerBuilder.match(/verify_scanner_binary "\$grype_bin"/g) || []).length, 2);
+  }
+  assert.equal(docusealContract.recipe_implementation.builder.sha256, createHash("sha256").update(buildScript).digest("hex"));
+  assert.equal(docusealContract.recipe_implementation.postgres_harness.sha256, createHash("sha256").update(docusealPg16Harness).digest("hex"));
+  assert.equal(docusealContract.recipe_implementation.postgres_harness.dockerfile_sha256, createHash("sha256").update(docusealPg16Dockerfile).digest("hex"));
+  assert.equal(docusealContract.recipe_implementation.candidate_preflight.sha256, createHash("sha256").update(candidatePreflight).digest("hex"));
+  assert.equal(docusealContract.recipe_implementation.patch_index_audit.sha256, createHash("sha256").update(patchIndexValidator).digest("hex"));
+  assert.equal(docusealContract.recipe_implementation.compose_runner.sha256, createHash("sha256").update(candidateComposeRunner).digest("hex"));
 });
 
 test("browser flow fixa endpoints, PKCE S256, state use-once e sessão host-only", () => {
@@ -138,6 +244,7 @@ test("todo diff dos patches DocuSeal declara metadado de blob completo", () => {
   for (const [candidatePatch, expectedDiffs] of [
     [patch, 21],
     [buildInputsPatch, 1],
+    [nativeSecurityPatch, 2],
   ]) {
     const diffCount = (candidatePatch.match(/^diff --git /gm) || []).length;
     const indexCount = (candidatePatch.match(/^index [0-9a-f]+[.][.][0-9a-f]+(?: [0-9]+)?$/gm) || []).length;
@@ -238,6 +345,20 @@ test("harness valida sintaxe Ruby do conjunto fechado de quatro specs antes do b
   assert.ok(syntaxRun >= 0 && syntaxRun < imageBuild);
 });
 
+test("harness vincula o ensaio ao commit assinado e à árvore rastreada limpa", () => {
+  assert.match(docusealPg16Harness, /git -C "\$repo_dir" verify-commit "\$observed_commit"/);
+  assert.match(docusealPg16Harness, /git -C "\$repo_dir" diff --quiet --no-ext-diff --/);
+  assert.match(docusealPg16Harness, /git -C "\$repo_dir" diff --cached --quiet --no-ext-diff --/);
+  assert.match(docusealPg16Harness, /--label "\$recipe_commit_label=\$recipe_commit"/);
+  assert.match(docusealPg16Harness, /br[.]adv[.]maiocchi[.]recipe-commit/);
+  const firstRecipeGate = docusealPg16Harness.indexOf("verify_recipe_git_state\n");
+  const firstDockerCheck = docusealPg16Harness.indexOf("command -v docker");
+  const buildRecipeGate = docusealPg16Harness.lastIndexOf("verify_recipe_git_state\n");
+  const dockerBuild = docusealPg16Harness.indexOf("docker build \\");
+  assert.ok(firstRecipeGate >= 0 && firstRecipeGate < firstDockerCheck);
+  assert.ok(buildRecipeGate > firstRecipeGate && buildRecipeGate < dockerBuild);
+});
+
 test("portal estático possui candidato 1.15.1 derivado de snapshot imutável", () => {
   const patchSha = createHash("sha256").update(portalPatch).digest("hex");
   const buildScriptSha = createHash("sha256").update(portalBuild).digest("hex");
@@ -269,10 +390,15 @@ test("build do portal exclui worktree suja e exige SBOM e scan antes de promoç�
   assert.match(portalBuild, /candidate_image_id=\$\(docker image inspect --format '\{\{[.]Id\}\}' "\$candidate_image"\)/);
   assert.match(portalBuild, /docker image inspect "\$candidate_image_id" >"\$evidence_dir\/portal-\$candidate_version[.]image-inspect[.]json"/);
   assert.match(portalBuild, /docker image save --output "\$evidence_dir\/portal-\$candidate_version[.]docker-image[.]tar" "\$candidate_image_id"/);
-  assert.match(portalBuild, /syft "\$candidate_image_id" --from docker -o cyclonedx-json/);
-  assert.match(portalBuild, /grype "\$candidate_image_id" --from docker -o json/);
-  assert.match(portalBuild, /grype "\$candidate_image_id" --from docker --fail-on high/);
-  assert.doesNotMatch(portalBuild, /(?:syft|grype) "\$candidate_image"/);
+  assert.match(portalBuild, /run_syft "\$candidate_image_id" >"\$evidence_dir\/portal-\$candidate_version[.]cdx[.]json"/);
+  assert.match(portalBuild, /run_grype "\$candidate_image_id" >"\$evidence_dir\/portal-\$candidate_version[.]grype[.]json"/);
+  assert.match(portalBuild, /run_grype "\$candidate_image_id" --fail-on high >\/dev\/null/);
+  assert.match(portalBuild, /env -i HOME="\$scanner_home" PATH="\$scanner_path"/);
+  assert.match(portalBuild, /run_grype db update/);
+  assert.match(portalBuild, /grype_db_sha_before=\$\(shasum -a 256 "\$grype_db_path"/);
+  assert.match(portalBuild, /Banco do Grype mudou durante o scan raw e o gate de severidade/);
+  assert.match(portalBuild, /portal-\$candidate_version[.]scan-metadata[.]json/);
+  assert.doesNotMatch(portalBuild, /(?:run_syft|run_grype) "\$candidate_image"/);
   assert.match(portalBuild, /printf '%s\\n' "\$candidate_image_id" >"\$evidence_dir\/portal-\$candidate_version[.]image-id[.]txt"/);
   assert.match(portalBuild, /"portal-\$candidate_version[.]image-id[.]txt"/);
   for (const label of [
@@ -304,16 +430,23 @@ test("build do portal exclui worktree suja e exige SBOM e scan antes de promoç�
   assert.match(portalBuild, /if ! mkdir "\$tag_lock_root\/\$tag_lock_key"; then/);
   assert.match(portalBuild, /if ! mkdir "\$evidence_dir"; then/);
   assert.doesNotMatch(portalBuild, /mkdir -p "\$evidence_dir"/);
+  assert.match(portalBuild, /docker build \\\n\s*--pull \\\n\s*--platform linux\/amd64/);
   assert.equal(portalContract.status, "no-go-evidence-pending");
+  assert.equal(portalContract.scanner_policy.syft.config_sha256, createHash("sha256").update(syftCandidateConfig).digest("hex"));
+  assert.equal(portalContract.scanner_policy.grype.config_sha256, createHash("sha256").update(grypeCandidateConfig).digest("hex"));
+  assert.equal(portalContract.recipe_implementation.builder.sha256, createHash("sha256").update(portalBuild).digest("hex"));
+  assert.equal(portalContract.recipe_implementation.candidate_preflight.sha256, createHash("sha256").update(candidatePreflight).digest("hex"));
+  assert.equal(portalContract.recipe_implementation.patch_index_audit.sha256, createHash("sha256").update(patchIndexValidator).digest("hex"));
+  assert.equal(portalContract.recipe_implementation.compose_runner.sha256, createHash("sha256").update(candidateComposeRunner).digest("hex"));
   assert.deepEqual(portalContract.required_evidence.map(({ kind }) => kind), [
-    "immutable-image-id", "image-inspect", "image-archive", "sbom", "vulnerability-report", "artifact-manifest",
+    "immutable-image-id", "image-inspect", "image-archive", "sbom", "vulnerability-report", "scanner-metadata", "artifact-manifest",
   ]);
   for (const line of portalDockerfile.match(/^FROM .+$/gm) || []) {
     assert.match(line, /@sha256:[0-9a-f]{64}/);
   }
 });
 
-test("build DocuSeal fixa a base Ruby e exige evidência antes de promoção", () => {
+test("build DocuSeal fixa bases, bibliotecas nativas e evidência antes de promoção", () => {
   const addedBuildInputLines = buildInputsPatch
     .split("\n")
     .filter((line) => line.startsWith("+") && !line.startsWith("+++"))
@@ -337,10 +470,22 @@ test("build DocuSeal fixa a base Ruby e exige evidência antes de promoção", (
   assert.match(buildScript, /candidate_image_id=\$\(docker image inspect --format '\{\{[.]Id\}\}' "\$candidate_image"\)/);
   assert.match(buildScript, /docker image inspect "\$candidate_image_id" >"\$evidence_dir\/docuseal-3[.]0[.]1-maiocchi[.]15[.]image-inspect[.]json"/);
   assert.match(buildScript, /docker image save --output "\$evidence_dir\/docuseal-3[.]0[.]1-maiocchi[.]15[.]docker-image[.]tar" "\$candidate_image_id"/);
-  assert.match(buildScript, /syft "\$candidate_image_id" --from docker -o cyclonedx-json/);
-  assert.match(buildScript, /grype "\$candidate_image_id" --from docker -o json/);
-  assert.match(buildScript, /grype "\$candidate_image_id" --from docker --fail-on high/);
-  assert.doesNotMatch(buildScript, /(?:syft|grype) "\$candidate_image"/);
+  assert.match(buildScript, /run_syft "\$candidate_image_id" >"\$evidence_dir\/docuseal-3[.]0[.]1-maiocchi[.]15[.]cdx[.]json"/);
+  assert.match(
+    buildScript,
+    /run_grype "\$candidate_image_id" \\\n\s*>"\$evidence_dir\/docuseal-3[.]0[.]1-maiocchi[.]15[.]grype[.]raw[.]json"/,
+  );
+  assert.match(
+    buildScript,
+    /run_grype "\$candidate_image_id" \\\n\s*--vex "\$evidence_dir\/docuseal-3[.]0[.]1-maiocchi[.]15[.]openvex[.]json" \\\n\s*--fail-on high/,
+  );
+  assert.match(buildScript, /env -i HOME="\$scanner_home" PATH="\$scanner_path"/);
+  assert.match(buildScript, /run_grype db update/);
+  assert.match(buildScript, /grype_db_sha_before=\$\(shasum -a 256 "\$grype_db_path"/);
+  assert.match(buildScript, /Banco do Grype mudou durante os scans raw\/filtered/);
+  assert.match(buildScript, /docuseal-3[.]0[.]1-maiocchi[.]15[.]scan-metadata[.]json/);
+  assert.match(buildScript, /docuseal-3[.]0[.]1-maiocchi[.]15[.]native-packages[.]manifest/);
+  assert.doesNotMatch(buildScript, /(?:run_syft|run_grype) "\$candidate_image"/);
   assert.match(buildScript, /printf '%s\\n' "\$candidate_image_id" >"\$evidence_dir\/docuseal-3[.]0[.]1-maiocchi[.]15[.]image-id[.]txt"/);
   assert.match(buildScript, /docuseal-3[.]0[.]1-maiocchi[.]15[.]image-id[.]txt/);
   for (const label of [
@@ -349,6 +494,11 @@ test("build DocuSeal fixa a base Ruby e exige evidência antes de promoção", (
     "br.adv.maiocchi.base-source-sha256",
     "br.adv.maiocchi.patch-sha256",
     "br.adv.maiocchi.build-inputs-patch-sha256",
+    "br.adv.maiocchi.native-security-patch-sha256",
+    "br.adv.maiocchi.tiff-apkbuild-sha256",
+    "br.adv.maiocchi.tiff-source-sha256",
+    "br.adv.maiocchi.tiff-version",
+    "br.adv.maiocchi.openexr-version",
     "br.adv.maiocchi.ruby-base-digest",
     "br.adv.maiocchi.recipe-commit",
   ]) {
@@ -368,6 +518,33 @@ test("build DocuSeal fixa a base Ruby e exige evidência antes de promoção", (
   assert.match(buildScript, /if ! mkdir "\$tag_lock_root\/\$tag_lock_key"; then/);
   assert.match(buildScript, /if ! mkdir "\$evidence_dir"; then/);
   assert.doesNotMatch(buildScript, /mkdir -p "\$evidence_dir"/);
+  assert.match(buildScript, /apk info -e "tiff=4[.]7[.]2-r0"/);
+  assert.match(buildScript, /libtiff[.]so[.]6[.]3[.]0 is owned by tiff-4[.]7[.]2-r0/);
+  assert.match(buildScript, /ldd "\/\$libvips" \| grep -F "libtiff[.]so[.]6"/);
+  assert.match(buildScript, /test "\$\(find [.] -type f -name "[*][.]rsa" \| wc -l\)" -eq 0/);
+  assert.match(buildScript, /audit_output=\$\(apk audit --system\)\n\s*test -z "\$audit_output"/);
+  assert.match(buildScript, /docker image inspect --format '\{\{[.]Config[.]User\}\}'[\s\S]*= 'docuseal'/);
+  assert.equal(docusealContract.gates.runtime_user, "docuseal");
+  assert.match(buildScript, /docuseal-3[.]0[.]1-maiocchi[.]15[.]tiff-4[.]7[.]2-r0[.]apk/);
+  assert.match(buildScript, /docuseal-3[.]0[.]1-maiocchi[.]15[.]tiff-repository[.]SHA256SUMS/);
+  assert.match(buildScript, /\$raw_high == \$allowed_high/);
+  assert.match(buildScript, /[.]namespace == "vex"/);
+  assert.match(buildScript, /[.]\["vex-status"\] == "fixed"/);
+  assert.equal(docusealContract.status, "no-go-evidence-pending");
+  assert.deepEqual(docusealContract.required_evidence, [
+    "immutable-image-id",
+    "image-inspect",
+    "image-archive",
+    "sbom",
+    "raw-vulnerability-report",
+    "openvex",
+    "filtered-vulnerability-report",
+    "scanner-metadata",
+    "tiff-apk",
+    "tiff-repository-manifest",
+    "native-packages-manifest",
+    "artifact-manifest",
+  ]);
 });
 
 test("preflight vincula IDs imutáveis ao commit assinado, arquitetura e labels exatas", () => {
@@ -392,6 +569,11 @@ test("preflight vincula IDs imutáveis ao commit assinado, arquitetura e labels 
     "br.adv.maiocchi.base-source-sha256",
     "br.adv.maiocchi.patch-sha256",
     "br.adv.maiocchi.build-inputs-patch-sha256",
+    "br.adv.maiocchi.native-security-patch-sha256",
+    "br.adv.maiocchi.tiff-apkbuild-sha256",
+    "br.adv.maiocchi.tiff-source-sha256",
+    "br.adv.maiocchi.tiff-version",
+    "br.adv.maiocchi.openexr-version",
     "br.adv.maiocchi.ruby-base-digest",
     "br.adv.maiocchi.recipe-commit",
   ]) {
@@ -399,6 +581,23 @@ test("preflight vincula IDs imutáveis ao commit assinado, arquitetura e labels 
   }
   assert.match(candidatePreflight, /PORTAL_SSO_CANDIDATE_IMAGE_ID/);
   assert.match(candidatePreflight, /DOCUSEAL_SSO_CANDIDATE_IMAGE_ID/);
+  assert.match(candidatePreflight, /archive_layer_projection_sha256/);
+  assert.match(candidatePreflight, /embedded_layer_projection_sha256/);
+  assert.match(candidatePreflight, /número de camadas Grype diverge dos diff IDs/);
+  assert.match(candidatePreflight, /\(\$raw_hc \| length\) == 2/);
+  assert.match(candidatePreflight, /\["CVE-2023-52356", "CVE-2026-4775"\]/);
+  assert.match(candidatePreflight, /def normalized_matches:[\s\S]*map\(del\([.]appliedIgnoreRules\)\)/);
+  assert.match(candidatePreflight, /artifact[.]purl == "pkg:apk\/alpine\/tiff@4[.]7[.]2-r0/);
+  assert.match(candidatePreflight, /[.]match == \{[\s\S]*stock:\{"using-cpes":true\}/);
+  assert.match(candidatePreflight, /\$vex_at <= \$raw_at[\s\S]*\$raw_at <= \$filtered_at/);
+  assert.match(candidatePreflight, /--entrypoint \/sbin\/apk[\s\S]*manifest \\\n\s*tiff/);
+  assert.match(candidatePreflight, /cmp -s "\$runtime_tmp\/evidence[.]sorted" "\$runtime_tmp\/runtime[.]sorted"/);
+  assert.match(candidatePreflight, /audit --system/);
+  assert.match(candidatePreflight, /apk audit detectou arquivo de pacote divergente/);
+  assert.match(candidatePreflight, /allowlist fechada de severidades do Portal foi violada/);
+  assert.match(candidatePreflight, /expect_inspect "\$docuseal_image_id" '\{\{[.]Config[.]User\}\}' 'docuseal'/);
+  assert.match(candidatePreflight, /574df1a0862ff88ad933be214e81069e35b17618a13e019f8f1c84fe063222a2/);
+  assert.match(candidatePreflight, /05ffd2c28a607e48fb2269d9aac5b3d53e8a51bbac501946644745eae2119907/);
 });
 
 test("preflight fecha TOCTOU relendo os IDs depois de validar o manifesto", () => {
@@ -422,10 +621,11 @@ test("preflight fecha TOCTOU relendo os IDs depois de validar o manifesto", () =
   }
 });
 
-test("auditoria de índices valida blobs antes e depois dos três patches da receita", () => {
+test("auditoria de índices valida blobs antes e depois dos quatro patches da receita", () => {
   assert.match(patchIndexValidator, /patches\/portal\/0001-maiocchi-sso-portal-1[.]15[.]1[.]patch/);
   assert.match(patchIndexValidator, /patches\/docuseal\/0009-maiocchi-uno-sso[.]patch/);
   assert.match(patchIndexValidator, /patches\/docuseal\/0010-pin-build-inputs[.]patch/);
+  assert.match(patchIndexValidator, /patches\/docuseal\/0011-update-native-image-libraries[.]patch/);
   assert.match(patchIndexValidator, /actual_hash=\$\(git hash-object "\$source_dir\/\$old_path"\)/);
   assert.match(patchIndexValidator, /actual_hash=\$\(git hash-object "\$source_dir\/\$new_path"\)/);
   for (const counter of ["diff_count", "index_count", "index_seen"]) {
@@ -441,6 +641,7 @@ test("auditoria de índices valida blobs antes e depois dos três patches da rec
     ["portal_source", "portal_patch"],
     ["docuseal_source", "docuseal_patch"],
     ["docuseal_source", "docuseal_build_inputs_patch"],
+    ["docuseal_source", "docuseal_native_security_patch"],
   ]) {
     for (const phase of ["before", "after"]) {
       assert.match(
@@ -449,8 +650,8 @@ test("auditoria de índices valida blobs antes e depois dos três patches da rec
       );
     }
   }
-  assert.equal((patchIndexValidator.match(/^audit_patch_indexes "\$/gm) || []).length, 6);
-  assert.ok((patchIndexValidator.match(/git -C "\$docuseal_source" apply --check/g) || []).length >= 2);
+  assert.equal((patchIndexValidator.match(/^audit_patch_indexes "\$/gm) || []).length, 8);
+  assert.ok((patchIndexValidator.match(/git -C "\$docuseal_source" apply --check/g) || []).length >= 3);
   assert.match(patchIndexValidator, /audit_patch_hunks\(\)/);
   for (const counter of ["old_remaining", "new_remaining", "hunk_count"]) {
     assert.match(patchIndexValidator, new RegExp(`\\b${counter}\\b`));
@@ -466,15 +667,20 @@ test("auditoria de índices valida blobs antes e depois dos três patches da rec
   assert.match(patchIndexValidator, /git apply --numstat "\$patch_file"/);
   assert.match(patchIndexValidator, /"\$raw_added" -eq "\$applied_added"/);
   assert.match(patchIndexValidator, /"\$raw_deleted" -eq "\$applied_deleted"/);
-  for (const patchVariable of ["portal_patch", "docuseal_patch", "docuseal_build_inputs_patch"]) {
+  for (const patchVariable of [
+    "portal_patch",
+    "docuseal_patch",
+    "docuseal_build_inputs_patch",
+    "docuseal_native_security_patch",
+  ]) {
     assert.match(
       patchIndexValidator,
       new RegExp(`audit_patch_hunks "\\$${patchVariable}"\\naudit_patch_line_accounting "\\$${patchVariable}"`),
     );
     assert.match(patchIndexValidator, new RegExp(`audit_patch_line_accounting "\\$${patchVariable}"`));
   }
-  assert.equal((patchIndexValidator.match(/^audit_patch_hunks "\$/gm) || []).length, 3);
-  assert.equal((patchIndexValidator.match(/^audit_patch_line_accounting "\$/gm) || []).length, 3);
+  assert.equal((patchIndexValidator.match(/^audit_patch_hunks "\$/gm) || []).length, 4);
+  assert.equal((patchIndexValidator.match(/^audit_patch_line_accounting "\$/gm) || []).length, 4);
 });
 
 test("wrapper executa o preflight imediatamente antes do compose sem hardcode de up", () => {
