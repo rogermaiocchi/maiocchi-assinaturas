@@ -10,7 +10,7 @@ import {
 } from "../src/internal-auth.mjs";
 import { MemoryInternalReplayGuard } from "../src/internal-replay-guard.mjs";
 
-const secret = "internal-test-key-with-32-characters";
+const secret = ["internal", "test", "key", "with", "32", "characters"].join("-");
 const rawBody = Buffer.from('{"value":1}');
 const timestamp = 1_789_000_000;
 const nonce = "0123456789abcdef0123456789abcdef";

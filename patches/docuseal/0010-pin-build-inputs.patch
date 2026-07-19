@@ -1,0 +1,37 @@
+diff --git a/Dockerfile b/Dockerfile
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -1,3 +1,3 @@
+-FROM ruby:4.0.5-alpine AS download
++FROM ruby:4.0.5-alpine@sha256:f48938e9ae72a4d32e728b03c306e7a7ff21f0cb6c2ed33f44a078c700b2aea6 AS download
+ 
+ WORKDIR /fonts
+@@ -8,6 +8,14 @@ RUN apk --no-cache add wget && \
+-    wget https://github.com/impallari/DancingScript/raw/master/fonts/DancingScript-Regular.otf && \
+-    wget https://raw.githubusercontent.com/impallari/DancingScript/master/OFL.txt && \
+-    wget https://raw.githubusercontent.com/notofonts/noto-fonts/refs/heads/main/LICENSE && \
++    wget https://raw.githubusercontent.com/impallari/DancingScript/09b7abf420f296894dc6c878e7b0da4f9f8d27a6/fonts/DancingScript-Regular.otf && \
++    wget https://raw.githubusercontent.com/impallari/DancingScript/09b7abf420f296894dc6c878e7b0da4f9f8d27a6/OFL.txt && \
++    wget https://raw.githubusercontent.com/notofonts/noto-fonts/ffebf8c1ee449e544955a7e813c54f9b73848eac/LICENSE && \
+     wget -O /model.onnx "https://github.com/docusealco/fields-detection/releases/download/2.0.0/model_704_int8.onnx" && \
+-    wget -O pdfium-linux.tgz "https://github.com/bblanchon/pdfium-binaries/releases/latest/download/pdfium-linux-musl-$(uname -m | sed 's/x86_64/x64/;s/aarch64/arm64/').tgz" && \
++    wget -O pdfium-linux.tgz "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/7947/pdfium-linux-musl-x64.tgz" && \
++    printf '%s\n' \
++      '2f2cee5fbb2403df352ca2005247f6c4faa70f3086ebd31b6c62308b5f2f9865  GoNotoKurrent-Regular.ttf' \
++      '6f5ab7b16acedeac76625f75159d9d303be85b291d47376760a1c9f87802853e  GoNotoKurrent-Bold.ttf' \
++      'd71f864af9c13eeb740230fd67309c2390a902dba2326ae06f2275ca52663c6a  DancingScript-Regular.otf' \
++      '6f090277c00af96651ce6dbcc38ff1591047a3bffef486e80b6a32e8276a8201  OFL.txt' \
++      '0dab92d0544f7b233403f14b84a663bdbfa746982eda629e7f4f9ffe1b036feb  LICENSE' \
++      'a0a92ef7f50b6e5c707b7da9c59977bc7c9e9d8f85542bd75169c693f5efa4da  /model.onnx' \
++      '4fd8d95a629dfd5009f81ddb32b54b96e113d6fdc1c4801aae5e2fb37911c91b  pdfium-linux.tgz' | sha256sum -c - && \
+     mkdir -p /pdfium-linux && \
+@@ -15,3 +23,3 @@ RUN apk --no-cache add wget && \
+ 
+-FROM ruby:4.0.5-alpine AS webpack
++FROM ruby:4.0.5-alpine@sha256:f48938e9ae72a4d32e728b03c306e7a7ff21f0cb6c2ed33f44a078c700b2aea6 AS webpack
+ 
+@@ -42,3 +50,3 @@ RUN echo "gem 'shakapacker'" > Gemfile && ./bin/shakapacker
+ 
+-FROM ruby:4.0.5-alpine AS app
++FROM ruby:4.0.5-alpine@sha256:f48938e9ae72a4d32e728b03c306e7a7ff21f0cb6c2ed33f44a078c700b2aea6 AS app
+ 

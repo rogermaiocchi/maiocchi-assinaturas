@@ -18,6 +18,10 @@ test("portal SSO possui uma única versão candidata coerente", () => {
   assert.equal(lock.packages[""].version, "1.15.1");
   assert.match(dockerfile, /org[.]opencontainers[.]image[.]version="1[.]15[.]1"/);
   assert.match(dockerfile, /org[.]opencontainers[.]image[.]source="https:\/\/github[.]com\/rogermaiocchi\/maiocchi-assinaturas"/);
+  assert.match(dockerfile, /org[.]opencontainers[.]image[.]description="Portal estático de assinaturas do Maiocchi Advogado"/);
+  assert.match(dockerfile, /org[.]opencontainers[.]image[.]url="https:\/\/assinatura[.]maiocchi[.]adv[.]br"/);
+  assert.match(dockerfile, /org[.]opencontainers[.]image[.]created="2026-07-18T00:00:00Z"/);
+  assert.match(dockerfile, /org[.]opencontainers[.]image[.]licenses="NOASSERTION"/);
   assert.doesNotMatch(dockerfile, /tree\/portal-v1[.]15[.]1/);
   assert.match(compose, /image: maiocchi\/assinatura-portal:1[.]15[.]1/);
   assert.doesNotMatch(dockerfile, /1[.]15[.]0/);

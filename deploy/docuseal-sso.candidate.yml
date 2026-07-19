@@ -1,8 +1,68 @@
 services:
-  docuseal:
-    image: maiocchi/docuseal:3.0.1-maiocchi.15
+  docuseal-sso-db-candidate:
+    image: postgres:16-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+    container_name: docuseal-sso-db-candidate
+    restart: "no"
     environment:
-      MAIOCCHI_SSO_ENABLED: "${MAIOCCHI_SSO_ENABLED:-false}"
-      MAIOCCHI_SSO_ACCOUNT_UUID: "${MAIOCCHI_SSO_ACCOUNT_UUID:-}"
-      MAIOCCHI_SSO_BOOTSTRAP_USER_UUID: "${MAIOCCHI_SSO_BOOTSTRAP_USER_UUID:-}"
-      MAIOCCHI_SSO_CLIENT_SECRET_FILE: /run/signature-secrets/api_signature_sso_client_secret
+      POSTGRES_DB: docuseal_sso_candidate
+      POSTGRES_USER: docuseal_sso_candidate
+      POSTGRES_PASSWORD: "${DOCUSEAL_CANARY_DB_PASS:?defina senha sintética exclusiva do canário}"
+    volumes:
+      - docuseal-sso-candidate-pgdata:/var/lib/postgresql/data
+    networks:
+      - docuseal-sso-candidate
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U docuseal_sso_candidate -d docuseal_sso_candidate"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
+  docuseal-sso-candidate:
+    image: maiocchi/docuseal:3.0.1-maiocchi.15
+    container_name: docuseal-sso-candidate
+    restart: "no"
+    depends_on:
+      docuseal-sso-db-candidate:
+        condition: service_healthy
+    environment:
+      HOST: docuseal-sso-candidate
+      APP_URL: http://docuseal-sso-candidate:3000
+      EMAIL_HOST: docuseal-sso-candidate
+      FORCE_SSL: "false"
+      DEFAULT_LOCALE: pt
+      DATABASE_URL: "postgresql://docuseal_sso_candidate:${DOCUSEAL_CANARY_DB_PASS:?defina senha sintética exclusiva do canário}@docuseal-sso-db-candidate:5432/docuseal_sso_candidate"
+      SECRET_KEY_BASE: "${DOCUSEAL_CANARY_SECRET_KEY_BASE:?defina chave exclusiva do canário}"
+      MAIOCCHI_SSO_ENABLED: "${MAIOCCHI_CANARY_SSO_ENABLED:-false}"
+      MAIOCCHI_SSO_ACCOUNT_UUID: "${MAIOCCHI_CANARY_SSO_ACCOUNT_UUID:-}"
+      MAIOCCHI_SSO_BOOTSTRAP_USER_UUID: "${MAIOCCHI_CANARY_SSO_BOOTSTRAP_USER_UUID:-}"
+      MAIOCCHI_SSO_CLIENT_SECRET_FILE: /run/signature-canary-secrets/api_signature_sso_client_secret
+    volumes:
+      - docuseal-sso-candidate-data:/data
+      - "${DOCUSEAL_CANARY_SECRET_DIR:?defina diretório de secrets exclusivo do canário}:/run/signature-canary-secrets:ro"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - docuseal-sso-candidate
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/up"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 30s
+
+volumes:
+  docuseal-sso-candidate-data:
+    name: docuseal-sso-candidate-data
+  docuseal-sso-candidate-pgdata:
+    name: docuseal-sso-candidate-pgdata
+
+networks:
+  docuseal-sso-candidate:
+    name: docuseal-sso-candidate
+    internal: true

@@ -5,9 +5,10 @@ umask 077
 repo_dir=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 base_commit='7e864d548b39ff3bbdcc6693f0bc05b3a72ed44d'
 portal_patch="$repo_dir/patches/portal/0001-maiocchi-sso-portal-1.15.1.patch"
-expected_patch_sha='a9e42edd54ab3e4143f60adfd0873b6b8d22bf6c27217b3c028a3797625d2a0d'
+expected_patch_sha='272c65dd0b932f127b53f0556fb1be814a066367a56acb613e37d1acf46b7c50'
 candidate_version='1.15.1'
 candidate_image="${PORTAL_SSO_CANDIDATE_IMAGE:-maiocchi/assinatura-portal:1.15.1}"
+recipe_commit=$(git -C "$repo_dir" rev-parse HEAD)
 
 git -C "$repo_dir" cat-file -e "$base_commit^{commit}"
 actual_patch_sha=$(shasum -a 256 "$portal_patch" | awk '{print $1}')
@@ -105,17 +106,22 @@ mkdir -p "$evidence_dir"
 
 docker build \
   --pull \
-  --build-arg "SOURCE_REVISION=$actual_patch_sha" \
+  --provenance=false \
+  --build-arg "SOURCE_REVISION=$recipe_commit" \
   --label "br.adv.maiocchi.base-commit=$base_commit" \
   --label "br.adv.maiocchi.patch-sha256=$actual_patch_sha" \
+  --label "br.adv.maiocchi.recipe-commit=$recipe_commit" \
   --tag "$candidate_image" \
   "$source_dir"
 
 [ "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' "$candidate_image")" = "$candidate_version" ]
-[ "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$candidate_image")" = "$actual_patch_sha" ]
+[ "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$candidate_image")" = "$recipe_commit" ]
 [ "$(docker image inspect --format '{{ index .Config.Labels "br.adv.maiocchi.base-commit" }}' "$candidate_image")" = "$base_commit" ]
+[ "$(docker image inspect --format '{{ index .Config.Labels "br.adv.maiocchi.patch-sha256" }}' "$candidate_image")" = "$actual_patch_sha" ]
+[ "$(docker image inspect --format '{{ index .Config.Labels "br.adv.maiocchi.recipe-commit" }}' "$candidate_image")" = "$recipe_commit" ]
 
 docker image inspect "$candidate_image" >"$evidence_dir/portal-$candidate_version.image-inspect.json"
+docker image save --output "$evidence_dir/portal-$candidate_version.docker-image.tar" "$candidate_image"
 syft "$candidate_image" -o cyclonedx-json >"$evidence_dir/portal-$candidate_version.cdx.json"
 grype "$candidate_image" -o json >"$evidence_dir/portal-$candidate_version.grype.json"
 grype "$candidate_image" --fail-on high >/dev/null
@@ -124,6 +130,7 @@ grype "$candidate_image" --fail-on high >/dev/null
   cd "$evidence_dir"
   shasum -a 256 \
     "portal-$candidate_version.image-inspect.json" \
+    "portal-$candidate_version.docker-image.tar" \
     "portal-$candidate_version.cdx.json" \
     "portal-$candidate_version.grype.json" \
     >SHA256SUMS

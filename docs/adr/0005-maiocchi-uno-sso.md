@@ -4,7 +4,8 @@
 - Data: 2026-07-18
 - Fonte do fork: `compliance/docuseal-maiocchi-3.0.1-maiocchi.14.tar.gz`
 - SHA-256 da fonte: `e8f3b6e8ba3a8e70c7ea66846b57f6c0bddcd582be87bd4ae3ee074c2f9ff26c`
-- Patch derivado: `patches/docuseal/0009-maiocchi-uno-sso.patch`
+- Patches derivados: `patches/docuseal/0009-maiocchi-uno-sso.patch` e
+  `patches/docuseal/0010-pin-build-inputs.patch`
 
 ## Decisão
 
@@ -78,15 +79,35 @@ rede `internal`, sem porta nem router público; portanto não substitui a instâ
 produtiva por simples execução do compose candidato.
 
 O contrato `portal-v1.15.1-sso-candidate.contract.json` exige `docker inspect`,
-SBOM CycloneDX bruto do Syft, relatório Grype bruto, gate `--fail-on high` e
-manifesto SHA-256. Ausência de qualquer evidência mantém o status NO-GO; SBOM ou
-scan de versão anterior não podem ser reaproveitados.
+archive da imagem efetivamente construída, SBOM CycloneDX bruto do Syft,
+relatório Grype bruto, gate `--fail-on high`, label do commit assinado da receita
+e manifesto SHA-256. Ausência de qualquer evidência mantém o status NO-GO; SBOM
+ou scan de versão anterior não podem ser reaproveitados.
+
+## Candidato DocuSeal e supply chain
+
+O candidato DocuSeal reconstrói o archive `.14`, aplica `0009` e `0010` por
+hash, fixa Ruby por digest e fixa por commit/release + SHA-256 os assets externos
+de fontes, modelo e PDFium. O build produz `docker inspect`, archive da imagem,
+SBOM, Grype e manifesto no mesmo diretório de evidência, que deve ser novo.
+
+O compose candidato possui PostgreSQL 16, banco, volume, rede e secrets
+exclusivos, sem porta ou nome produtivo. Ele não é iniciado durante o build. O
+harness `scripts/test-docuseal-sso-pg16-isolated.sh` usa outro namespace, rede
+interna e banco em tmpfs para executar todas as migrations, confirmar os dois
+triggers SSO, rodar os quatro specs focados e fazer smoke `/up`; sua limpeza só
+aceita nomes e labels pertencentes ao próprio run.
+
+Resolução de pacotes Alpine, Bundler e Yarn ainda impede alegar reprodução
+bit-a-bit antes de um double-build comprovado. A verdade imutável da release é o
+archive hashado da imagem construída a partir do commit assinado, não uma
+promessa narrativa de reprodutibilidade.
 
 ## Gates de ativação
 
-1. Construir `maiocchi/assinatura-portal:1.15.1` e
-   `maiocchi/docuseal:3.0.1-maiocchi.15` pelos scripts rastreáveis.
-2. Executar as specs Rails, incluindo concorrência e migração em PostgreSQL 16.
+1. Construir tags únicas contendo o SHA congelado para Portal 1.15.1 e DocuSeal
+   3.0.1-maiocchi.15; não reutilizar tag/evidence dir anterior.
+2. Executar o harness PostgreSQL 16, migrations, triggers, specs Rails e smoke.
 3. Gerar SBOM CycloneDX e relatório Grype das duas imagens efetivamente construídas.
 4. Instalar a mesma credencial SSO distinta nos dois lados, sem expô-la.
 5. Cadastrar o UUID exato do account e, se necessário, o UUID bootstrap.

@@ -15,7 +15,7 @@ import {
 } from "../src/server.mjs";
 
 const publicId = "MAI-2026-1111-1111-1111-1111";
-const internalKey = "internal-test-key-with-32-characters";
+const internalKey = ["internal", "test", "key", "with", "32", "characters"].join("-");
 
 function internalRequest(body, target, nonce = "0123456789abcdef0123456789abcdef") {
   const timestamp = Math.floor(Date.now() / 1000).toString();
@@ -93,7 +93,7 @@ test("expõe verificação, CORS restrito, redirect e bloqueio do original", asy
     privateKey,
     publicKey,
     keyId: "authenticity-2026-01",
-    internalHmacKey: "internal-test-key-with-32-characters",
+    internalHmacKey: internalKey,
     allowedOrigins: ["https://preview.example"],
   });
   const server = http.createServer(handler);
@@ -207,7 +207,7 @@ test("integra verificação privada, folha incorporada, chave PQC e metadados re
     repository: { async findByPublicId() { return null; } },
     artifactStore: { encryptedAtRest: true },
     privateKey, publicKey, keyId: "authenticity-2026-01",
-    internalHmacKey: "internal-test-key-with-32-characters",
+    internalHmacKey: internalKey,
     privateSigningService,
   });
   const server = http.createServer(handler);

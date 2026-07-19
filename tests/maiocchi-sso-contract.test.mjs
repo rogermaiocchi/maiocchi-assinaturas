@@ -3,9 +3,10 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const [baseArchive, patch, access, traefik, overlay, buildScript] = await Promise.all([
+const [baseArchive, patch, buildInputsPatch, access, traefik, overlay, buildScript] = await Promise.all([
   readFile(new URL("../compliance/docuseal-maiocchi-3.0.1-maiocchi.14.tar.gz", import.meta.url)),
   readFile(new URL("../patches/docuseal/0009-maiocchi-uno-sso.patch", import.meta.url), "utf8"),
+  readFile(new URL("../patches/docuseal/0010-pin-build-inputs.patch", import.meta.url), "utf8"),
   readFile(new URL("../app/lawyer-access.tsx", import.meta.url), "utf8"),
   readFile(new URL("../deploy/traefik-assinatura.yml", import.meta.url), "utf8"),
   readFile(new URL("../deploy/docuseal-sso.candidate.yml", import.meta.url), "utf8"),
@@ -31,7 +32,12 @@ test("patch SSO deriva exclusivamente da fonte DocuSeal .14 aprovada", () => {
   );
   assert.match(patch, /3[.]0[.]1-maiocchi[.]14[\s\S]*3[.]0[.]1-maiocchi[.]15/);
   assert.match(buildScript, /expected_base_sha='e8f3b6e8ba3a8e70c7ea66846b57f6c0bddcd582be87bd4ae3ee074c2f9ff26c'/);
+  assert.equal(
+    createHash("sha256").update(buildInputsPatch).digest("hex"),
+    "752e6ff168f093169dd120d509da4a10c79c04e2967799327edb0ef5e92481bc",
+  );
   assert.match(buildScript, /git -C "\$candidate_work" apply --check "\$sso_patch"/);
+  assert.match(buildScript, /git -C "\$candidate_work" apply --check "\$build_inputs_patch"/);
 });
 
 test("browser flow fixa endpoints, PKCE S256, state use-once e sessão host-only", () => {
@@ -81,13 +87,24 @@ test("portal e roteamento tornam o SSO primário sem remover os fallbacks", () =
   assert.match(access, /type=\{showPassword \? "text" : "password"\}/);
   assert.match(traefik, /sign_out\|sso\|start_form_email_2fa_send/);
   assert.match(overlay, /image: maiocchi\/docuseal:3[.]0[.]1-maiocchi[.]15/);
-  assert.match(overlay, /MAIOCCHI_SSO_CLIENT_SECRET_FILE: \/run\/signature-secrets\/api_signature_sso_client_secret/);
+  assert.match(overlay, /MAIOCCHI_SSO_CLIENT_SECRET_FILE: \/run\/signature-canary-secrets\/api_signature_sso_client_secret/);
   assert.doesNotMatch(overlay, /MAIOCCHI_SSO_CLIENT_SECRET:\s/);
+});
+
+test("canário DocuSeal não herda nomes, banco, volumes ou rede de produção", () => {
+  assert.match(overlay, /^\s{2}docuseal-sso-candidate:/m);
+  assert.match(overlay, /^\s{2}docuseal-sso-db-candidate:/m);
+  assert.doesNotMatch(overlay, /^\s{2}docuseal:/m);
+  assert.doesNotMatch(overlay, /^\s{2}docuseal-db:/m);
+  assert.match(overlay, /postgres:16-alpine@sha256:[0-9a-f]{64}/);
+  assert.match(overlay, /DOCUSEAL_CANARY_SECRET_DIR:[?]/);
+  assert.match(overlay, /internal: true/);
+  assert.doesNotMatch(overlay, /ports:|traefik-net|signature-internal|DOCUSEAL_DATA_DIR|DOCUSEAL_PGDATA_DIR/);
 });
 
 test("portal estático possui candidato 1.15.1 derivado de snapshot imutável", () => {
   const patchSha = createHash("sha256").update(portalPatch).digest("hex");
-  assert.equal(patchSha, "a9e42edd54ab3e4143f60adfd0873b6b8d22bf6c27217b3c028a3797625d2a0d");
+  assert.equal(patchSha, "272c65dd0b932f127b53f0556fb1be814a066367a56acb613e37d1acf46b7c50");
   assert.equal(portalContract.source_patch.sha256, patchSha);
   assert.equal(portalContract.base_commit, "7e864d548b39ff3bbdcc6693f0bc05b3a72ed44d");
   assert.equal(portalPackage.version, "1.15.1");
@@ -110,10 +127,12 @@ test("build do portal exclui worktree suja e exige SBOM e scan antes de promoç�
   assert.match(portalBuild, /syft "\$candidate_image" -o cyclonedx-json/);
   assert.match(portalBuild, /grype "\$candidate_image" -o json/);
   assert.match(portalBuild, /grype "\$candidate_image" --fail-on high/);
+  assert.match(portalBuild, /docker image save --output/);
+  assert.match(portalBuild, /br[.]adv[.]maiocchi[.]recipe-commit/);
   assert.match(portalBuild, /Diretório de evidência já existe; sobrescrita recusada/);
   assert.equal(portalContract.status, "no-go-evidence-pending");
   assert.deepEqual(portalContract.required_evidence.map(({ kind }) => kind), [
-    "image-inspect", "sbom", "vulnerability-report", "artifact-manifest",
+    "image-inspect", "image-archive", "sbom", "vulnerability-report", "artifact-manifest",
   ]);
   for (const line of portalDockerfile.match(/^FROM .+$/gm) || []) {
     assert.match(line, /@sha256:[0-9a-f]{64}/);
@@ -121,11 +140,18 @@ test("build do portal exclui worktree suja e exige SBOM e scan antes de promoç�
 });
 
 test("build DocuSeal fixa a base Ruby e exige evidência antes de promoção", () => {
+  const addedBuildInputLines = buildInputsPatch
+    .split("\n")
+    .filter((line) => line.startsWith("+") && !line.startsWith("+++"))
+    .join("\n");
   assert.match(buildScript, /ruby_base_digest='sha256:[0-9a-f]{64}'/);
   assert.match(buildScript, /FROM \$\{ruby_base\}@\$\{ruby_base_digest\}/);
   assert.match(buildScript, /syft "\$candidate_image" -o cyclonedx-json/);
   assert.match(buildScript, /grype "\$candidate_image" -o json/);
   assert.match(buildScript, /grype "\$candidate_image" --fail-on high/);
+  assert.match(buildScript, /docker image save --output/);
+  assert.match(addedBuildInputLines, /releases\/download\/chromium\/7947/);
+  assert.doesNotMatch(addedBuildInputLines, /releases\/latest|refs\/heads\/(?:main|master)|\/raw\/master\//);
   assert.match(buildScript, /Diretório de evidência já existe; sobrescrita recusada/);
 });
 

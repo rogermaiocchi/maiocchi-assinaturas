@@ -1,0 +1,8 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Chave pública estável exigida pelo manifest da extensão Chrome"
+paths = [
+  '''clients/pades-token-extension/manifest\.json$''',
+]

@@ -5,7 +5,7 @@
   "base_commit": "7e864d548b39ff3bbdcc6693f0bc05b3a72ed44d",
   "source_patch": {
     "path": "patches/portal/0001-maiocchi-sso-portal-1.15.1.patch",
-    "sha256": "a9e42edd54ab3e4143f60adfd0873b6b8d22bf6c27217b3c028a3797625d2a0d"
+    "sha256": "272c65dd0b932f127b53f0556fb1be814a066367a56acb613e37d1acf46b7c50"
   },
   "build_script": {
     "path": "scripts/build-portal-sso-candidate.sh",
@@ -14,15 +14,21 @@
   "image": "maiocchi/assinatura-portal:1.15.1",
   "required_labels": {
     "org.opencontainers.image.version": "1.15.1",
-    "org.opencontainers.image.revision": "source_patch.sha256",
+    "org.opencontainers.image.revision": "signed recipe commit",
     "br.adv.maiocchi.base-commit": "base_commit",
-    "br.adv.maiocchi.patch-sha256": "source_patch.sha256"
+    "br.adv.maiocchi.patch-sha256": "source_patch.sha256",
+    "br.adv.maiocchi.recipe-commit": "signed recipe commit"
   },
   "required_evidence": [
     {
       "kind": "image-inspect",
       "path": "portal-1.15.1.image-inspect.json",
       "generator": "docker image inspect"
+    },
+    {
+      "kind": "image-archive",
+      "path": "portal-1.15.1.docker-image.tar",
+      "generator": "docker image save"
     },
     {
       "kind": "sbom",
