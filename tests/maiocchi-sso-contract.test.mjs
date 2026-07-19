@@ -54,7 +54,11 @@ test("patch SSO deriva exclusivamente da fonte DocuSeal .14 aprovada", () => {
   assert.match(buildScript, /expected_base_sha='e8f3b6e8ba3a8e70c7ea66846b57f6c0bddcd582be87bd4ae3ee074c2f9ff26c'/);
   assert.equal(
     createHash("sha256").update(buildInputsPatch).digest("hex"),
-    "752e6ff168f093169dd120d509da4a10c79c04e2967799327edb0ef5e92481bc",
+    "0e36b9a594e3da75f64c3c37909be5fa9f57e3eefeeed2d21d993590496a5987",
+  );
+  assert.equal(
+    createHash("sha256").update(patch).digest("hex"),
+    "d37cc6334fc482a9f7a285601a7ec924541b87fe1e793686ba55f8fd3a4a4ffc",
   );
   assert.match(buildScript, /git -C "\$candidate_work" apply --check "\$sso_patch"/);
   assert.match(buildScript, /git -C "\$candidate_work" apply --check "\$build_inputs_patch"/);
@@ -103,6 +107,42 @@ test("respostas de erro do SSO preservam os três headers privados", () => {
     assert.match(example, /headers\['Cache-Control'\][.]split\(','\)[.]map\(&:strip\)\)[.]to include\('no-store'\)/);
     assert.match(example, /headers\['Pragma'\]\)[.]to eq\('no-cache'\)/);
     assert.match(example, /headers\['Referrer-Policy'\]\)[.]to eq\('no-referrer'\)/);
+  }
+});
+
+test("hunk do request spec DocuSeal declara todas as 116 linhas e o blob integral", () => {
+  const requestSpecDiff = patch.match(
+    /diff --git a\/spec\/requests\/maiocchi_sso_spec[.]rb b\/spec\/requests\/maiocchi_sso_spec[.]rb([\s\S]*)$/,
+  )?.[1];
+  assert.ok(requestSpecDiff, "o patch deve conter o request spec SSO completo");
+  assert.match(
+    requestSpecDiff,
+    /index 0000000000000000000000000000000000000000[.][.]e48c6931e33a16f3b1f166808845ed96a445a834/,
+  );
+  assert.match(requestSpecDiff, /@@ -0,0 \+1,116 @@/);
+  const addedRequestSpecLines = requestSpecDiff
+    .split("\n")
+    .filter((line) => line.startsWith("+") && !line.startsWith("+++"));
+  assert.equal(addedRequestSpecLines.length, 116);
+});
+
+test("todo diff dos patches DocuSeal declara metadado de blob completo", () => {
+  assert.match(
+    patch,
+    /diff --git a\/db\/migrate\/20260718090100_install_maiocchi_sso_guards[.]rb b\/db\/migrate\/20260718090100_install_maiocchi_sso_guards[.]rb\nnew file mode 100644\nindex 0000000000000000000000000000000000000000[.][.]3d5b35e1055c6369927594852c5c50c3f6fea81b/,
+  );
+  assert.match(
+    buildInputsPatch,
+    /diff --git a\/Dockerfile b\/Dockerfile\nindex ddb378156cc1a1ac5c6fb9342248e64e4dac47aa[.][.]f4a9ac9f19057f3059a903734f62a725edd4dc47 100644/,
+  );
+  for (const [candidatePatch, expectedDiffs] of [
+    [patch, 21],
+    [buildInputsPatch, 1],
+  ]) {
+    const diffCount = (candidatePatch.match(/^diff --git /gm) || []).length;
+    const indexCount = (candidatePatch.match(/^index [0-9a-f]+[.][.][0-9a-f]+(?: [0-9]+)?$/gm) || []).length;
+    assert.equal(diffCount, expectedDiffs);
+    assert.equal(indexCount, diffCount);
   }
 });
 
@@ -168,6 +208,34 @@ test("harness PG16 carrega PDFium pelo mesmo release e hash do candidato", () =>
   assert.match(docusealPg16Dockerfile, /4fd8d95a629dfd5009f81ddb32b54b96e113d6fdc1c4801aae5e2fb37911c91b/);
   assert.match(docusealPg16Dockerfile, /COPY --from=docuseal-sso-pdfium \/pdfium-linux\/lib\/libpdfium[.]so \/usr\/lib\/libpdfium[.]so/);
   assert.doesNotMatch(docusealPg16Dockerfile, /releases\/latest|refs\/heads\/(?:main|master)/);
+});
+
+test("harness valida sintaxe Ruby do conjunto fechado de quatro specs antes do build", () => {
+  const specsDeclaration = docusealPg16Harness.match(/readonly -a sso_specs=\(([\s\S]*?)\n\)/)?.[1];
+  assert.ok(specsDeclaration, "o harness deve declarar o conjunto fechado de specs SSO");
+  const expectedSpecs = [
+    "spec/lib/maiocchi_sso_configuration_spec.rb",
+    "spec/lib/maiocchi_sso_identity_resolver_spec.rb",
+    "spec/lib/maiocchi_sso_token_exchange_spec.rb",
+    "spec/requests/maiocchi_sso_spec.rb",
+  ];
+  const declaredSpecs = [...specsDeclaration.matchAll(/'([^']+)'/g)].map((match) => match[1]);
+  assert.deepEqual(declaredSpecs, expectedSpecs);
+  assert.match(docusealPg16Harness, /readonly syntax_container="maiocchi-docuseal-sso-pg16-syntax-\$run_id"/);
+  assert.match(docusealPg16Harness, /"\$syntax_container"[\s\S]*docker container rm --force --volumes/);
+  assert.match(docusealPg16Harness, /docker pull --platform linux\/amd64 "\$ruby_image"/);
+  assert.match(docusealPg16Harness, /--name "\$syntax_container"[\s\S]*--network none[\s\S]*--read-only/);
+  assert.match(docusealPg16Harness, /host_uid="\$\(id -u\)"/);
+  assert.match(docusealPg16Harness, /host_gid="\$\(id -g\)"/);
+  assert.match(docusealPg16Harness, /"\$host_uid" =~ \^\[1-9\]\[0-9\]\*\$/);
+  assert.match(docusealPg16Harness, /"\$host_gid" =~ \^\[1-9\]\[0-9\]\*\$/);
+  assert.match(docusealPg16Harness, /--user "\$host_uid:\$host_gid"/);
+  assert.doesNotMatch(docusealPg16Harness, /--user '65534:65534'/);
+  assert.match(docusealPg16Harness, /--volume "\$candidate_source:\/source:ro"/);
+  assert.match(docusealPg16Harness, /ruby -c "\$ruby_file"[\s\S]*"\$\{sso_specs\[@\]\}"/);
+  const syntaxRun = docusealPg16Harness.indexOf('docker run --rm \\\n  --name "$syntax_container"');
+  const imageBuild = docusealPg16Harness.indexOf("docker build \\");
+  assert.ok(syntaxRun >= 0 && syntaxRun < imageBuild);
 });
 
 test("portal estático possui candidato 1.15.1 derivado de snapshot imutável", () => {
@@ -255,6 +323,16 @@ test("build DocuSeal fixa a base Ruby e exige evidência antes de promoção", (
   assert.match(buildScript, /git -C "\$repo_dir" diff --cached --quiet/);
   assert.match(buildScript, /git -C "\$repo_dir" verify-commit "\$recipe_commit"/);
   assert.match(buildScript, /RUBY_VERSION'\)" = '4[.]0[.]5'/);
+  const rubySyntaxLoop = buildScript.match(/for ruby_file in \\([\s\S]*?)\ndo\n\s+"\$ruby_bin" -c "\$ruby_file"/)?.[1];
+  assert.ok(rubySyntaxLoop, "o build deve executar Ruby -c sobre a lista declarada");
+  for (const specPath of [
+    "spec/lib/maiocchi_sso_configuration_spec.rb",
+    "spec/lib/maiocchi_sso_identity_resolver_spec.rb",
+    "spec/lib/maiocchi_sso_token_exchange_spec.rb",
+    "spec/requests/maiocchi_sso_spec.rb",
+  ]) {
+    assert.match(rubySyntaxLoop, new RegExp(specPath.replaceAll(".", "[.]")));
+  }
   assert.match(buildScript, /FROM \$\{ruby_base\}@\$\{ruby_base_digest\}/);
   assert.match(buildScript, /candidate_image_id=\$\(docker image inspect --format '\{\{[.]Id\}\}' "\$candidate_image"\)/);
   assert.match(buildScript, /docker image inspect "\$candidate_image_id" >"\$evidence_dir\/docuseal-3[.]0[.]1-maiocchi[.]15[.]image-inspect[.]json"/);
@@ -350,8 +428,53 @@ test("auditoria de índices valida blobs antes e depois dos três patches da rec
   assert.match(patchIndexValidator, /patches\/docuseal\/0010-pin-build-inputs[.]patch/);
   assert.match(patchIndexValidator, /actual_hash=\$\(git hash-object "\$source_dir\/\$old_path"\)/);
   assert.match(patchIndexValidator, /actual_hash=\$\(git hash-object "\$source_dir\/\$new_path"\)/);
-  assert.ok((patchIndexValidator.match(/audit_patch_indexes/g) || []).length >= 7);
+  for (const counter of ["diff_count", "index_count", "index_seen"]) {
+    assert.match(patchIndexValidator, new RegExp(`\\b${counter}\\b`));
+  }
+  assert.match(
+    patchIndexValidator,
+    /\[ "\$diff_count" -eq 0 \] \|\| \[ "\$index_seen" -ne 1 \] \|\| \[ "\$diff_count" -ne "\$index_count" \]/,
+  );
+  assert.match(patchIndexValidator, /\[ "\$diff_count" -gt 0 \] && \[ "\$index_seen" -ne 1 \]/);
+  assert.match(patchIndexValidator, /index_seen=\$\(\(index_seen \+ 1\)\)[\s\S]*\[ "\$index_seen" -ne 1 \]/);
+  for (const [sourceVariable, patchVariable] of [
+    ["portal_source", "portal_patch"],
+    ["docuseal_source", "docuseal_patch"],
+    ["docuseal_source", "docuseal_build_inputs_patch"],
+  ]) {
+    for (const phase of ["before", "after"]) {
+      assert.match(
+        patchIndexValidator,
+        new RegExp(`audit_patch_indexes "\\$${sourceVariable}" "\\$${patchVariable}" ${phase}`),
+      );
+    }
+  }
+  assert.equal((patchIndexValidator.match(/^audit_patch_indexes "\$/gm) || []).length, 6);
   assert.ok((patchIndexValidator.match(/git -C "\$docuseal_source" apply --check/g) || []).length >= 2);
+  assert.match(patchIndexValidator, /audit_patch_hunks\(\)/);
+  for (const counter of ["old_remaining", "new_remaining", "hunk_count"]) {
+    assert.match(patchIndexValidator, new RegExp(`\\b${counter}\\b`));
+  }
+  assert.match(patchIndexValidator, /function range_count\(/);
+  assert.match(patchIndexValidator, /\^@@ \/[\s\S]*old_remaining = range_count\(\$2, "-"\)/);
+  assert.match(patchIndexValidator, /new_remaining = range_count\(\$3, "\+"\)/);
+  assert.match(patchIndexValidator, /contagem declarada não corresponde ao conteúdo/);
+  assert.match(patchIndexValidator, /conteúdo excede a contagem declarada/);
+  assert.match(patchIndexValidator, /linha com aparência de conteúdo fora de hunk/);
+  assert.match(patchIndexValidator, /audit_patch_line_accounting\(\)/);
+  assert.match(patchIndexValidator, /raw_counts=\$\(awk/);
+  assert.match(patchIndexValidator, /git apply --numstat "\$patch_file"/);
+  assert.match(patchIndexValidator, /"\$raw_added" -eq "\$applied_added"/);
+  assert.match(patchIndexValidator, /"\$raw_deleted" -eq "\$applied_deleted"/);
+  for (const patchVariable of ["portal_patch", "docuseal_patch", "docuseal_build_inputs_patch"]) {
+    assert.match(
+      patchIndexValidator,
+      new RegExp(`audit_patch_hunks "\\$${patchVariable}"\\naudit_patch_line_accounting "\\$${patchVariable}"`),
+    );
+    assert.match(patchIndexValidator, new RegExp(`audit_patch_line_accounting "\\$${patchVariable}"`));
+  }
+  assert.equal((patchIndexValidator.match(/^audit_patch_hunks "\$/gm) || []).length, 3);
+  assert.equal((patchIndexValidator.match(/^audit_patch_line_accounting "\$/gm) || []).length, 3);
 });
 
 test("wrapper executa o preflight imediatamente antes do compose sem hardcode de up", () => {

@@ -357,6 +357,7 @@ index 0000000000000000000000000000000000000000..9ebc877b9f4c074a2d9bbc86bc420cda
 +end
 diff --git a/db/migrate/20260718090100_install_maiocchi_sso_guards.rb b/db/migrate/20260718090100_install_maiocchi_sso_guards.rb
 new file mode 100644
+index 0000000000000000000000000000000000000000..3d5b35e1055c6369927594852c5c50c3f6fea81b
 --- /dev/null
 +++ b/db/migrate/20260718090100_install_maiocchi_sso_guards.rb
 @@ -0,0 +1,50 @@
@@ -1100,10 +1101,10 @@ index 0000000000000000000000000000000000000000..17dcfeb3c6d8268fa1737ab97dd2b755
 +end
 diff --git a/spec/requests/maiocchi_sso_spec.rb b/spec/requests/maiocchi_sso_spec.rb
 new file mode 100644
-index 0000000000000000000000000000000000000000..cb0aa2aa41efe24cb78d47a8e568414ec088bda2
+index 0000000000000000000000000000000000000000..e48c6931e33a16f3b1f166808845ed96a445a834
 --- /dev/null
 +++ b/spec/requests/maiocchi_sso_spec.rb
-@@ -0,0 +1,110 @@
+@@ -0,0 +1,116 @@
 +# frozen_string_literal: true
 +
 +require 'uri'

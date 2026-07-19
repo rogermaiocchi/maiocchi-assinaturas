@@ -12,7 +12,7 @@ docuseal_base_archive="$repo_dir/compliance/docuseal-maiocchi-3.0.1-maiocchi.14.
 docuseal_base_sha256='e8f3b6e8ba3a8e70c7ea66846b57f6c0bddcd582be87bd4ae3ee074c2f9ff26c'
 docuseal_patch="$repo_dir/patches/docuseal/0009-maiocchi-uno-sso.patch"
 docuseal_build_inputs_patch="$repo_dir/patches/docuseal/0010-pin-build-inputs.patch"
-docuseal_build_inputs_sha256='752e6ff168f093169dd120d509da4a10c79c04e2967799327edb0ef5e92481bc'
+docuseal_build_inputs_sha256='0e36b9a594e3da75f64c3c37909be5fa9f57e3eefeeed2d21d993590496a5987'
 docuseal_ruby_base_digest='sha256:f48938e9ae72a4d32e728b03c306e7a7ff21f0cb6c2ed33f44a078c700b2aea6'
 
 fail() {

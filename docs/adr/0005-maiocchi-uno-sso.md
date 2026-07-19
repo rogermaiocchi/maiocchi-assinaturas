@@ -117,8 +117,12 @@ promessa narrativa de reprodutibilidade.
 
 `scripts/validate-release-patch-indexes.sh` reconstrói as duas fontes, compara
 todos os blob IDs declarados antes e depois dos patches `0001`, `0009` e `0010`
-e recusa metadado stale. Depois dos builds, o único caminho contratual para
-Compose é `scripts/run-sso-candidate-compose.sh`: ele lê os IDs dos diretórios
+e confronta a contagem bruta de linhas com `git apply --numstat`, recusando
+metadado stale ou cauda fora de hunk. O builder DocuSeal verifica a sintaxe Ruby
+dos quatro specs SSO; o harness repete esse gate num container Ruby pinado,
+isolado e somente leitura antes do build completo. Depois dos builds, o único
+caminho contratual para Compose é `scripts/run-sso-candidate-compose.sh`: ele
+lê os IDs dos diretórios
 fechados de evidência, executa `shasum -c`, relê os IDs para fechar TOCTOU e chama
 `scripts/validate-sso-candidate-images.sh` imediatamente antes do Compose. O
 preflight exige commit assinado e limpo, `linux/amd64` e todas as labels exatas.

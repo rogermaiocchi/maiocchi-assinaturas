@@ -24,14 +24,33 @@ audit_patch_indexes() {
   phase=$3
   old_path=''
   new_path=''
+  diff_count=0
+  index_count=0
+  index_seen=0
 
   while IFS= read -r line; do
     case "$line" in
       'diff --git a/'*)
+        if [ "$diff_count" -gt 0 ] && [ "$index_seen" -ne 1 ]; then
+          printf '%s\n' "Diff sem exatamente um índice de blob: $patch_file ($old_path)" >&2
+          return 1
+        fi
+        diff_count=$((diff_count + 1))
+        index_seen=0
         old_path=$(printf '%s\n' "$line" | awk '{print $3}' | sed 's#^a/##')
         new_path=$(printf '%s\n' "$line" | awk '{print $4}' | sed 's#^b/##')
         ;;
       'index '*)
+        if [ "$diff_count" -eq 0 ]; then
+          printf '%s\n' "Índice de blob fora de um diff: $patch_file" >&2
+          return 1
+        fi
+        index_seen=$((index_seen + 1))
+        index_count=$((index_count + 1))
+        if [ "$index_seen" -ne 1 ]; then
+          printf '%s\n' "Diff com mais de um índice de blob: $patch_file ($old_path)" >&2
+          return 1
+        fi
         hashes=$(printf '%s\n' "$line" | awk '{print $2}')
         old_hash=${hashes%%..*}
         new_hash=${hashes#*..}
@@ -66,6 +85,131 @@ audit_patch_indexes() {
         ;;
     esac
   done <"$patch_file"
+
+  if [ "$diff_count" -eq 0 ] || [ "$index_seen" -ne 1 ] || [ "$diff_count" -ne "$index_count" ]; then
+    printf '%s\n' "Cobertura incompleta de índices de blob: $patch_file (diffs=$diff_count índices=$index_count)" >&2
+    return 1
+  fi
+}
+
+audit_patch_line_accounting() {
+  patch_file=$1
+
+  raw_counts=$(awk '
+    /^\+\+\+ (b\/|\/dev\/null$)/ { next }
+    /^--- (a\/|\/dev\/null$)/ { next }
+    /^\+/ { added += 1; next }
+    /^-/ { deleted += 1 }
+    END { print added + 0, deleted + 0 }
+  ' "$patch_file")
+  raw_added=${raw_counts%% *}
+  raw_deleted=${raw_counts#* }
+
+  applied_counts=$(git apply --numstat "$patch_file" | awk '
+    $1 !~ /^[0-9]+$/ || $2 !~ /^[0-9]+$/ { exit 1 }
+    { added += $1; deleted += $2 }
+    END { print added + 0, deleted + 0 }
+  ')
+  applied_added=${applied_counts%% *}
+  applied_deleted=${applied_counts#* }
+
+  [ "$raw_added" -eq "$applied_added" ] && [ "$raw_deleted" -eq "$applied_deleted" ] || {
+    printf '%s\n' "Contagem de linhas fora dos hunks reconhecidos: $patch_file" >&2
+    return 1
+  }
+}
+
+audit_patch_hunks() {
+  patch_file=$1
+
+  awk -v patch_file="$patch_file" '
+    function die(message) {
+      print "Hunk inválido em " patch_file ": " message > "/dev/stderr"
+      failed = 1
+      exit 1
+    }
+
+    function finish_hunk() {
+      if (in_hunk && (old_remaining != 0 || new_remaining != 0)) {
+        die("contagem declarada não corresponde ao conteúdo")
+      }
+      in_hunk = 0
+    }
+
+    function range_count(token, marker, parts, count) {
+      if (substr(token, 1, 1) != marker) {
+        die("range sem marcador esperado")
+      }
+      token = substr(token, 2)
+      if (token !~ /^[0-9]+(,[0-9]+)?$/) {
+        die("range malformado")
+      }
+      count = split(token, parts, ",") == 1 ? 1 : parts[2] + 0
+      return count
+    }
+
+    /^diff --git / {
+      finish_hunk()
+      in_diff = 1
+      next
+    }
+
+    /^@@ / {
+      if (!in_diff) {
+        die("hunk fora de um diff")
+      }
+      finish_hunk()
+      if ($1 != "@@" || $4 != "@@") {
+        die("header de hunk malformado")
+      }
+      old_remaining = range_count($2, "-")
+      new_remaining = range_count($3, "+")
+      in_hunk = 1
+      hunk_count += 1
+      next
+    }
+
+    {
+      if (in_hunk) {
+        prefix = substr($0, 1, 1)
+        if (prefix == " ") {
+          old_remaining -= 1
+          new_remaining -= 1
+        } else if (prefix == "+") {
+          new_remaining -= 1
+        } else if (prefix == "-") {
+          old_remaining -= 1
+        } else {
+          die("linha sem prefixo de diff dentro do hunk")
+        }
+        if (old_remaining < 0 || new_remaining < 0) {
+          die("conteúdo excede a contagem declarada")
+        }
+        if (old_remaining == 0 && new_remaining == 0) {
+          in_hunk = 0
+        }
+        next
+      }
+
+      if ($0 ~ /^\\ No newline at end of file$/ ||
+          $0 ~ /^\+\+\+ (b\/|\/dev\/null$)/ ||
+          $0 ~ /^--- (a\/|\/dev\/null$)/) {
+        next
+      }
+      if ($0 ~ /^[ +\-\\]/) {
+        die("linha com aparência de conteúdo fora de hunk")
+      }
+    }
+
+    END {
+      if (!failed) {
+        finish_hunk()
+        if (hunk_count == 0) {
+          die("patch sem hunk reconhecido")
+        }
+      }
+    }
+  ' "$patch_file"
 }
 
 portal_source="$audit_root/portal-source"
@@ -77,16 +221,22 @@ git -C "$repo_dir" archive \
   --output="$audit_root/portal-base.tar" \
   "$portal_base_commit"
 tar -xf "$audit_root/portal-base.tar" -C "$portal_source"
+audit_patch_hunks "$portal_patch"
+audit_patch_line_accounting "$portal_patch"
 audit_patch_indexes "$portal_source" "$portal_patch" before
 git -C "$portal_source" apply --check "$portal_patch"
 git -C "$portal_source" apply "$portal_patch"
 audit_patch_indexes "$portal_source" "$portal_patch" after
 
 tar -xzf "$docuseal_base" -C "$docuseal_source"
+audit_patch_hunks "$docuseal_patch"
+audit_patch_line_accounting "$docuseal_patch"
 audit_patch_indexes "$docuseal_source" "$docuseal_patch" before
 git -C "$docuseal_source" apply --check "$docuseal_patch"
 git -C "$docuseal_source" apply "$docuseal_patch"
 audit_patch_indexes "$docuseal_source" "$docuseal_patch" after
+audit_patch_hunks "$docuseal_build_inputs_patch"
+audit_patch_line_accounting "$docuseal_build_inputs_patch"
 audit_patch_indexes "$docuseal_source" "$docuseal_build_inputs_patch" before
 git -C "$docuseal_source" apply --check "$docuseal_build_inputs_patch"
 git -C "$docuseal_source" apply "$docuseal_build_inputs_patch"

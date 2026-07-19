@@ -11,8 +11,8 @@ build_inputs_patch="$repo_dir/patches/docuseal/0010-pin-build-inputs.patch"
 harness_dockerfile="$repo_dir/tests/docuseal-sso-pg16/Dockerfile"
 
 readonly expected_base_sha='e8f3b6e8ba3a8e70c7ea66846b57f6c0bddcd582be87bd4ae3ee074c2f9ff26c'
-readonly expected_sso_patch_sha='30b925b53d7f778cd1320cea03e58f9b0d425de9bea6732dc3ee4816affc5c92'
-readonly expected_build_inputs_patch_sha='752e6ff168f093169dd120d509da4a10c79c04e2967799327edb0ef5e92481bc'
+readonly expected_sso_patch_sha='d37cc6334fc482a9f7a285601a7ec924541b87fe1e793686ba55f8fd3a4a4ffc'
+readonly expected_build_inputs_patch_sha='0e36b9a594e3da75f64c3c37909be5fa9f57e3eefeeed2d21d993590496a5987'
 readonly expected_harness_dockerfile_sha='02647dc00194f23f13aa062ad4206624aabcb49739f63f6eaa90720d5a16e177'
 readonly ruby_image='ruby:4.0.5-alpine@sha256:f48938e9ae72a4d32e728b03c306e7a7ff21f0cb6c2ed33f44a078c700b2aea6'
 readonly postgres_image='pgvector/pgvector:pg16@sha256:00ba258a66dac104fd5171074a0084462a64a1369d8513f3d0a634e2f24d15bc'
@@ -32,6 +32,7 @@ readonly network_name="maiocchi-docuseal-sso-pg16-net-$run_id"
 readonly database_container="maiocchi-docuseal-sso-pg16-db-$run_id"
 readonly migration_container="maiocchi-docuseal-sso-pg16-migrate-$run_id"
 readonly specs_container="maiocchi-docuseal-sso-pg16-specs-$run_id"
+readonly syntax_container="maiocchi-docuseal-sso-pg16-syntax-$run_id"
 readonly app_container="maiocchi-docuseal-sso-pg16-app-$run_id"
 readonly harness_image="maiocchi/docuseal-sso-pg16-harness:$run_id"
 readonly ownership_label='br.adv.maiocchi.harness-run'
@@ -66,7 +67,7 @@ cleanup() {
   trap - EXIT HUP INT TERM
   set +e
 
-  for name in "$app_container" "$specs_container" "$migration_container" "$database_container"; do
+  for name in "$app_container" "$specs_container" "$syntax_container" "$migration_container" "$database_container"; do
     if container_is_owned "$name"; then
       docker container rm --force --volumes "$name" >/dev/null 2>&1
     fi
@@ -100,9 +101,15 @@ trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-for required_tool in awk cut date docker find git grep mktemp sed shasum sort tar tr wc; do
+for required_tool in awk cut date docker find git grep id mktemp sed shasum sort tar tr wc; do
   command -v "$required_tool" >/dev/null 2>&1 || fail "$required_tool não está disponível."
 done
+
+host_uid="$(id -u)"
+host_gid="$(id -g)"
+readonly host_uid host_gid
+[[ "$host_uid" =~ ^[1-9][0-9]*$ ]] || fail 'O ensaio deve ser executado por um usuário host não-root.'
+[[ "$host_gid" =~ ^[1-9][0-9]*$ ]] || fail 'O grupo primário do usuário host deve ser não-root.'
 
 docker info >/dev/null 2>&1 || fail 'Docker Engine não está disponível.'
 
@@ -122,7 +129,7 @@ actual_harness_dockerfile_sha="$(shasum -a 256 "$harness_dockerfile" | awk '{pri
 [[ "$(grep -Fxc "FROM $ruby_image AS docuseal-sso-pg16-test" "$harness_dockerfile")" == '1' ]] || \
   fail 'Imagem Ruby do harness não está presa ao digest aprovado.'
 
-for name in "$database_container" "$migration_container" "$specs_container" "$app_container"; do
+for name in "$database_container" "$migration_container" "$syntax_container" "$specs_container" "$app_container"; do
   if docker container inspect "$name" >/dev/null 2>&1; then
     fail "Nome exclusivo de container já existe: $name"
   fi
@@ -197,6 +204,22 @@ for spec_index in "${!sso_specs[@]}"; do
   [[ "${discovered_sso_specs[$spec_index]}" == "${sso_specs[$spec_index]}" ]] || \
     fail 'Conjunto de specs SSO divergiu do conjunto fechado.'
 done
+
+docker pull --platform linux/amd64 "$ruby_image" >/dev/null
+docker run --rm \
+  --name "$syntax_container" \
+  --network none \
+  --platform linux/amd64 \
+  --label "$ownership_label=$run_id" \
+  --user "$host_uid:$host_gid" \
+  --read-only \
+  --security-opt no-new-privileges:true \
+  --cap-drop ALL \
+  --volume "$candidate_source:/source:ro" \
+  --workdir /source \
+  --tmpfs /tmp:rw,noexec,nosuid,nodev,size=16777216,mode=1777 \
+  "$ruby_image" \
+  sh -eu -c 'for ruby_file do ruby -c "$ruby_file" >/dev/null; done' sh "${sso_specs[@]}"
 
 docker pull --platform linux/amd64 "$postgres_image" >/dev/null
 
