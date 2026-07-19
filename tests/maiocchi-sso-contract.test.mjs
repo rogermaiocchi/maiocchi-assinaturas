@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const [baseArchive, patch, buildInputsPatch, access, traefik, overlay, buildScript] = await Promise.all([
+const [baseArchive, patch, buildInputsPatch, access, traefik, overlay, buildScript, docusealPg16Harness] = await Promise.all([
   readFile(new URL("../compliance/docuseal-maiocchi-3.0.1-maiocchi.14.tar.gz", import.meta.url)),
   readFile(new URL("../patches/docuseal/0009-maiocchi-uno-sso.patch", import.meta.url), "utf8"),
   readFile(new URL("../patches/docuseal/0010-pin-build-inputs.patch", import.meta.url), "utf8"),
@@ -11,6 +11,7 @@ const [baseArchive, patch, buildInputsPatch, access, traefik, overlay, buildScri
   readFile(new URL("../deploy/traefik-assinatura.yml", import.meta.url), "utf8"),
   readFile(new URL("../deploy/docuseal-sso.candidate.yml", import.meta.url), "utf8"),
   readFile(new URL("../scripts/build-docuseal-sso-candidate.sh", import.meta.url), "utf8"),
+  readFile(new URL("../scripts/test-docuseal-sso-pg16-isolated.sh", import.meta.url), "utf8"),
 ]);
 
 const [portalPatch, portalBuild, portalOverlay, portalContract, portalPackage, portalLock, portalDockerfile, portalCompose, brand] = await Promise.all([
@@ -100,6 +101,13 @@ test("canário DocuSeal não herda nomes, banco, volumes ou rede de produção",
   assert.match(overlay, /DOCUSEAL_CANARY_SECRET_DIR:[?]/);
   assert.match(overlay, /internal: true/);
   assert.doesNotMatch(overlay, /ports:|traefik-net|signature-internal|DOCUSEAL_DATA_DIR|DOCUSEAL_PGDATA_DIR/);
+});
+
+test("harness PG16 entrega tmpfs gravável somente ao usuário não-root da aplicação", () => {
+  assert.match(docusealPg16Harness, /uid=2100,gid=2100,mode=0700/);
+  assert.equal((docusealPg16Harness.match(/uid=2100,gid=2100,mode=0700/g) || []).length, 3);
+  assert.match(docusealPg16Harness, /--tmpfs '\/app\/tmp:[^']*uid=2100,gid=2100,mode=0700'/);
+  assert.doesNotMatch(docusealPg16Harness, /--tmpfs '\/app\/(?:log|storage|tmp):[^']*mode=0?777/);
 });
 
 test("portal estático possui candidato 1.15.1 derivado de snapshot imutável", () => {

@@ -291,9 +291,9 @@ readonly -a rails_environment=(
 )
 
 readonly -a ephemeral_app_storage=(
-  --tmpfs '/app/log:rw,noexec,nosuid,nodev,size=33554432'
-  --tmpfs '/app/storage:rw,noexec,nosuid,nodev,size=134217728'
-  --tmpfs '/app/tmp:rw,noexec,nosuid,nodev,size=268435456'
+  --tmpfs '/app/log:rw,noexec,nosuid,nodev,size=33554432,uid=2100,gid=2100,mode=0700'
+  --tmpfs '/app/storage:rw,noexec,nosuid,nodev,size=134217728,uid=2100,gid=2100,mode=0700'
+  --tmpfs '/app/tmp:rw,noexec,nosuid,nodev,size=268435456,uid=2100,gid=2100,mode=0700'
 )
 
 docker run --rm \
