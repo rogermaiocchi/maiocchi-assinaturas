@@ -1,5 +1,15 @@
 # syntax=docker/dockerfile:1
 
+FROM ruby:4.0.5-alpine@sha256:f48938e9ae72a4d32e728b03c306e7a7ff21f0cb6c2ed33f44a078c700b2aea6 AS docuseal-sso-pdfium
+
+WORKDIR /pdfium-download
+
+RUN apk add --no-cache wget && \
+    wget -O pdfium-linux.tgz "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium/7947/pdfium-linux-musl-x64.tgz" && \
+    printf '%s\n' '4fd8d95a629dfd5009f81ddb32b54b96e113d6fdc1c4801aae5e2fb37911c91b  pdfium-linux.tgz' | sha256sum -c - && \
+    mkdir -p /pdfium-linux && \
+    tar -xzf pdfium-linux.tgz -C /pdfium-linux
+
 FROM ruby:4.0.5-alpine@sha256:f48938e9ae72a4d32e728b03c306e7a7ff21f0cb6c2ed33f44a078c700b2aea6 AS docuseal-sso-pg16-test
 
 ARG DOCUSEAL_BASE_SOURCE_SHA256
@@ -27,6 +37,9 @@ ENV RAILS_ENV=test \
     WORKDIR=/app
 
 WORKDIR /app
+
+COPY --from=docuseal-sso-pdfium /pdfium-linux/lib/libpdfium.so /usr/lib/libpdfium.so
+COPY --from=docuseal-sso-pdfium /pdfium-linux/licenses/pdfium.txt /usr/lib/libpdfium-LICENSE.txt
 
 RUN apk add --no-cache libpq vips redis onnxruntime tzdata && \
     apk add --no-cache --virtual .build-deps build-base git libpq-dev yaml-dev && \

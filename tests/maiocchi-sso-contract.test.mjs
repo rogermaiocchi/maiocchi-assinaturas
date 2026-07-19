@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const [baseArchive, patch, buildInputsPatch, access, traefik, overlay, buildScript, docusealPg16Harness] = await Promise.all([
+const [baseArchive, patch, buildInputsPatch, access, traefik, overlay, buildScript, docusealPg16Harness, docusealPg16Dockerfile] = await Promise.all([
   readFile(new URL("../compliance/docuseal-maiocchi-3.0.1-maiocchi.14.tar.gz", import.meta.url)),
   readFile(new URL("../patches/docuseal/0009-maiocchi-uno-sso.patch", import.meta.url), "utf8"),
   readFile(new URL("../patches/docuseal/0010-pin-build-inputs.patch", import.meta.url), "utf8"),
@@ -12,6 +12,7 @@ const [baseArchive, patch, buildInputsPatch, access, traefik, overlay, buildScri
   readFile(new URL("../deploy/docuseal-sso.candidate.yml", import.meta.url), "utf8"),
   readFile(new URL("../scripts/build-docuseal-sso-candidate.sh", import.meta.url), "utf8"),
   readFile(new URL("../scripts/test-docuseal-sso-pg16-isolated.sh", import.meta.url), "utf8"),
+  readFile(new URL("../tests/docuseal-sso-pg16/Dockerfile", import.meta.url), "utf8"),
 ]);
 
 const [portalPatch, portalBuild, portalOverlay, portalContract, portalPackage, portalLock, portalDockerfile, portalCompose, brand] = await Promise.all([
@@ -111,6 +112,13 @@ test("harness PG16 entrega tmpfs gravável somente ao usuário não-root da apli
   assert.equal((docusealPg16Harness.match(/uid=2100,gid=2100,mode=0700/g) || []).length, 3);
   assert.match(docusealPg16Harness, /--tmpfs '\/app\/tmp:[^']*uid=2100,gid=2100,mode=0700'/);
   assert.doesNotMatch(docusealPg16Harness, /--tmpfs '\/app\/(?:log|storage|tmp):[^']*mode=0?777/);
+});
+
+test("harness PG16 carrega PDFium pelo mesmo release e hash do candidato", () => {
+  assert.match(docusealPg16Dockerfile, /releases\/download\/chromium\/7947\/pdfium-linux-musl-x64[.]tgz/);
+  assert.match(docusealPg16Dockerfile, /4fd8d95a629dfd5009f81ddb32b54b96e113d6fdc1c4801aae5e2fb37911c91b/);
+  assert.match(docusealPg16Dockerfile, /COPY --from=docuseal-sso-pdfium \/pdfium-linux\/lib\/libpdfium[.]so \/usr\/lib\/libpdfium[.]so/);
+  assert.doesNotMatch(docusealPg16Dockerfile, /releases\/latest|refs\/heads\/(?:main|master)/);
 });
 
 test("portal estático possui candidato 1.15.1 derivado de snapshot imutável", () => {
