@@ -92,7 +92,7 @@
     },
     "postgres_harness": {
       "path": "scripts/test-docuseal-sso-pg16-isolated.sh",
-      "sha256": "bc1f72160ba949e6728d6fb100b152177bd03ae3b3b2c70f795098ab6e4aa186",
+      "sha256": "64ff3a52a9625329d366dbddcd3e39551ed15a64142b303f9b7c7a06b7864381",
       "dockerfile_path": "tests/docuseal-sso-pg16/Dockerfile",
       "dockerfile_sha256": "95c14b2db45e9fa198809fd56bd4664d9256773f4423349c2393cb88058c826d"
     },

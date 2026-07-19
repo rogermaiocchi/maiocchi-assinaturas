@@ -309,6 +309,14 @@ test("harness PG16 entrega tmpfs gravável somente ao usuário não-root da apli
   assert.doesNotMatch(docusealPg16Harness, /--tmpfs '\/app\/(?:log|storage|tmp):[^']*mode=0?777/);
 });
 
+test("harness valida o round-trip TIFF pela mesma API Ruby/Vips da aplicação", () => {
+  assert.match(docusealPg16Harness, /bundle exec ruby -rvips -e/);
+  assert.match(docusealPg16Harness, /Vips::Image[.]black\(2, 2\)/);
+  assert.match(docusealPg16Harness, /image[.]tiffsave/);
+  assert.match(docusealPg16Harness, /Vips::Image[.]new_from_file/);
+  assert.doesNotMatch(docusealPg16Harness, /\bvips black\b|\bvipsheader\b/);
+});
+
 test("harness PG16 carrega PDFium pelo mesmo release e hash do candidato", () => {
   assert.doesNotMatch(docusealPg16Dockerfile, /^#\s*syntax=/m);
   assert.match(docusealPg16Dockerfile, /releases\/download\/chromium\/7947\/pdfium-linux-musl-x64[.]tgz/);

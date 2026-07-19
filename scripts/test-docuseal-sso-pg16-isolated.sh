@@ -373,9 +373,7 @@ docker run --rm \
       if grep -F '\''not found'\'' /tmp/openexr.ldd >/dev/null; then exit 1; fi
     done
 
-    vips black /tmp/maiocchi-tiff-probe.tif 2 2
-    test "$(vipsheader -f width /tmp/maiocchi-tiff-probe.tif)" = 2
-    test "$(vipsheader -f height /tmp/maiocchi-tiff-probe.tif)" = 2
+    bundle exec ruby -rvips -e "image = Vips::Image.black(2, 2); image.tiffsave(\"/tmp/maiocchi-tiff-probe.tif\"); decoded = Vips::Image.new_from_file(\"/tmp/maiocchi-tiff-probe.tif\"); abort unless decoded.width == 2 && decoded.height == 2"
   '
 
 docker network create \
@@ -535,6 +533,6 @@ printf '%s\n' \
   "APKBUILD TIFF SHA-256: $actual_tiff_apkbuild_sha" \
   "Commit de receita assinado: $recipe_commit" \
   "Pacotes nativos: tiff=$expected_tiff_version; openexr-lib*=$expected_openexr_version (4/4)" \
-  'Pacotes nativos/linkage: APK ownership, ldd e round-trip TIFF validados antes dos specs.' \
+  'Pacotes nativos/linkage: APK ownership, ldd e round-trip TIFF via Ruby/Vips validados antes dos specs.' \
   "Specs executados: ${#sso_specs[@]} (conjunto fechado)" \
   'Portas publicadas: 0; volumes persistentes/binds: 0; health interno: 200.'
