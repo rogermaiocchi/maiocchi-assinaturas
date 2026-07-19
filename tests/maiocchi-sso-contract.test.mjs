@@ -115,6 +115,7 @@ test("harness PG16 entrega tmpfs gravável somente ao usuário não-root da apli
 });
 
 test("harness PG16 carrega PDFium pelo mesmo release e hash do candidato", () => {
+  assert.doesNotMatch(docusealPg16Dockerfile, /^#\s*syntax=/m);
   assert.match(docusealPg16Dockerfile, /releases\/download\/chromium\/7947\/pdfium-linux-musl-x64[.]tgz/);
   assert.match(docusealPg16Dockerfile, /4fd8d95a629dfd5009f81ddb32b54b96e113d6fdc1c4801aae5e2fb37911c91b/);
   assert.match(docusealPg16Dockerfile, /COPY --from=docuseal-sso-pdfium \/pdfium-linux\/lib\/libpdfium[.]so \/usr\/lib\/libpdfium[.]so/);
