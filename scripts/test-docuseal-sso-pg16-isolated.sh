@@ -11,7 +11,7 @@ build_inputs_patch="$repo_dir/patches/docuseal/0010-pin-build-inputs.patch"
 harness_dockerfile="$repo_dir/tests/docuseal-sso-pg16/Dockerfile"
 
 readonly expected_base_sha='e8f3b6e8ba3a8e70c7ea66846b57f6c0bddcd582be87bd4ae3ee074c2f9ff26c'
-readonly expected_sso_patch_sha='293e9b6ee123f6312a8fd101eda5e5a45383086121f471b0b71748c5df9ebfa3'
+readonly expected_sso_patch_sha='27be8a116d8ed918c1773e9cc0d301f42e064de493e3f88d8ae56e47e24001cd'
 readonly expected_build_inputs_patch_sha='752e6ff168f093169dd120d509da4a10c79c04e2967799327edb0ef5e92481bc'
 readonly expected_harness_dockerfile_sha='d3b6293cb9469b996a9115ea6a3cbebad2fbedb76706b2b1527e6c2139100aac'
 readonly ruby_image='ruby:4.0.5-alpine@sha256:f48938e9ae72a4d32e728b03c306e7a7ff21f0cb6c2ed33f44a078c700b2aea6'
@@ -305,14 +305,15 @@ docker run --rm \
   "${ephemeral_app_storage[@]}" \
   "$harness_image" rails db:migrate
 
-migration_version="$(
+migration_versions="$(
   docker exec \
     --env "PGPASSWORD=$postgres_password" \
     "$database_container" \
     psql -U "$postgres_user" -d "$postgres_database" -Atc \
-      "SELECT version FROM schema_migrations WHERE version = '20260718090000'"
+      "SELECT string_agg(version, ',' ORDER BY version) FROM schema_migrations WHERE version IN ('20260718090000', '20260718090100')"
 )"
-[[ "$migration_version" == '20260718090000' ]] || fail 'Migration SSO não foi registrada no PostgreSQL 16.'
+[[ "$migration_versions" == '20260718090000,20260718090100' ]] || \
+  fail 'Migrations SSO e de repair pós-schema-load não foram registradas no PostgreSQL 16.'
 
 guard_count="$(
   docker exec \

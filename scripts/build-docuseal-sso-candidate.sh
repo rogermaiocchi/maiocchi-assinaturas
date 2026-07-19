@@ -7,7 +7,7 @@ base_archive="$repo_dir/compliance/docuseal-maiocchi-3.0.1-maiocchi.14.tar.gz"
 sso_patch="$repo_dir/patches/docuseal/0009-maiocchi-uno-sso.patch"
 build_inputs_patch="$repo_dir/patches/docuseal/0010-pin-build-inputs.patch"
 expected_base_sha='e8f3b6e8ba3a8e70c7ea66846b57f6c0bddcd582be87bd4ae3ee074c2f9ff26c'
-expected_patch_sha='293e9b6ee123f6312a8fd101eda5e5a45383086121f471b0b71748c5df9ebfa3'
+expected_patch_sha='27be8a116d8ed918c1773e9cc0d301f42e064de493e3f88d8ae56e47e24001cd'
 expected_build_inputs_patch_sha='752e6ff168f093169dd120d509da4a10c79c04e2967799327edb0ef5e92481bc'
 ruby_base='ruby:4.0.5-alpine'
 ruby_base_digest='sha256:f48938e9ae72a4d32e728b03c306e7a7ff21f0cb6c2ed33f44a078c700b2aea6'
@@ -65,7 +65,8 @@ for ruby_file in \
   "$candidate_work/lib/maiocchi_sso/identity_resolver.rb" \
   "$candidate_work/lib/maiocchi_sso/token_exchange.rb" \
   "$candidate_work/config/initializers/maiocchi_session_store.rb" \
-  "$candidate_work/db/migrate/20260718090000_create_maiocchi_sso_identities.rb"
+  "$candidate_work/db/migrate/20260718090000_create_maiocchi_sso_identities.rb" \
+  "$candidate_work/db/migrate/20260718090100_install_maiocchi_sso_guards.rb"
 do
   "$ruby_bin" -c "$ruby_file" >/dev/null
 done

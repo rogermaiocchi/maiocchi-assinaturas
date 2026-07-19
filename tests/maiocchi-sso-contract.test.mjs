@@ -39,6 +39,9 @@ test("patch SSO deriva exclusivamente da fonte DocuSeal .14 aprovada", () => {
   );
   assert.match(buildScript, /git -C "\$candidate_work" apply --check "\$sso_patch"/);
   assert.match(buildScript, /git -C "\$candidate_work" apply --check "\$build_inputs_patch"/);
+  assert.match(patch, /20260718090100_install_maiocchi_sso_guards[.]rb/);
+  assert.match(patch, /Rails carrega schema[.]rb em bancos vazios/);
+  assert.match(patch, /CREATE OR REPLACE FUNCTION guard_maiocchi_sso_identity_binding/);
 });
 
 test("browser flow fixa endpoints, PKCE S256, state use-once e sessão host-only", () => {
