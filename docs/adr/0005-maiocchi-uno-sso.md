@@ -48,6 +48,14 @@ produção, o cookie é `__Host-docuseal_session`, `Secure`, `HttpOnly`,
 e senha/OTP locais permanecem disponíveis. O SSO passa a ser o botão principal
 do portal, mas não remove os fallbacks.
 
+Todas as respostas do fluxo recebem `Cache-Control: no-store`, `Pragma:
+no-cache` e `Referrer-Policy: no-referrer`. O contrato verifica a presença
+semântica da diretiva `no-store`, não uma serialização redundante com
+`max-age=0`: o [RFC 9111, seção 5.2.2.5](https://www.rfc-editor.org/rfc/rfc9111.html#section-5.2.2.5)
+proíbe armazenamento e reuso com `no-store`, e o
+[Rails 8.1.3](https://github.com/rails/rails/blob/v8.1.3/actionpack/lib/action_dispatch/http/cache.rb#L261-L296)
+normaliza esse caso para a forma canônica `no-store`.
+
 ## Evidência e testes negativos
 
 O patch contém specs para:
@@ -66,10 +74,10 @@ executadas depois da construção da imagem candidata e de PostgreSQL 16 isolado
 
 ## Candidato do portal estático
 
-O botão SSO não integra a imagem produtiva `1.15.0`. Ele compõe o candidato
-`maiocchi/assinatura-portal:1.15.1`, com versão coerente em `package.json`,
-`package-lock.json`, label OCI, fonte OCI e compose. As duas imagens-base do
-Dockerfile estão fixadas por digest.
+O botão SSO não integra a imagem produtiva `1.15.0`. Ele compõe um candidato com
+tag exclusiva no padrão `1.15.1-sso-<recipe-sha12>-a<tentativa>`, com versão
+coerente em `package.json`, `package-lock.json`, label OCI, fonte OCI e compose.
+As duas imagens-base do Dockerfile estão fixadas por digest.
 
 O contexto de build não nasce da worktree: o script reconstrói o commit exato
 `7e864d548b39ff3bbdcc6693f0bc05b3a72ed44d`, aplica o patch de hash fixo e só
@@ -81,8 +89,12 @@ produtiva por simples execução do compose candidato.
 O contrato `portal-v1.15.1-sso-candidate.contract.json` exige `docker inspect`,
 archive da imagem efetivamente construída, SBOM CycloneDX bruto do Syft,
 relatório Grype bruto, gate `--fail-on high`, label do commit assinado da receita
-e manifesto SHA-256. Ausência de qualquer evidência mantém o status NO-GO; SBOM
-ou scan de versão anterior não podem ser reaproveitados.
+e manifesto SHA-256. O build captura o image ID `sha256:` imediatamente após a
+construção; inspect, archive, Syft e Grype operam nesse ID, com origem Docker
+explícita, e a tag é conferida outra vez no fim. A tag recebe lock atômico dentro
+do Git dir real — inclusive em worktrees — e o diretório-folha de evidência é
+reservado por `mkdir` atômico. Ausência de qualquer evidência mantém o status
+NO-GO; SBOM ou scan de versão anterior não podem ser reaproveitados.
 
 ## Candidato DocuSeal e supply chain
 
@@ -103,16 +115,29 @@ bit-a-bit antes de um double-build comprovado. A verdade imutável da release é
 archive hashado da imagem construída a partir do commit assinado, não uma
 promessa narrativa de reprodutibilidade.
 
+`scripts/validate-release-patch-indexes.sh` reconstrói as duas fontes, compara
+todos os blob IDs declarados antes e depois dos patches `0001`, `0009` e `0010`
+e recusa metadado stale. Depois dos builds, o único caminho contratual para
+Compose é `scripts/run-sso-candidate-compose.sh`: ele lê os IDs dos diretórios
+fechados de evidência, executa `shasum -c`, relê os IDs para fechar TOCTOU e chama
+`scripts/validate-sso-candidate-images.sh` imediatamente antes do Compose. O
+preflight exige commit assinado e limpo, `linux/amd64` e todas as labels exatas.
+O wrapper fixa projeto, diretório, env-file e os dois YAMLs; não admite `run`,
+`exec`, overlays ou opções de publicação. `config` só pode ser silencioso e sem
+interpolação, para não materializar credenciais na saída.
+
 ## Gates de ativação
 
 1. Construir tags únicas contendo o SHA congelado para Portal 1.15.1 e DocuSeal
    3.0.1-maiocchi.15; não reutilizar tag/evidence dir anterior.
 2. Executar o harness PostgreSQL 16, migrations, triggers, specs Rails e smoke.
 3. Gerar SBOM CycloneDX e relatório Grype das duas imagens efetivamente construídas.
-4. Instalar a mesma credencial SSO distinta nos dois lados, sem expô-la.
-5. Cadastrar o UUID exato do account e, se necessário, o UUID bootstrap.
-6. Ensaiar backup/restore e rollback em clone isolado.
-7. Ativar primeiro em canário privado e executar E2E navegador completo.
+4. Validar os diretórios fechados de evidência e as imagens por ID imutável no
+   preflight obrigatório do wrapper Compose.
+5. Instalar a mesma credencial SSO distinta nos dois lados, sem expô-la.
+6. Cadastrar o UUID exato do account e, se necessário, o UUID bootstrap.
+7. Ensaiar backup/restore e rollback em clone isolado.
+8. Ativar primeiro em canário privado e executar E2E navegador completo.
 
 Até todos os gates produzirem evidência, `MAIOCCHI_SSO_ENABLED` permanece
 `false`; este ADR não afirma execução em produção.

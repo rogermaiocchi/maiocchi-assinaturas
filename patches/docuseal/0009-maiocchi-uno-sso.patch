@@ -20,7 +20,7 @@ index 4efd49aa95b5ace6ece46eee6438b9d3c68db97a..ddb378156cc1a1ac5c6fb9342248e64e
  
 diff --git a/app/controllers/maiocchi_sso_controller.rb b/app/controllers/maiocchi_sso_controller.rb
 new file mode 100644
-index 0000000000000000000000000000000000000000..d7df96de15fddded7fa07ece4cdb6c000c1ef8fe
+index 0000000000000000000000000000000000000000..e7f1d9d03a498c92b2f398282823d4c3176ee290
 --- /dev/null
 +++ b/app/controllers/maiocchi_sso_controller.rb
 @@ -0,0 +1,116 @@
@@ -34,9 +34,9 @@ index 0000000000000000000000000000000000000000..d7df96de15fddded7fa07ece4cdb6c00
 +  skip_before_action :authenticate_user!
 +  skip_before_action :maybe_redirect_to_setup
 +
++  before_action :set_private_response_headers
 +  before_action :ensure_exact_callback_host!
 +  before_action :ensure_enabled!
-+  after_action :set_private_response_headers
 +
 +  rescue_from MaiocchiSso::FlowError, ActionController::ParameterMissing do
 +    clear_flow!
@@ -135,7 +135,7 @@ index 0000000000000000000000000000000000000000..d7df96de15fddded7fa07ece4cdb6c00
 +  end
 +
 +  def set_private_response_headers
-+    response.headers['Cache-Control'] = 'no-store, max-age=0'
++    response.headers['Cache-Control'] = 'no-store'
 +    response.headers['Pragma'] = 'no-cache'
 +    response.headers['Referrer-Policy'] = 'no-referrer'
 +  end
@@ -574,7 +574,7 @@ index 0000000000000000000000000000000000000000..4f04527d1fadfb78c25a8311835d26d1
 +end
 diff --git a/lib/maiocchi_sso/identity_resolver.rb b/lib/maiocchi_sso/identity_resolver.rb
 new file mode 100644
-index 0000000000000000000000000000000000000000..a664afa9c342455708b1e4ef9fa54ed27f9efb92
+index 0000000000000000000000000000000000000000..8e79c0fca3521fa1ab565fce0c7eabfd6e559231
 --- /dev/null
 +++ b/lib/maiocchi_sso/identity_resolver.rb
 @@ -0,0 +1,109 @@
@@ -1100,7 +1100,7 @@ index 0000000000000000000000000000000000000000..17dcfeb3c6d8268fa1737ab97dd2b755
 +end
 diff --git a/spec/requests/maiocchi_sso_spec.rb b/spec/requests/maiocchi_sso_spec.rb
 new file mode 100644
-index 0000000000000000000000000000000000000000..6049e4e879a0b2c63b779dc5d82bd012195e14e6
+index 0000000000000000000000000000000000000000..cb0aa2aa41efe24cb78d47a8e568414ec088bda2
 --- /dev/null
 +++ b/spec/requests/maiocchi_sso_spec.rb
 @@ -0,0 +1,110 @@
@@ -1160,7 +1160,7 @@ index 0000000000000000000000000000000000000000..6049e4e879a0b2c63b779dc5d82bd012
 +    expected_challenge = Base64.urlsafe_encode64(Digest::SHA256.digest(captured.fetch(:verifier)), padding: false)
 +    expect(expected_challenge).to eq(query.fetch('code_challenge'))
 +    expect(controller.current_user).to eq(user)
-+    expect(response.headers['Cache-Control']).to eq('no-store, max-age=0')
++    expect(response.headers['Cache-Control'].split(',').map(&:strip)).to include('no-store')
 +    expect(response.headers['Referrer-Policy']).to eq('no-referrer')
 +  end
 +
@@ -1185,6 +1185,9 @@ index 0000000000000000000000000000000000000000..6049e4e879a0b2c63b779dc5d82bd012
 +
 +    expect(response).to have_http_status(:unprocessable_content)
 +    expect(MaiocchiSso::TokenExchange).not_to have_received(:call)
++    expect(response.headers['Cache-Control'].split(',').map(&:strip)).to include('no-store')
++    expect(response.headers['Pragma']).to eq('no-cache')
++    expect(response.headers['Referrer-Policy']).to eq('no-referrer')
 +  end
 +
 +  it 'rejects an expired browser flow before exchanging the code' do
@@ -1212,5 +1215,8 @@ index 0000000000000000000000000000000000000000..6049e4e879a0b2c63b779dc5d82bd012
 +    host! 'assinatura.maiocchi.adv.br.evil.invalid'
 +    get maiocchi_sso_start_path
 +    expect(response).to have_http_status(:unprocessable_content)
++    expect(response.headers['Cache-Control'].split(',').map(&:strip)).to include('no-store')
++    expect(response.headers['Pragma']).to eq('no-cache')
++    expect(response.headers['Referrer-Policy']).to eq('no-referrer')
 +  end
 +end

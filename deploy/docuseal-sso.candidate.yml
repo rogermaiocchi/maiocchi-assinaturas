@@ -19,7 +19,7 @@ services:
       start_period: 10s
 
   docuseal-sso-candidate:
-    image: maiocchi/docuseal:3.0.1-maiocchi.15
+    image: "${DOCUSEAL_SSO_CANDIDATE_IMAGE_ID:?defina o image ID sha256 validado pelo preflight}"
     container_name: docuseal-sso-candidate
     restart: "no"
     depends_on:

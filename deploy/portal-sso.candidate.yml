@@ -1,6 +1,6 @@
 services:
   portal-sso-candidate:
-    image: maiocchi/assinatura-portal:1.15.1
+    image: "${PORTAL_SSO_CANDIDATE_IMAGE_ID:?defina o image ID sha256 validado pelo preflight}"
     container_name: assinatura-portal-sso-candidate
     restart: "no"
     read_only: true

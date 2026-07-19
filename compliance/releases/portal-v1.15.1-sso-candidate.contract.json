@@ -5,13 +5,13 @@
   "base_commit": "7e864d548b39ff3bbdcc6693f0bc05b3a72ed44d",
   "source_patch": {
     "path": "patches/portal/0001-maiocchi-sso-portal-1.15.1.patch",
-    "sha256": "272c65dd0b932f127b53f0556fb1be814a066367a56acb613e37d1acf46b7c50"
+    "sha256": "d088a5a8fdcde66e12ab747dad9a4477de39513f168dbb61bad264a92e19be66"
   },
   "build_script": {
     "path": "scripts/build-portal-sso-candidate.sh",
-    "sha256": "ef1ba6a2a47bc8349bfafedf90e3b81fc361e3428fac83d2fa4f53ab17e499cc"
+    "sha256": "759df77bfef247703dad9c9a9ed5a298ba51c95953d1201c19b647c6a71ac602"
   },
-  "image": "maiocchi/assinatura-portal:1.15.1",
+  "image": "maiocchi/assinatura-portal:1.15.1-sso-<recipe-sha12>-a<attempt-2d>",
   "required_labels": {
     "org.opencontainers.image.version": "1.15.1",
     "org.opencontainers.image.revision": "signed recipe commit",
@@ -20,6 +20,11 @@
     "br.adv.maiocchi.recipe-commit": "signed recipe commit"
   },
   "required_evidence": [
+    {
+      "kind": "immutable-image-id",
+      "path": "portal-1.15.1.image-id.txt",
+      "generator": "docker image inspect --format {{.Id}}"
+    },
     {
       "kind": "image-inspect",
       "path": "portal-1.15.1.image-inspect.json",
@@ -52,8 +57,10 @@
     "source_snapshot": "git archive of exact base commit plus exact patch; dirty and untracked files excluded",
     "source_tests": "npm run build, the portal tests in tests/*.test.mjs, and npm run lint must exit zero inside the reconstructed snapshot; PKI Bridge is a separate image and suite",
     "base_images": "all Dockerfile FROM references must include sha256 digests",
+    "artifact_identity": "inspect, archive, Syft and Grype operate on the captured sha256 image ID with Docker source selected explicitly; the build tag must still resolve to that ID after evidence generation",
     "vulnerability_policy": "grype --fail-on high",
     "canary": "candidate service has a unique container name and an internal-only network; no public router",
+    "compose_preflight": "scripts/run-sso-candidate-compose.sh reads both IDs from hash-verified evidence and calls scripts/validate-sso-candidate-images.sh immediately before Compose",
     "promotion": "production 1.15.0 is unchanged until explicit image promotion after E2E"
   }
 }
