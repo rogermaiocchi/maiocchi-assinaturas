@@ -78,78 +78,15 @@ materialize_lab_images() {
   export SSO_E2E_HTTP_VERIFIER_IMAGE_ID SSO_E2E_DB_VERIFIER_IMAGE_ID SSO_E2E_GATEWAY_IMAGE_ID
 }
 
-compose_config_quiet() {
+compose() {
   docker compose \
     --project-name "$project_name" \
     --project-directory "$compose_root" \
     --env-file /dev/null \
     --file "$compose_root/deploy/portal-sso.candidate.yml" \
     --file "$compose_root/deploy/docuseal-sso.candidate.yml" \
-    --file "$repo_dir/deploy/sso-e2e-gateway.candidate.yml" \
-    config --quiet
-}
-
-compose_config_quiet_no_interpolate() {
-  docker compose \
-    --project-name "$project_name" \
-    --project-directory "$compose_root" \
-    --env-file /dev/null \
-    --file "$compose_root/deploy/portal-sso.candidate.yml" \
-    --file "$compose_root/deploy/docuseal-sso.candidate.yml" \
-    --file "$repo_dir/deploy/sso-e2e-gateway.candidate.yml" \
-    config --quiet --no-interpolate
-}
-
-compose_up_candidate_stack() {
-  docker compose \
-    --project-name "$project_name" \
-    --project-directory "$compose_root" \
-    --env-file /dev/null \
-    --file "$compose_root/deploy/portal-sso.candidate.yml" \
-    --file "$compose_root/deploy/docuseal-sso.candidate.yml" \
-    --file "$repo_dir/deploy/sso-e2e-gateway.candidate.yml" \
-    up \
-    --detach \
-    --wait \
-    --wait-timeout 900 \
-    --force-recreate \
-    --remove-orphans \
-    portal-sso-candidate \
-    docuseal-sso-candidate \
-    sso-e2e-gateway-candidate
-}
-
-compose_down_candidate_stack() {
-  docker compose \
-    --project-name "$project_name" \
-    --project-directory "$compose_root" \
-    --env-file /dev/null \
-    --file "$compose_root/deploy/portal-sso.candidate.yml" \
-    --file "$compose_root/deploy/docuseal-sso.candidate.yml" \
-    --file "$repo_dir/deploy/sso-e2e-gateway.candidate.yml" \
-    down --remove-orphans --timeout 30 --volumes
-}
-
-compose_run_e2e_probe() {
-  docker compose \
-    --project-name "$project_name" \
-    --project-directory "$compose_root" \
-    --env-file /dev/null \
-    --file "$compose_root/deploy/portal-sso.candidate.yml" \
-    --file "$compose_root/deploy/docuseal-sso.candidate.yml" \
-    --file "$repo_dir/deploy/sso-e2e-gateway.candidate.yml" \
-    --profile e2e run --rm --no-deps sso-e2e-probe-candidate
-}
-
-compose_run_e2e_db_verifier() {
-  docker compose \
-    --project-name "$project_name" \
-    --project-directory "$compose_root" \
-    --env-file /dev/null \
-    --file "$compose_root/deploy/portal-sso.candidate.yml" \
-    --file "$compose_root/deploy/docuseal-sso.candidate.yml" \
-    --file "$repo_dir/deploy/sso-e2e-gateway.candidate.yml" \
-    --profile e2e run --rm --no-deps sso-e2e-db-verifier-candidate
+    --file "$compose_root/deploy/sso-e2e-gateway.candidate.yml" \
+    "$@"
 }
 
 activate_recipe_stage() {
@@ -295,12 +232,20 @@ validate_up_contract() {
   "$image_validator"
   "$runtime_validator"
   activate_recipe_stage
-  compose_config_quiet
+  compose config --quiet
 }
 
 up_stack() {
   validate_up_contract
-  compose_up_candidate_stack
+  compose up \
+    --detach \
+    --wait \
+    --wait-timeout 900 \
+    --force-recreate \
+    --remove-orphans \
+    portal-sso-candidate \
+    docuseal-sso-candidate \
+    sso-e2e-gateway-candidate
 }
 
 down_stack() {
@@ -324,7 +269,7 @@ down_stack() {
   export UNO_CANARY_SECRETS_DIR SSO_E2E_CA_FILE SSO_E2E_CERT_FILE SSO_E2E_KEY_FILE
   export SSO_E2E_EVIDENCE_DIR UNO_SSO_CANDIDATE_NETWORK
   export SSO_E2E_HTTP_VERIFIER_IMAGE_ID SSO_E2E_DB_VERIFIER_IMAGE_ID SSO_E2E_GATEWAY_IMAGE_ID
-  compose_down_candidate_stack
+  compose down --remove-orphans --timeout 30 --volumes
 }
 
 production_fingerprint() {
@@ -371,7 +316,7 @@ docker compose version >/dev/null 2>&1 || fail 'Docker Compose v2 não está dis
 
 case "$1" in
   config)
-    compose_config_quiet_no_interpolate
+    compose config --quiet --no-interpolate
     ;;
   e2e)
     e2e_stack_active=false
@@ -386,8 +331,8 @@ case "$1" in
     production_before=$(production_fingerprint)
     e2e_stack_active=true
     up_stack
-    compose_run_e2e_probe
-    compose_run_e2e_db_verifier
+    compose --profile e2e run --rm --no-deps sso-e2e-probe-candidate
+    compose --profile e2e run --rm --no-deps sso-e2e-db-verifier-candidate
     production_after=$(production_fingerprint)
     node "$evidence_finalizer" \
       "${SSO_E2E_EVIDENCE_DIR:?SSO_E2E_EVIDENCE_DIR é obrigatório}" \

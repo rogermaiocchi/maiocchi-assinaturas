@@ -1,7 +1,6 @@
 services:
   docuseal-sso-db-candidate:
     image: postgres:16-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
-    container_name: docuseal-sso-db-candidate
     restart: "no"
     environment:
       POSTGRES_DB: docuseal_sso_candidate
@@ -18,29 +17,20 @@ services:
       retries: 20
       start_period: 10s
 
-  docuseal-sso-candidate:
+  docuseal-sso-bootstrap-candidate:
     image: "${DOCUSEAL_SSO_CANDIDATE_IMAGE_ID:?defina o image ID sha256 validado pelo preflight}"
-    container_name: docuseal-sso-candidate
     restart: "no"
     depends_on:
       docuseal-sso-db-candidate:
         condition: service_healthy
     environment:
-      HOST: docuseal-sso-candidate
-      APP_URL: http://docuseal-sso-candidate:3000
-      EMAIL_HOST: docuseal-sso-candidate
-      FORCE_SSL: "false"
-      # en-US is always present in DocuSeal i18n; avoids lab 500 (I18n::InvalidLocale pt-BR/pt drift).
-      DEFAULT_LOCALE: en-US
       DATABASE_URL: "postgresql://docuseal_sso_candidate:${DOCUSEAL_CANARY_DB_PASS:?defina senha sintética exclusiva do canário}@docuseal-sso-db-candidate:5432/docuseal_sso_candidate"
       SECRET_KEY_BASE: "${DOCUSEAL_CANARY_SECRET_KEY_BASE:?defina chave exclusiva do canário}"
-      MAIOCCHI_SSO_ENABLED: "${MAIOCCHI_CANARY_SSO_ENABLED:-false}"
-      MAIOCCHI_SSO_ACCOUNT_UUID: "${MAIOCCHI_CANARY_SSO_ACCOUNT_UUID:-}"
-      MAIOCCHI_SSO_BOOTSTRAP_USER_UUID: "${MAIOCCHI_CANARY_SSO_BOOTSTRAP_USER_UUID:-}"
-      MAIOCCHI_SSO_CLIENT_SECRET_FILE: /run/signature-canary-secrets/api_signature_sso_client_secret
+      DEFAULT_LOCALE: en-US
+      MAIOCCHI_CANARY_ACCOUNT_UUID: "33333333-3333-4333-8333-333333333333"
+    command: ["bundle", "exec", "rails", "runner", "/run/sso-e2e/docuseal-sso-bootstrap.rb"]
     volumes:
-      - docuseal-sso-candidate-data:/data
-      - "${DOCUSEAL_CANARY_SECRET_DIR:?defina diretório de secrets exclusivo do canário}:/run/signature-canary-secrets:ro"
+      - ./sso-e2e/docuseal-sso-bootstrap.rb:/run/sso-e2e/docuseal-sso-bootstrap.rb:ro
     read_only: true
     tmpfs:
       - /tmp:size=64m,mode=1777
@@ -50,6 +40,55 @@ services:
       - ALL
     networks:
       - docuseal-sso-candidate
+
+  docuseal-sso-candidate:
+    image: "${DOCUSEAL_SSO_CANDIDATE_IMAGE_ID:?defina o image ID sha256 validado pelo preflight}"
+    restart: "no"
+    depends_on:
+      docuseal-sso-db-candidate:
+        condition: service_healthy
+      docuseal-sso-bootstrap-candidate:
+        condition: service_completed_successfully
+    environment:
+      HOST: docuseal-sso-candidate
+      APP_URL: https://assinatura-canary.maiocchi.adv.br
+      EMAIL_HOST: docuseal-sso-candidate
+      FORCE_SSL: "false"
+      # en-US is always present in DocuSeal i18n; avoids lab 500 (I18n::InvalidLocale pt-BR/pt drift).
+      DEFAULT_LOCALE: en-US
+      DATABASE_URL: "postgresql://docuseal_sso_candidate:${DOCUSEAL_CANARY_DB_PASS:?defina senha sintética exclusiva do canário}@docuseal-sso-db-candidate:5432/docuseal_sso_candidate"
+      SECRET_KEY_BASE: "${DOCUSEAL_CANARY_SECRET_KEY_BASE:?defina chave exclusiva do canário}"
+      MAIOCCHI_SSO_ENABLED: "${MAIOCCHI_CANARY_SSO_ENABLED:-false}"
+      MAIOCCHI_SSO_ACCOUNT_UUID: "${MAIOCCHI_CANARY_SSO_ACCOUNT_UUID:-}"
+      MAIOCCHI_SSO_BOOTSTRAP_USER_UUID: "${MAIOCCHI_CANARY_SSO_BOOTSTRAP_USER_UUID:-}"
+      MAIOCCHI_SSO_PROFILE: canary
+      MAIOCCHI_SSO_CLIENT_SECRET_FILE: /run/signature-canary-secrets/api_signature_sso_client_secret
+      SSL_CERT_FILE: /run/sso-e2e-pki/ca.crt
+      UNO_CERTIFICATE_JOIN_URL: "${UNO_CERTIFICATE_JOIN_URL:-}"
+      UNO_INTERNAL_SERVICE_TOKEN_FILE: /run/signature-canary-secrets/api_signature_sso_client_secret
+    group_add:
+      - "${DOCUSEAL_CANARY_SECRET_GID:-3400}"
+    volumes:
+      - docuseal-sso-candidate-data:/data
+      - "${DOCUSEAL_CANARY_SECRET_DIR:?defina diretório de secrets exclusivo do canário}:/run/signature-canary-secrets:ro"
+      - "${SSO_E2E_CA_FILE:?defina CA efêmera do laboratório E2E}:/run/sso-e2e-pki/ca.crt:ro"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 1536m
+    pids_limit: 384
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    networks:
+      - docuseal-sso-candidate
+      - signature-sso-candidate
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/up"]
       interval: 10s
@@ -57,13 +96,69 @@ services:
       retries: 12
       start_period: 30s
 
+  sso-e2e-probe-candidate:
+    profiles: ["e2e"]
+    image: "${SSO_E2E_HTTP_VERIFIER_IMAGE_ID:?defina image ID Ruby validado do laboratório}"
+    restart: "no"
+    depends_on:
+      docuseal-sso-candidate:
+        condition: service_healthy
+    environment:
+      SSO_E2E_CA_FILE: /run/sso-e2e-pki/ca.crt
+      SSO_E2E_STAFF_PASSWORD_FILE: /run/probe-secrets/e2e_staff_password
+      SSO_E2E_RUNTIME_ENVELOPE_FILE: "${SSO_E2E_EVIDENCE_DIR:?defina diretório de evidência E2E}/sso-e2e-runtime-envelope.json"
+      SSO_E2E_EVIDENCE_FILE: "${SSO_E2E_EVIDENCE_DIR:?defina diretório de evidência E2E}/probe-output/sso-e2e-result.json"
+    command: ["ruby", "/run/sso-e2e/sso-e2e-probe.rb"]
+    volumes:
+      - ./sso-e2e/sso-e2e-probe.rb:/run/sso-e2e/sso-e2e-probe.rb:ro
+      - "${SSO_E2E_CA_FILE:?defina CA efêmera do laboratório E2E}:/run/sso-e2e-pki/ca.crt:ro"
+      - "${SSO_E2E_PROBE_SECRET_DIR:?defina secrets efêmeros do probe E2E}:/run/probe-secrets:ro"
+      - "${DOCUSEAL_CANARY_SECRET_DIR:?defina diretório de secrets exclusivo do canário}:/run/signature-canary-secrets:ro"
+      - "${SSO_E2E_EVIDENCE_DIR:?defina diretório de evidência E2E}:${SSO_E2E_EVIDENCE_DIR:?defina diretório de evidência E2E}"
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - signature-sso-candidate
+
+  sso-e2e-db-verifier-candidate:
+    profiles: ["e2e"]
+    image: "${SSO_E2E_DB_VERIFIER_IMAGE_ID:?defina image ID PostgreSQL validado do laboratório}"
+    restart: "no"
+    depends_on:
+      sso-e2e-probe-candidate:
+        condition: service_completed_successfully
+    environment:
+      PGHOST: docuseal-sso-db-candidate
+      PGPORT: "5432"
+      PGDATABASE: docuseal_sso_candidate
+      PGUSER: docuseal_sso_candidate
+      PGPASSWORD: "${DOCUSEAL_CANARY_DB_PASS:?defina senha sintética exclusiva do canário}"
+      SSO_E2E_DB_EVIDENCE_FILE: /evidence-output/sso-e2e-db-result.txt
+    command: ["sh", "/run/sso-e2e/verify-docuseal-sso-db.sh"]
+    volumes:
+      - ./sso-e2e/verify-docuseal-sso-db.sh:/run/sso-e2e/verify-docuseal-sso-db.sh:ro
+      - "${SSO_E2E_EVIDENCE_DIR:?defina diretório de evidência E2E}/probe-output:/evidence-output"
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - docuseal-sso-candidate
+
 volumes:
   docuseal-sso-candidate-data:
-    name: docuseal-sso-candidate-data
   docuseal-sso-candidate-pgdata:
-    name: docuseal-sso-candidate-pgdata
 
 networks:
   docuseal-sso-candidate:
-    name: docuseal-sso-candidate
+    internal: true
+  signature-sso-candidate:
     internal: true

@@ -10,6 +10,7 @@ const [
   patch,
   buildInputsPatch,
   nativeSecurityPatch,
+  certificateJoinPatch,
   tiffSource,
   docusealVexTemplate,
   syftCandidateConfig,
@@ -28,6 +29,7 @@ const [
   gatewayConfig,
   docusealBootstrap,
   e2eProbe,
+  dbVerifier,
   pkiGenerator,
   secretProvisioner,
   runtimePreflight,
@@ -36,6 +38,7 @@ const [
   readFile(new URL("../patches/docuseal/0009-maiocchi-uno-sso.patch", import.meta.url), "utf8"),
   readFile(new URL("../patches/docuseal/0010-pin-build-inputs.patch", import.meta.url), "utf8"),
   readFile(new URL("../patches/docuseal/0011-update-native-image-libraries.patch", import.meta.url), "utf8"),
+  readFile(new URL("../patches/docuseal/0012-uno-certificate-return-to-join.patch", import.meta.url), "utf8"),
   readFile(new URL("../compliance/sources/tiff-4.7.2.tar.gz", import.meta.url)),
   readFile(new URL("../compliance/vex/docuseal-sso-tiff-4.7.2.openvex.template.json", import.meta.url), "utf8"),
   readFile(new URL("../compliance/config/syft-candidate.yaml", import.meta.url), "utf8"),
@@ -54,6 +57,7 @@ const [
   readFile(new URL("../deploy/sso-e2e/gateway.conf", import.meta.url), "utf8"),
   readFile(new URL("../deploy/sso-e2e/docuseal-sso-bootstrap.rb", import.meta.url), "utf8"),
   readFile(new URL("../deploy/sso-e2e/sso-e2e-probe.rb", import.meta.url), "utf8"),
+  readFile(new URL("../deploy/sso-e2e/verify-docuseal-sso-db.sh", import.meta.url), "utf8"),
   readFile(new URL("../scripts/generate-sso-e2e-canary-pki.sh", import.meta.url), "utf8"),
   readFile(new URL("../scripts/provision-docuseal-sso-canary-secret.sh", import.meta.url), "utf8"),
   readFile(new URL("../scripts/validate-sso-e2e-runtime.sh", import.meta.url), "utf8"),
@@ -87,6 +91,10 @@ test("patch SSO deriva exclusivamente da fonte DocuSeal .14 aprovada", () => {
     "83250e4672db3a4256d7ec44f04f621ef7c1ee178718d9831948f9261580c30c",
   );
   assert.equal(
+    createHash("sha256").update(certificateJoinPatch).digest("hex"),
+    "54ef28c039597f4aec5521616d51a085d8c55b22199a04a989be858de98d2355",
+  );
+  assert.equal(
     createHash("sha256").update(tiffSource).digest("hex"),
     "672bd7d10aee4606171afb864f3570b83340f6a33e2c186dc0512f7145ffdf6a",
   );
@@ -97,11 +105,19 @@ test("patch SSO deriva exclusivamente da fonte DocuSeal .14 aprovada", () => {
   assert.match(buildScript, /git -C "\$candidate_work" apply --check "\$sso_patch"/);
   assert.match(buildScript, /git -C "\$candidate_work" apply --check "\$build_inputs_patch"/);
   assert.match(buildScript, /git -C "\$candidate_work" apply --check "\$native_security_patch"/);
+  assert.match(buildScript, /git -C "\$candidate_work" apply --check "\$certificate_join_patch"/);
   const applySso = buildScript.indexOf('apply "$sso_patch"');
   const applyInputs = buildScript.indexOf('apply "$build_inputs_patch"');
   const applyNative = buildScript.indexOf('apply "$native_security_patch"');
+  const applyCertificateJoin = buildScript.indexOf('apply "$certificate_join_patch"');
   const installTiff = buildScript.indexOf('install -m 0644 "$tiff_source"');
-  assert.ok(applySso >= 0 && applySso < applyInputs && applyInputs < applyNative && applyNative < installTiff);
+  assert.ok(
+    applySso >= 0 &&
+      applySso < applyInputs &&
+      applyInputs < applyNative &&
+      applyNative < applyCertificateJoin &&
+      applyCertificateJoin < installTiff,
+  );
   assert.match(patch, /20260718090100_install_maiocchi_sso_guards[.]rb/);
   assert.match(patch, /Rails carrega schema[.]rb em bancos vazios/);
   assert.match(patch, /CREATE OR REPLACE FUNCTION guard_maiocchi_sso_identity_binding/);
@@ -125,8 +141,9 @@ test("patch nativo deriva receita Alpine e instala TIFF/OpenEXR corrigidos por r
   assert.doesNotMatch(nativeSecurityPatch, /--allow-untrusted/);
   assert.equal((nativeSecurityPatch.match(/'openexr-lib[^']+=3[.]4[.]13-r0'/g) || []).length, 8);
   assert.equal((nativeSecurityPatch.match(/'tiff=4[.]7[.]2-r0'/g) || []).length, 2);
-  assert.deepEqual(docusealContract.patch_chain.map(({ sequence }) => sequence), [9, 10, 11]);
+  assert.deepEqual(docusealContract.patch_chain.map(({ sequence }) => sequence), [9, 10, 11, 12]);
   assert.equal(docusealContract.patch_chain[2].sha256, createHash("sha256").update(nativeSecurityPatch).digest("hex"));
+  assert.equal(docusealContract.patch_chain[3].sha256, createHash("sha256").update(certificateJoinPatch).digest("hex"));
   assert.equal(docusealContract.native_libraries.tiff.source_sha256, createHash("sha256").update(tiffSource).digest("hex"));
   assert.equal(docusealContract.native_libraries.tiff.version, "4.7.2-r0");
   assert.equal(docusealContract.native_libraries.tiff.source_url, "https://download.osgeo.org/libtiff/tiff-4.7.2.tar.gz");
@@ -371,8 +388,8 @@ test("laboratório prova login, PKCE, vínculo persistente e dois anti-replays s
   assert.match(e2eProbe, /docuseal_code_exchange/);
   assert.match(e2eProbe, /docuseal_callback_replay_rejected/);
   assert.match(e2eProbe, /uno_token_replay_rejected/);
-  assert.match(e2eProbe, /MaiocchiSsoIdentity[.]find_by!/);
-  assert.match(e2eProbe, /maiocchi_sso_exchanges[.]count == 1/);
+  assert.match(dbVerifier, /FROM maiocchi_sso_identities i/);
+  assert.match(dbVerifier, /SELECT count\(\*\) FROM maiocchi_sso_exchanges/);
   assert.match(e2eProbe, /private-ca-verify-peer/);
   assert.match(e2eProbe, /File::CREAT \| File::EXCL/);
   assert.doesNotMatch(e2eProbe, /puts.*password|puts.*client_secret|p\s+password|p\s+client_secret/);
@@ -595,6 +612,7 @@ test("build DocuSeal fixa bases, bibliotecas nativas e evidência antes de promo
     "br.adv.maiocchi.patch-sha256",
     "br.adv.maiocchi.build-inputs-patch-sha256",
     "br.adv.maiocchi.native-security-patch-sha256",
+    "br.adv.maiocchi.certificate-join-patch-sha256",
     "br.adv.maiocchi.tiff-apkbuild-sha256",
     "br.adv.maiocchi.tiff-source-sha256",
     "br.adv.maiocchi.tiff-version",
@@ -670,6 +688,7 @@ test("preflight vincula IDs imutáveis ao commit assinado, arquitetura e labels 
     "br.adv.maiocchi.patch-sha256",
     "br.adv.maiocchi.build-inputs-patch-sha256",
     "br.adv.maiocchi.native-security-patch-sha256",
+    "br.adv.maiocchi.certificate-join-patch-sha256",
     "br.adv.maiocchi.tiff-apkbuild-sha256",
     "br.adv.maiocchi.tiff-source-sha256",
     "br.adv.maiocchi.tiff-version",
@@ -721,11 +740,12 @@ test("preflight fecha TOCTOU relendo os IDs depois de validar o manifesto", () =
   }
 });
 
-test("auditoria de índices valida blobs antes e depois dos quatro patches da receita", () => {
+test("auditoria de índices valida blobs antes e depois dos cinco patches da receita", () => {
   assert.match(patchIndexValidator, /patches\/portal\/0001-maiocchi-sso-portal-1[.]15[.]1[.]patch/);
   assert.match(patchIndexValidator, /patches\/docuseal\/0009-maiocchi-uno-sso[.]patch/);
   assert.match(patchIndexValidator, /patches\/docuseal\/0010-pin-build-inputs[.]patch/);
   assert.match(patchIndexValidator, /patches\/docuseal\/0011-update-native-image-libraries[.]patch/);
+  assert.match(patchIndexValidator, /patches\/docuseal\/0012-uno-certificate-return-to-join[.]patch/);
   assert.match(patchIndexValidator, /actual_hash=\$\(git hash-object "\$source_dir\/\$old_path"\)/);
   assert.match(patchIndexValidator, /actual_hash=\$\(git hash-object "\$source_dir\/\$new_path"\)/);
   for (const counter of ["diff_count", "index_count", "index_seen"]) {
@@ -742,6 +762,7 @@ test("auditoria de índices valida blobs antes e depois dos quatro patches da re
     ["docuseal_source", "docuseal_patch"],
     ["docuseal_source", "docuseal_build_inputs_patch"],
     ["docuseal_source", "docuseal_native_security_patch"],
+    ["docuseal_source", "docuseal_certificate_join_patch"],
   ]) {
     for (const phase of ["before", "after"]) {
       assert.match(
@@ -750,8 +771,8 @@ test("auditoria de índices valida blobs antes e depois dos quatro patches da re
       );
     }
   }
-  assert.equal((patchIndexValidator.match(/^audit_patch_indexes "\$/gm) || []).length, 8);
-  assert.ok((patchIndexValidator.match(/git -C "\$docuseal_source" apply --check/g) || []).length >= 3);
+  assert.equal((patchIndexValidator.match(/^audit_patch_indexes "\$/gm) || []).length, 10);
+  assert.ok((patchIndexValidator.match(/git -C "\$docuseal_source" apply --check/g) || []).length >= 4);
   assert.match(patchIndexValidator, /audit_patch_hunks\(\)/);
   for (const counter of ["old_remaining", "new_remaining", "hunk_count"]) {
     assert.match(patchIndexValidator, new RegExp(`\\b${counter}\\b`));
@@ -772,6 +793,7 @@ test("auditoria de índices valida blobs antes e depois dos quatro patches da re
     "docuseal_patch",
     "docuseal_build_inputs_patch",
     "docuseal_native_security_patch",
+    "docuseal_certificate_join_patch",
   ]) {
     assert.match(
       patchIndexValidator,
@@ -779,20 +801,20 @@ test("auditoria de índices valida blobs antes e depois dos quatro patches da re
     );
     assert.match(patchIndexValidator, new RegExp(`audit_patch_line_accounting "\\$${patchVariable}"`));
   }
-  assert.equal((patchIndexValidator.match(/^audit_patch_hunks "\$/gm) || []).length, 4);
-  assert.equal((patchIndexValidator.match(/^audit_patch_line_accounting "\$/gm) || []).length, 4);
+  assert.equal((patchIndexValidator.match(/^audit_patch_hunks "\$/gm) || []).length, 5);
+  assert.equal((patchIndexValidator.match(/^audit_patch_line_accounting "\$/gm) || []).length, 5);
 });
 
 test("wrapper expõe somente verbos governados e executa os dois preflights antes do up", () => {
   assert.match(candidateComposeRunner, /validate-sso-candidate-images[.]sh/);
   assert.match(candidateComposeRunner, /validate-sso-e2e-runtime[.]sh/);
   assert.match(candidateComposeRunner, /export[^\n]*PORTAL_SSO_CANDIDATE_IMAGE_ID[^\n]*DOCUSEAL_SSO_CANDIDATE_IMAGE_ID/);
-  assert.match(candidateComposeRunner, /"\$image_validator"[\s\S]*"\$runtime_validator"[\s\S]*compose config --quiet/);
+  assert.match(candidateComposeRunner, /"\$image_validator"[\s\S]*"\$runtime_validator"[\s\S]*compose_config_quiet/);
   assert.match(candidateComposeRunner, /--file "\$repo_dir\/deploy\/sso-e2e-gateway[.]candidate[.]yml"/);
   assert.match(candidateComposeRunner, /--wait-timeout 900/);
   assert.match(candidateComposeRunner, /--force-recreate/);
-  assert.match(candidateComposeRunner, /compose --profile e2e run --rm --no-deps sso-e2e-probe-candidate/);
-  assert.match(candidateComposeRunner, /compose down --remove-orphans --timeout 30/);
+  assert.match(candidateComposeRunner, /--profile e2e run --rm --no-deps sso-e2e-probe-candidate/);
+  assert.match(candidateComposeRunner, /down --remove-orphans --timeout 30/);
   assert.doesNotMatch(candidateComposeRunner, /\$@/);
 });
 

@@ -48,15 +48,19 @@
     },
     "candidate_preflight": {
       "path": "scripts/validate-sso-candidate-images.sh",
-      "sha256": "4fdc63e9602dfd8eef256d51806d8c2126b8397af0007d957f7e4217d5dd0d9e"
+      "sha256": "261e0f00f7fe44e257e690f9999c7560737a399b493c697e32d01661647023e9"
     },
     "patch_index_audit": {
       "path": "scripts/validate-release-patch-indexes.sh",
-      "sha256": "2877016286e7aa18d703f3e9191a2837296baa4ccacf7363123611819e6b8354"
+      "sha256": "a8c226386dcadb2510c341a617651c191b70c7a8fde73fa53d535b4b40823fd4"
     },
     "compose_runner": {
       "path": "scripts/run-sso-candidate-compose.sh",
-      "sha256": "817691143dd9c9c8d9bdf961780440eca78da6f2b033c8c17dc2b02bb3fa6479"
+      "sha256": "07f942631bb43792f14b1216a5d9a0ff32140cfb973d193f2764b8addd1f1390"
+    },
+    "candidate_compose": {
+      "path": "deploy/portal-sso.candidate.yml",
+      "sha256": "2e6d32354ff2038e7e12a21b494c694109802cd2be2d1ccbb295bdab10025a21"
     }
   },
   "image": "maiocchi/assinatura-portal:1.15.1-sso-<recipe-sha12>-a<attempt-2d>",
@@ -113,7 +117,7 @@
     "artifact_identity": "inspect, Docker 29 archive, Syft and Grype operate on the captured sha256 image ID; preflight binds archive manifest, config, layers, inspect, SBOM, embedded Grype manifest/config and signed recipe commit",
     "scanner_policy": "exact official Syft/Grype linux/amd64 binary SHA-256 values derived from the official GitHub release archives and published archive checksums; version/commit self-report is additionally checked; absolute executable paths are fixed and rehashed before and after scans; versioned configs run under env -i; explicit DB update is followed by status and file-hash freeze with maximum age 24h",
     "vulnerability_policy": "raw unsuppressed report has no ignoredMatches and every match severity belongs to the closed non-blocking Grype set Unknown/Negligible/Low/Medium; the builder invokes grype --fail-on high and the independent preflight reapplies that closed allowlist to the bound raw JSON before the canary",
-    "canary": "candidate service has a unique container name and an internal-only network; no public router",
+    "canary": "project-scoped candidate service on an internal-only network; no public router",
     "compose_preflight": "scripts/run-sso-candidate-compose.sh reads both IDs from hash-verified evidence and calls scripts/validate-sso-candidate-images.sh immediately before Compose",
     "promotion": "production 1.15.0 is unchanged until explicit image promotion after E2E"
   }

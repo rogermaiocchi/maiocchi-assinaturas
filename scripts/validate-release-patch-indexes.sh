@@ -9,6 +9,7 @@ docuseal_base="$repo_dir/compliance/docuseal-maiocchi-3.0.1-maiocchi.14.tar.gz"
 docuseal_patch="$repo_dir/patches/docuseal/0009-maiocchi-uno-sso.patch"
 docuseal_build_inputs_patch="$repo_dir/patches/docuseal/0010-pin-build-inputs.patch"
 docuseal_native_security_patch="$repo_dir/patches/docuseal/0011-update-native-image-libraries.patch"
+docuseal_certificate_join_patch="$repo_dir/patches/docuseal/0012-uno-certificate-return-to-join.patch"
 
 audit_root=$(mktemp -d "${TMPDIR:-/tmp}/maiocchi-patch-indexes.XXXXXX")
 cleanup() {
@@ -248,5 +249,11 @@ audit_patch_indexes "$docuseal_source" "$docuseal_native_security_patch" before
 git -C "$docuseal_source" apply --check "$docuseal_native_security_patch"
 git -C "$docuseal_source" apply "$docuseal_native_security_patch"
 audit_patch_indexes "$docuseal_source" "$docuseal_native_security_patch" after
+audit_patch_hunks "$docuseal_certificate_join_patch"
+audit_patch_line_accounting "$docuseal_certificate_join_patch"
+audit_patch_indexes "$docuseal_source" "$docuseal_certificate_join_patch" before
+git -C "$docuseal_source" apply --check "$docuseal_certificate_join_patch"
+git -C "$docuseal_source" apply "$docuseal_certificate_join_patch"
+audit_patch_indexes "$docuseal_source" "$docuseal_certificate_join_patch" after
 
-printf '%s\n' 'Metadados de blobs dos patches Portal, DocuSeal SSO, inputs de build e bibliotecas nativas: PASS'
+printf '%s\n' 'Metadados de blobs dos patches Portal, DocuSeal SSO, inputs de build, bibliotecas nativas e certificate join: PASS'

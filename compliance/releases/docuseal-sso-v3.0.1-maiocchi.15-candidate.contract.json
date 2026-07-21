@@ -23,6 +23,11 @@
       "sequence": 11,
       "path": "patches/docuseal/0011-update-native-image-libraries.patch",
       "sha256": "83250e4672db3a4256d7ec44f04f621ef7c1ee178718d9831948f9261580c30c"
+    },
+    {
+      "sequence": 12,
+      "path": "patches/docuseal/0012-uno-certificate-return-to-join.patch",
+      "sha256": "54ef28c039597f4aec5521616d51a085d8c55b22199a04a989be858de98d2355"
     }
   ],
   "endpoint_profiles": {
@@ -103,7 +108,7 @@
   "recipe_implementation": {
     "builder": {
       "path": "scripts/build-docuseal-sso-candidate.sh",
-      "sha256": "cd3702336518fc43b0f8e6208cbf069ebd058d5aa3caea66410ab91133423c13"
+      "sha256": "3921ef76519938b3cfe15986b1b4622de8e64bf1db5d5ac76ece4bd2b083e3a7"
     },
     "postgres_harness": {
       "path": "scripts/test-docuseal-sso-pg16-isolated.sh",
@@ -113,19 +118,19 @@
     },
     "candidate_preflight": {
       "path": "scripts/validate-sso-candidate-images.sh",
-      "sha256": "4fdc63e9602dfd8eef256d51806d8c2126b8397af0007d957f7e4217d5dd0d9e"
+      "sha256": "261e0f00f7fe44e257e690f9999c7560737a399b493c697e32d01661647023e9"
     },
     "patch_index_audit": {
       "path": "scripts/validate-release-patch-indexes.sh",
-      "sha256": "2877016286e7aa18d703f3e9191a2837296baa4ccacf7363123611819e6b8354"
+      "sha256": "a8c226386dcadb2510c341a617651c191b70c7a8fde73fa53d535b4b40823fd4"
     },
     "compose_runner": {
       "path": "scripts/run-sso-candidate-compose.sh",
-      "sha256": "817691143dd9c9c8d9bdf961780440eca78da6f2b033c8c17dc2b02bb3fa6479"
+      "sha256": "07f942631bb43792f14b1216a5d9a0ff32140cfb973d193f2764b8addd1f1390"
     },
     "candidate_compose": {
       "path": "deploy/docuseal-sso.candidate.yml",
-      "sha256": "9ad795f2dcdf7aee1f1931442189d1769f8cd3bf5e468cd19080755805f4a9f1"
+      "sha256": "58085b744720ba0287925a87961d29e2348f9e4967f2c01fa836c8865ad3073e"
     }
   },
   "required_labels": [
@@ -133,6 +138,7 @@
     "br.adv.maiocchi.patch-sha256",
     "br.adv.maiocchi.build-inputs-patch-sha256",
     "br.adv.maiocchi.native-security-patch-sha256",
+    "br.adv.maiocchi.certificate-join-patch-sha256",
     "br.adv.maiocchi.tiff-apkbuild-sha256",
     "br.adv.maiocchi.tiff-source-sha256",
     "br.adv.maiocchi.tiff-version",

@@ -7,6 +7,7 @@ base_archive="$repo_dir/compliance/docuseal-maiocchi-3.0.1-maiocchi.14.tar.gz"
 sso_patch="$repo_dir/patches/docuseal/0009-maiocchi-uno-sso.patch"
 build_inputs_patch="$repo_dir/patches/docuseal/0010-pin-build-inputs.patch"
 native_security_patch="$repo_dir/patches/docuseal/0011-update-native-image-libraries.patch"
+certificate_join_patch="$repo_dir/patches/docuseal/0012-uno-certificate-return-to-join.patch"
 tiff_source="$repo_dir/compliance/sources/tiff-4.7.2.tar.gz"
 vex_template="$repo_dir/compliance/vex/docuseal-sso-tiff-4.7.2.openvex.template.json"
 syft_config="$repo_dir/compliance/config/syft-candidate.yaml"
@@ -15,6 +16,7 @@ expected_base_sha='e8f3b6e8ba3a8e70c7ea66846b57f6c0bddcd582be87bd4ae3ee074c2f9ff
 expected_patch_sha='2339df1880f6fc2af3706c51d29fc158a7c592a50c0deba5771b5a6eca51d54c'
 expected_build_inputs_patch_sha='0e36b9a594e3da75f64c3c37909be5fa9f57e3eefeeed2d21d993590496a5987'
 expected_native_security_patch_sha='83250e4672db3a4256d7ec44f04f621ef7c1ee178718d9831948f9261580c30c'
+expected_certificate_join_patch_sha='54ef28c039597f4aec5521616d51a085d8c55b22199a04a989be858de98d2355'
 expected_tiff_source_sha='672bd7d10aee4606171afb864f3570b83340f6a33e2c186dc0512f7145ffdf6a'
 expected_tiff_source_sha512='bad66954a7e7e158c6dcbfc0e2d0032b8f3e2a354b6d0fdbb8038a7963e36c5b8a433dd4ee81c6c4dabfb50094152d440aa1f32b5299098c9ae29e55de2e41fc'
 expected_tiff_apkbuild_sha='f7b0bdc5ae7c8340960afaeed18a1e1e09089a8ec99c2ac0335df70c4f046985'
@@ -70,6 +72,7 @@ actual_base_sha=$(shasum -a 256 "$base_archive" | awk '{print $1}')
 actual_patch_sha=$(shasum -a 256 "$sso_patch" | awk '{print $1}')
 actual_build_inputs_patch_sha=$(shasum -a 256 "$build_inputs_patch" | awk '{print $1}')
 actual_native_security_patch_sha=$(shasum -a 256 "$native_security_patch" | awk '{print $1}')
+actual_certificate_join_patch_sha=$(shasum -a 256 "$certificate_join_patch" | awk '{print $1}')
 actual_tiff_source_sha=$(shasum -a 256 "$tiff_source" | awk '{print $1}')
 actual_tiff_source_sha512=$(shasum -a 512 "$tiff_source" | awk '{print $1}')
 actual_vex_template_sha=$(shasum -a 256 "$vex_template" | awk '{print $1}')
@@ -89,6 +92,10 @@ actual_grype_config_sha=$(shasum -a 256 "$grype_config" | awk '{print $1}')
 }
 [ "$actual_native_security_patch_sha" = "$expected_native_security_patch_sha" ] || {
   printf '%s\n' 'Patch de bibliotecas nativas 0011 divergiu do hash aprovado.' >&2
+  exit 1
+}
+[ "$actual_certificate_join_patch_sha" = "$expected_certificate_join_patch_sha" ] || {
+  printf '%s\n' 'Patch certificate join 0012 divergiu do hash aprovado.' >&2
   exit 1
 }
 if [ "$actual_tiff_source_sha" != "$expected_tiff_source_sha" ] || \
@@ -125,6 +132,8 @@ git -C "$candidate_work" apply --check "$build_inputs_patch"
 git -C "$candidate_work" apply "$build_inputs_patch"
 git -C "$candidate_work" apply --check "$native_security_patch"
 git -C "$candidate_work" apply "$native_security_patch"
+git -C "$candidate_work" apply --check "$certificate_join_patch"
+git -C "$candidate_work" apply "$certificate_join_patch"
 install -m 0644 "$tiff_source" "$candidate_work/build/tiff/tiff-4.7.2.tar.gz"
 [ "$(sed -n '1p' "$candidate_work/.version")" = '3.0.1-maiocchi.15' ]
 
@@ -155,8 +164,11 @@ ruby_bin="${DOCUSEAL_SSO_RUBY_BIN:-$(command -v ruby 2>/dev/null || true)}"
 
 for ruby_file in \
   "$candidate_work/app/controllers/maiocchi_sso_controller.rb" \
+  "$candidate_work/app/controllers/certificate_auth/base_controller.rb" \
+  "$candidate_work/app/controllers/certificate_auth/sessions_controller.rb" \
   "$candidate_work/app/models/maiocchi_sso_exchange.rb" \
   "$candidate_work/app/models/maiocchi_sso_identity.rb" \
+  "$candidate_work/app/services/maiocchi_uno_certificate_join.rb" \
   "$candidate_work/lib/maiocchi_sso.rb" \
   "$candidate_work/lib/maiocchi_sso/configuration.rb" \
   "$candidate_work/lib/maiocchi_sso/identity_resolver.rb" \
@@ -173,7 +185,7 @@ do
 done
 
 if [ "${DOCUSEAL_SSO_VERIFY_ONLY:-false}" = 'true' ]; then
-  printf '%s\n' "Receita DocuSeal verificável: $actual_base_sha + $actual_patch_sha + $actual_build_inputs_patch_sha + $actual_native_security_patch_sha"
+  printf '%s\n' "Receita DocuSeal verificável: $actual_base_sha + $actual_patch_sha + $actual_build_inputs_patch_sha + $actual_native_security_patch_sha + $actual_certificate_join_patch_sha"
   exit 0
 fi
 
@@ -334,6 +346,7 @@ docker build \
   --label "br.adv.maiocchi.patch-sha256=$actual_patch_sha" \
   --label "br.adv.maiocchi.build-inputs-patch-sha256=$actual_build_inputs_patch_sha" \
   --label "br.adv.maiocchi.native-security-patch-sha256=$actual_native_security_patch_sha" \
+  --label "br.adv.maiocchi.certificate-join-patch-sha256=$actual_certificate_join_patch_sha" \
   --label "br.adv.maiocchi.tiff-apkbuild-sha256=$expected_tiff_apkbuild_sha" \
   --label "br.adv.maiocchi.tiff-source-sha256=$actual_tiff_source_sha" \
   --label "br.adv.maiocchi.tiff-version=$tiff_version" \
@@ -352,6 +365,7 @@ printf '%s\n' "$candidate_image_id" | grep -Eq '^sha256:[0-9a-f]{64}$'
 [ "$(docker image inspect --format '{{ index .Config.Labels "br.adv.maiocchi.patch-sha256" }}' "$candidate_image_id")" = "$actual_patch_sha" ]
 [ "$(docker image inspect --format '{{ index .Config.Labels "br.adv.maiocchi.build-inputs-patch-sha256" }}' "$candidate_image_id")" = "$actual_build_inputs_patch_sha" ]
 [ "$(docker image inspect --format '{{ index .Config.Labels "br.adv.maiocchi.native-security-patch-sha256" }}' "$candidate_image_id")" = "$actual_native_security_patch_sha" ]
+[ "$(docker image inspect --format '{{ index .Config.Labels "br.adv.maiocchi.certificate-join-patch-sha256" }}' "$candidate_image_id")" = "$actual_certificate_join_patch_sha" ]
 [ "$(docker image inspect --format '{{ index .Config.Labels "br.adv.maiocchi.tiff-apkbuild-sha256" }}' "$candidate_image_id")" = "$expected_tiff_apkbuild_sha" ]
 [ "$(docker image inspect --format '{{ index .Config.Labels "br.adv.maiocchi.tiff-source-sha256" }}' "$candidate_image_id")" = "$actual_tiff_source_sha" ]
 [ "$(docker image inspect --format '{{ index .Config.Labels "br.adv.maiocchi.tiff-version" }}' "$candidate_image_id")" = "$tiff_version" ]

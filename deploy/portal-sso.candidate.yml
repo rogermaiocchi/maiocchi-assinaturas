@@ -1,7 +1,6 @@
 services:
   portal-sso-candidate:
     image: "${PORTAL_SSO_CANDIDATE_IMAGE_ID:?defina o image ID sha256 validado pelo preflight}"
-    container_name: assinatura-portal-sso-candidate
     restart: "no"
     read_only: true
     security_opt:
@@ -22,5 +21,4 @@ services:
 
 networks:
   signature-sso-candidate:
-    name: signature-sso-candidate
     internal: true

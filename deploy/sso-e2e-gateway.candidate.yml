@@ -1,0 +1,52 @@
+services:
+  sso-e2e-gateway-candidate:
+    image: nginxinc/nginx-unprivileged:1.30.3-alpine3.23-slim@sha256:3b24c4bfb2b9f60359b1475605ca1c8ed6e4963eb8369c6835be4d96bdb3ea81
+    restart: "no"
+    user: "0:0"
+    depends_on:
+      portal-sso-candidate:
+        condition: service_healthy
+      docuseal-sso-candidate:
+        condition: service_healthy
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    tmpfs:
+      - /tmp:size=16m,mode=1777,uid=101,gid=101
+      - /var/cache/nginx:size=16m,mode=0750,uid=101,gid=101
+      - /var/run:size=4m,mode=0750,uid=101,gid=101
+    volumes:
+      - ./sso-e2e/gateway.conf:/etc/nginx/conf.d/default.conf:ro
+      - "${SSO_E2E_CERT_FILE:?defina certificado efêmero do laboratório E2E}:/run/sso-e2e-pki/server.crt:ro"
+      - "${SSO_E2E_KEY_FILE:?defina chave efêmera do laboratório E2E}:/run/sso-e2e-pki/server.key:ro"
+    mem_limit: 128m
+    cpus: "0.25"
+    pids_limit: 128
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    networks:
+      signature-sso-candidate:
+        aliases:
+          - uno-canary.maiocchi.adv.br
+          - assinatura-canary.maiocchi.adv.br
+      uno-sso-candidate: {}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--no-check-certificate", "-O", "/dev/null", "https://127.0.0.1/gateway-health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
+networks:
+  signature-sso-candidate:
+    internal: true
+  uno-sso-candidate:
+    external: true
+    name: "${UNO_SSO_CANDIDATE_NETWORK:?defina a rede interna do runtime UNO canário}"

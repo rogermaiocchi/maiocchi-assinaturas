@@ -15,6 +15,8 @@ docuseal_build_inputs_patch="$repo_dir/patches/docuseal/0010-pin-build-inputs.pa
 docuseal_build_inputs_sha256='0e36b9a594e3da75f64c3c37909be5fa9f57e3eefeeed2d21d993590496a5987'
 docuseal_native_security_patch="$repo_dir/patches/docuseal/0011-update-native-image-libraries.patch"
 docuseal_native_security_patch_sha256='83250e4672db3a4256d7ec44f04f621ef7c1ee178718d9831948f9261580c30c'
+docuseal_certificate_join_patch="$repo_dir/patches/docuseal/0012-uno-certificate-return-to-join.patch"
+docuseal_certificate_join_patch_sha256='54ef28c039597f4aec5521616d51a085d8c55b22199a04a989be858de98d2355'
 docuseal_tiff_source="$repo_dir/compliance/sources/tiff-4.7.2.tar.gz"
 docuseal_tiff_source_sha256='672bd7d10aee4606171afb864f3570b83340f6a33e2c186dc0512f7145ffdf6a'
 docuseal_tiff_apkbuild_sha256='f7b0bdc5ae7c8340960afaeed18a1e1e09089a8ec99c2ac0335df70c4f046985'
@@ -964,6 +966,7 @@ expect_inspect "$docuseal_image_id" '{{ index .Config.Labels "br.adv.maiocchi.ba
 expect_inspect "$docuseal_image_id" '{{ index .Config.Labels "br.adv.maiocchi.patch-sha256" }}' "$docuseal_patch_sha256" 'DocuSeal patch SSO'
 expect_inspect "$docuseal_image_id" '{{ index .Config.Labels "br.adv.maiocchi.build-inputs-patch-sha256" }}' "$docuseal_build_inputs_sha256" 'DocuSeal inputs de build'
 expect_inspect "$docuseal_image_id" '{{ index .Config.Labels "br.adv.maiocchi.native-security-patch-sha256" }}' "$docuseal_native_security_patch_sha256" 'DocuSeal patch de segurança nativa'
+expect_inspect "$docuseal_image_id" '{{ index .Config.Labels "br.adv.maiocchi.certificate-join-patch-sha256" }}' "$docuseal_certificate_join_patch_sha256" 'DocuSeal patch certificate join'
 expect_inspect "$docuseal_image_id" '{{ index .Config.Labels "br.adv.maiocchi.tiff-apkbuild-sha256" }}' "$docuseal_tiff_apkbuild_sha256" 'DocuSeal APKBUILD TIFF'
 expect_inspect "$docuseal_image_id" '{{ index .Config.Labels "br.adv.maiocchi.tiff-source-sha256" }}' "$docuseal_tiff_source_sha256" 'DocuSeal fonte TIFF'
 expect_inspect "$docuseal_image_id" '{{ index .Config.Labels "br.adv.maiocchi.tiff-version" }}' "$docuseal_tiff_version" 'DocuSeal versão TIFF'
