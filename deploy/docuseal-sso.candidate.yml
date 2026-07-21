@@ -30,7 +30,8 @@ services:
       APP_URL: http://docuseal-sso-candidate:3000
       EMAIL_HOST: docuseal-sso-candidate
       FORCE_SSL: "false"
-      DEFAULT_LOCALE: pt
+      # en-US is always present in DocuSeal i18n; avoids lab 500 (I18n::InvalidLocale pt-BR/pt drift).
+      DEFAULT_LOCALE: en-US
       DATABASE_URL: "postgresql://docuseal_sso_candidate:${DOCUSEAL_CANARY_DB_PASS:?defina senha sintética exclusiva do canário}@docuseal-sso-db-candidate:5432/docuseal_sso_candidate"
       SECRET_KEY_BASE: "${DOCUSEAL_CANARY_SECRET_KEY_BASE:?defina chave exclusiva do canário}"
       MAIOCCHI_SSO_ENABLED: "${MAIOCCHI_CANARY_SSO_ENABLED:-false}"
