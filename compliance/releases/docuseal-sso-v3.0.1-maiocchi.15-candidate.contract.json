@@ -12,7 +12,7 @@
     {
       "sequence": 9,
       "path": "patches/docuseal/0009-maiocchi-uno-sso.patch",
-      "sha256": "d37cc6334fc482a9f7a285601a7ec924541b87fe1e793686ba55f8fd3a4a4ffc"
+      "sha256": "2339df1880f6fc2af3706c51d29fc158a7c592a50c0deba5771b5a6eca51d54c"
     },
     {
       "sequence": 10,
@@ -25,6 +25,21 @@
       "sha256": "83250e4672db3a4256d7ec44f04f621ef7c1ee178718d9831948f9261580c30c"
     }
   ],
+  "endpoint_profiles": {
+    "selection": "MAIOCCHI_SSO_PROFILE accepts only production or canary; default is production and arbitrary endpoint environment variables are not read",
+    "production": {
+      "issuer": "https://www.maiocchi.adv.br",
+      "authorize_url": "https://www.maiocchi.adv.br/api/auth/sso/authorize",
+      "token_url": "https://www.maiocchi.adv.br/api/auth/sso/token",
+      "redirect_uri": "https://assinatura.maiocchi.adv.br/sso/maiocchi/callback"
+    },
+    "canary": {
+      "issuer": "https://uno-canary.maiocchi.adv.br",
+      "authorize_url": "https://uno-canary.maiocchi.adv.br/api/auth/sso/authorize",
+      "token_url": "https://uno-canary.maiocchi.adv.br/api/auth/sso/token",
+      "redirect_uri": "https://assinatura-canary.maiocchi.adv.br/sso/maiocchi/callback"
+    }
+  },
   "native_libraries": {
     "tiff": {
       "version": "4.7.2-r0",
@@ -88,11 +103,11 @@
   "recipe_implementation": {
     "builder": {
       "path": "scripts/build-docuseal-sso-candidate.sh",
-      "sha256": "4a69034d327320ecb4204c57662c6d09c2bb93ca550095c9fc4bce3a26ab7f14"
+      "sha256": "cd3702336518fc43b0f8e6208cbf069ebd058d5aa3caea66410ab91133423c13"
     },
     "postgres_harness": {
       "path": "scripts/test-docuseal-sso-pg16-isolated.sh",
-      "sha256": "64ff3a52a9625329d366dbddcd3e39551ed15a64142b303f9b7c7a06b7864381",
+      "sha256": "59ed99986a76a58cb3b8b0e2851de031ccc0ed06ab52e15dcccabc39c6a661ef",
       "dockerfile_path": "tests/docuseal-sso-pg16/Dockerfile",
       "dockerfile_sha256": "95c14b2db45e9fa198809fd56bd4664d9256773f4423349c2393cb88058c826d"
     },
@@ -107,6 +122,10 @@
     "compose_runner": {
       "path": "scripts/run-sso-candidate-compose.sh",
       "sha256": "817691143dd9c9c8d9bdf961780440eca78da6f2b033c8c17dc2b02bb3fa6479"
+    },
+    "candidate_compose": {
+      "path": "deploy/docuseal-sso.candidate.yml",
+      "sha256": "9ad795f2dcdf7aee1f1931442189d1769f8cd3bf5e468cd19080755805f4a9f1"
     }
   },
   "required_labels": [
@@ -168,7 +187,8 @@
     "ruby_syntax": "4.0.5",
     "postgres_harness": "16",
     "runtime_user": "docuseal",
-    "candidate_network": "internal-only",
+    "candidate_network": "internal-only shared SSO edge plus isolated database network; no public router",
+    "candidate_resource_caps": "DocuSeal 1536m/1.50 CPU/384 PIDs; PostgreSQL 512m/0.50 CPU/128 PIDs; json-file logs capped",
     "semantic_evidence_binding": true,
     "production_promotion": "explicit-go-required"
   }

@@ -20,7 +20,7 @@ index 4efd49aa95b5ace6ece46eee6438b9d3c68db97a..ddb378156cc1a1ac5c6fb9342248e64e
  
 diff --git a/app/controllers/maiocchi_sso_controller.rb b/app/controllers/maiocchi_sso_controller.rb
 new file mode 100644
-index 0000000000000000000000000000000000000000..e7f1d9d03a498c92b2f398282823d4c3176ee290
+index 0000000000000000000000000000000000000000..9f055babdf40f2bb11917c9206dda77b75e241fc
 --- /dev/null
 +++ b/app/controllers/maiocchi_sso_controller.rb
 @@ -0,0 +1,116 @@
@@ -94,11 +94,11 @@ index 0000000000000000000000000000000000000000..e7f1d9d03a498c92b2f398282823d4c3
 +  end
 +
 +  def authorization_url(state:, nonce:, verifier:)
-+    uri = URI.parse(MaiocchiSso::Configuration::AUTHORIZE_URL)
++    uri = URI.parse(MaiocchiSso::Configuration.authorize_url)
 +    uri.query = URI.encode_www_form(
 +      response_type: 'code',
 +      client_id: MaiocchiSso::Configuration::CLIENT_ID,
-+      redirect_uri: MaiocchiSso::Configuration::REDIRECT_URI,
++      redirect_uri: MaiocchiSso::Configuration.redirect_uri,
 +      code_challenge: Base64.urlsafe_encode64(Digest::SHA256.digest(verifier), padding: false),
 +      code_challenge_method: 'S256',
 +      state:,
@@ -482,10 +482,10 @@ index 0000000000000000000000000000000000000000..3432ff1e2cc3b64d26f388ff811b7764
 +end
 diff --git a/lib/maiocchi_sso/configuration.rb b/lib/maiocchi_sso/configuration.rb
 new file mode 100644
-index 0000000000000000000000000000000000000000..4f04527d1fadfb78c25a8311835d26d136e6a373
+index 0000000000000000000000000000000000000000..8c1323a3fa3b0fa1ba36e7f1daa38b00d230e7d2
 --- /dev/null
 +++ b/lib/maiocchi_sso/configuration.rb
-@@ -0,0 +1,87 @@
+@@ -0,0 +1,122 @@
 +# frozen_string_literal: true
 +
 +require 'uri'
@@ -494,10 +494,20 @@ index 0000000000000000000000000000000000000000..4f04527d1fadfb78c25a8311835d26d1
 +  module Configuration
 +    PROVIDER = 'maiocchi_uno'
 +    CLIENT_ID = 'maiocchi-signature'
-+    ISSUER = 'https://www.maiocchi.adv.br'
-+    AUTHORIZE_URL = 'https://www.maiocchi.adv.br/api/auth/sso/authorize'
-+    TOKEN_URL = 'https://www.maiocchi.adv.br/api/auth/sso/token'
-+    REDIRECT_URI = 'https://assinatura.maiocchi.adv.br/sso/maiocchi/callback'
++    ENDPOINT_PROFILES = {
++      'production' => {
++        issuer: 'https://www.maiocchi.adv.br',
++        authorize_url: 'https://www.maiocchi.adv.br/api/auth/sso/authorize',
++        token_url: 'https://www.maiocchi.adv.br/api/auth/sso/token',
++        redirect_uri: 'https://assinatura.maiocchi.adv.br/sso/maiocchi/callback'
++      }.freeze,
++      'canary' => {
++        issuer: 'https://uno-canary.maiocchi.adv.br',
++        authorize_url: 'https://uno-canary.maiocchi.adv.br/api/auth/sso/authorize',
++        token_url: 'https://uno-canary.maiocchi.adv.br/api/auth/sso/token',
++        redirect_uri: 'https://assinatura-canary.maiocchi.adv.br/sso/maiocchi/callback'
++      }.freeze
++    }.freeze
 +    AUDIENCE = 'maiocchi-signature'
 +    SCOPE = 'openid profile signature.manage'
 +    TOKEN_TYPE = 'urn:maiocchi:backchannel-identity'
@@ -511,6 +521,22 @@ index 0000000000000000000000000000000000000000..4f04527d1fadfb78c25a8311835d26d1
 +
 +    def enabled?
 +      ENV['MAIOCCHI_SSO_ENABLED'] == 'true'
++    end
++
++    def issuer
++      endpoint(:issuer)
++    end
++
++    def authorize_url
++      endpoint(:authorize_url)
++    end
++
++    def token_url
++      endpoint(:token_url)
++    end
++
++    def redirect_uri
++      endpoint(:redirect_uri)
 +    end
 +
 +    def account_uuid
@@ -536,7 +562,7 @@ index 0000000000000000000000000000000000000000..4f04527d1fadfb78c25a8311835d26d1
 +      account_uuid
 +      bootstrap_user_uuid
 +      client_secret
-+      [ISSUER, AUTHORIZE_URL, TOKEN_URL, REDIRECT_URI].each do |value|
++      [issuer, authorize_url, token_url, redirect_uri].each do |value|
 +        uri = URI.parse(value)
 +        raise ConfigurationError, 'SSO endpoint is not exact HTTPS' unless uri.is_a?(URI::HTTPS)
 +        raise ConfigurationError, 'SSO endpoint contains userinfo' if uri.userinfo
@@ -548,8 +574,17 @@ index 0000000000000000000000000000000000000000..4f04527d1fadfb78c25a8311835d26d1
 +    end
 +
 +    def callback_host
-+      URI.parse(REDIRECT_URI).host
++      URI.parse(redirect_uri).host
 +    end
++
++    def endpoint(name)
++      profile_name = ENV.fetch('MAIOCCHI_SSO_PROFILE', 'production')
++      profile = ENDPOINT_PROFILES.fetch(profile_name) do
++        raise ConfigurationError, 'SSO endpoint profile is invalid'
++      end
++      profile.fetch(name)
++    end
++    private_class_method :endpoint
 +
 +    def exact_uuid!(value, label)
 +      normalized = value.to_s.downcase
@@ -690,7 +725,7 @@ index 0000000000000000000000000000000000000000..8e79c0fca3521fa1ab565fce0c7eabfd
 +end
 diff --git a/lib/maiocchi_sso/token_exchange.rb b/lib/maiocchi_sso/token_exchange.rb
 new file mode 100644
-index 0000000000000000000000000000000000000000..6b8fc7b125ad03e9ad82230b7d78f4bff367200a
+index 0000000000000000000000000000000000000000..51466b66574ea3e75862732a29e8e24ef6d06432
 --- /dev/null
 +++ b/lib/maiocchi_sso/token_exchange.rb
 @@ -0,0 +1,131 @@
@@ -739,21 +774,21 @@ index 0000000000000000000000000000000000000000..6b8fc7b125ad03e9ad82230b7d78f4bf
 +    private
 +
 +    def perform_request
-+      uri = URI.parse(MaiocchiSso::Configuration::TOKEN_URL)
++      uri = URI.parse(MaiocchiSso::Configuration.token_url)
 +      raise MaiocchiSso::FlowError unless uri.is_a?(URI::HTTPS) && uri.userinfo.nil? && uri.fragment.nil?
 +
 +      request = Net::HTTP::Post.new(uri)
 +      request.basic_auth(MaiocchiSso::Configuration::CLIENT_ID, MaiocchiSso::Configuration.client_secret)
 +      request['Accept'] = 'application/json'
-+      request['Content-Type'] = 'application/x-www-form-urlencoded'
++      request['Content-Type'] = 'application/json'
 +      request['Cache-Control'] = 'no-store'
-+      request.body = URI.encode_www_form(
++      request.body = {
 +        grant_type: 'authorization_code',
 +        code: @code,
-+        redirect_uri: MaiocchiSso::Configuration::REDIRECT_URI,
++        redirect_uri: MaiocchiSso::Configuration.redirect_uri,
 +        code_verifier: @verifier,
 +        nonce: @nonce
-+      )
++      }.to_json
 +
 +      Net::HTTP.start(uri.host, uri.port, use_ssl: true, verify_mode: OpenSSL::SSL::VERIFY_PEER,
 +                                          open_timeout: 3, read_timeout: 5, write_timeout: 5) do |http|
@@ -783,7 +818,7 @@ index 0000000000000000000000000000000000000000..6b8fc7b125ad03e9ad82230b7d78f4bf
 +      raise MaiocchiSso::FlowError unless claims.is_a?(Hash) && claims.keys.sort == REQUIRED_KEYS.sort
 +      raise MaiocchiSso::FlowError unless claims['ok'] == true
 +      raise MaiocchiSso::FlowError unless claims['token_type'] == MaiocchiSso::Configuration::TOKEN_TYPE
-+      raise MaiocchiSso::FlowError unless claims['issuer'] == MaiocchiSso::Configuration::ISSUER
++      raise MaiocchiSso::FlowError unless claims['issuer'] == MaiocchiSso::Configuration.issuer
 +      raise MaiocchiSso::FlowError unless claims['audience'] == MaiocchiSso::Configuration::AUDIENCE
 +      raise MaiocchiSso::FlowError unless claims['scope'] == MaiocchiSso::Configuration::SCOPE
 +      raise MaiocchiSso::FlowError unless secure_equal?(claims['nonce'], @nonce)
@@ -827,10 +862,10 @@ index 0000000000000000000000000000000000000000..6b8fc7b125ad03e9ad82230b7d78f4bf
 +end
 diff --git a/spec/lib/maiocchi_sso_configuration_spec.rb b/spec/lib/maiocchi_sso_configuration_spec.rb
 new file mode 100644
-index 0000000000000000000000000000000000000000..a8da6782b6edc884d4c3a080435ff40f3820ee38
+index 0000000000000000000000000000000000000000..5ba298ea12a8a81bd1fac6066308811bedefa685
 --- /dev/null
 +++ b/spec/lib/maiocchi_sso_configuration_spec.rb
-@@ -0,0 +1,47 @@
+@@ -0,0 +1,63 @@
 +# frozen_string_literal: true
 +
 +require 'tempfile'
@@ -839,7 +874,7 @@ index 0000000000000000000000000000000000000000..a8da6782b6edc884d4c3a080435ff40f
 +  around do |example|
 +    keys = %w[
 +      MAIOCCHI_SSO_ENABLED MAIOCCHI_SSO_ACCOUNT_UUID MAIOCCHI_SSO_BOOTSTRAP_USER_UUID
-+      MAIOCCHI_SSO_CLIENT_SECRET MAIOCCHI_SSO_CLIENT_SECRET_FILE
++      MAIOCCHI_SSO_CLIENT_SECRET MAIOCCHI_SSO_CLIENT_SECRET_FILE MAIOCCHI_SSO_PROFILE
 +    ]
 +    previous = ENV.to_h.slice(*keys)
 +    keys.each { |key| ENV.delete(key) }
@@ -876,6 +911,22 @@ index 0000000000000000000000000000000000000000..a8da6782b6edc884d4c3a080435ff40f
 +      file.flush
 +      expect { described_class.client_secret }.to raise_error(MaiocchiSso::ConfigurationError)
 +    end
++  end
++
++  it 'selects only the exact production or canary endpoint profile' do
++    expect(described_class.issuer).to eq('https://www.maiocchi.adv.br')
++    expect(described_class.redirect_uri)
++      .to eq('https://assinatura.maiocchi.adv.br/sso/maiocchi/callback')
++
++    ENV['MAIOCCHI_SSO_PROFILE'] = 'canary'
++    expect(described_class.authorize_url)
++      .to eq('https://uno-canary.maiocchi.adv.br/api/auth/sso/authorize')
++    expect(described_class.token_url)
++      .to eq('https://uno-canary.maiocchi.adv.br/api/auth/sso/token')
++    expect(described_class.callback_host).to eq('assinatura-canary.maiocchi.adv.br')
++
++    ENV['MAIOCCHI_SSO_PROFILE'] = 'canary '
++    expect { described_class.issuer }.to raise_error(MaiocchiSso::ConfigurationError)
 +  end
 +end
 diff --git a/spec/lib/maiocchi_sso_identity_resolver_spec.rb b/spec/lib/maiocchi_sso_identity_resolver_spec.rb
@@ -987,10 +1038,10 @@ index 0000000000000000000000000000000000000000..c462fafe5b433d5f0068223ccb42d6aa
 +end
 diff --git a/spec/lib/maiocchi_sso_token_exchange_spec.rb b/spec/lib/maiocchi_sso_token_exchange_spec.rb
 new file mode 100644
-index 0000000000000000000000000000000000000000..17dcfeb3c6d8268fa1737ab97dd2b755a661f889
+index 0000000000000000000000000000000000000000..608ba0980224be25e515aafc8db2787fda8f0df2
 --- /dev/null
 +++ b/spec/lib/maiocchi_sso_token_exchange_spec.rb
-@@ -0,0 +1,108 @@
+@@ -0,0 +1,109 @@
 +# frozen_string_literal: true
 +
 +RSpec.describe MaiocchiSso::TokenExchange do
@@ -1006,7 +1057,7 @@ index 0000000000000000000000000000000000000000..17dcfeb3c6d8268fa1737ab97dd2b755
 +      'expires_in' => 30,
 +      'issued_at' => now.iso8601,
 +      'expires_at' => (now + 30.seconds).iso8601,
-+      'issuer' => MaiocchiSso::Configuration::ISSUER,
++      'issuer' => MaiocchiSso::Configuration.issuer,
 +      'audience' => MaiocchiSso::Configuration::AUDIENCE,
 +      'scope' => MaiocchiSso::Configuration::SCOPE,
 +      'nonce' => nonce,
@@ -1025,15 +1076,16 @@ index 0000000000000000000000000000000000000000..17dcfeb3c6d8268fa1737ab97dd2b755
 +  end
 +
 +  it 'uses exact HTTPS backchannel, distinct Basic credential, PKCE verifier and nonce' do
-+    request = stub_request(:post, MaiocchiSso::Configuration::TOKEN_URL)
++    request = stub_request(:post, MaiocchiSso::Configuration.token_url)
 +      .with do |incoming|
-+        body = Rack::Utils.parse_query(incoming.body)
-+        incoming.headers['Authorization'] ==
++        body = JSON.parse(incoming.body)
++        incoming.headers['Content-Type'] == 'application/json' &&
++          incoming.headers['Authorization'] ==
 +          "Basic #{Base64.strict_encode64("#{MaiocchiSso::Configuration::CLIENT_ID}:#{secret}")}" &&
 +          body == {
 +            'grant_type' => 'authorization_code',
 +            'code' => code,
-+            'redirect_uri' => MaiocchiSso::Configuration::REDIRECT_URI,
++            'redirect_uri' => MaiocchiSso::Configuration.redirect_uri,
 +            'code_verifier' => verifier,
 +            'nonce' => nonce
 +          }
@@ -1060,7 +1112,7 @@ index 0000000000000000000000000000000000000000..17dcfeb3c6d8268fa1737ab97dd2b755
 +    ]
 +
 +    mutations.each do |mutation|
-+      stub_request(:post, MaiocchiSso::Configuration::TOKEN_URL)
++      stub_request(:post, MaiocchiSso::Configuration.token_url)
 +        .to_return(status: 200, headers: { 'Content-Type' => 'application/json' },
 +                   body: claims.merge(mutation).to_json)
 +
@@ -1080,7 +1132,7 @@ index 0000000000000000000000000000000000000000..17dcfeb3c6d8268fa1737ab97dd2b755
 +    ]
 +
 +    responses.each do |response|
-+      stub_request(:post, MaiocchiSso::Configuration::TOKEN_URL).to_return(**response)
++      stub_request(:post, MaiocchiSso::Configuration.token_url).to_return(**response)
 +      expect { described_class.call(code:, verifier:, nonce:, now:) }
 +        .to raise_error(MaiocchiSso::FlowError)
 +      WebMock.reset!
@@ -1089,7 +1141,7 @@ index 0000000000000000000000000000000000000000..17dcfeb3c6d8268fa1737ab97dd2b755
 +
 +  it 'rejects an expired/future authentication context' do
 +    ['2026-06-17T11:59:59Z', '2026-07-18T12:00:01Z'].each do |auth_time|
-+      stub_request(:post, MaiocchiSso::Configuration::TOKEN_URL)
++      stub_request(:post, MaiocchiSso::Configuration.token_url)
 +        .to_return(status: 200, headers: { 'Content-Type' => 'application/json' },
 +                   body: claims.merge('auth_time' => auth_time).to_json)
 +
@@ -1101,7 +1153,7 @@ index 0000000000000000000000000000000000000000..17dcfeb3c6d8268fa1737ab97dd2b755
 +end
 diff --git a/spec/requests/maiocchi_sso_spec.rb b/spec/requests/maiocchi_sso_spec.rb
 new file mode 100644
-index 0000000000000000000000000000000000000000..e48c6931e33a16f3b1f166808845ed96a445a834
+index 0000000000000000000000000000000000000000..e4d951553a3f5563cda891201a7ec268e5a6b785
 --- /dev/null
 +++ b/spec/requests/maiocchi_sso_spec.rb
 @@ -0,0 +1,116 @@
@@ -1135,11 +1187,11 @@ index 0000000000000000000000000000000000000000..e48c6931e33a16f3b1f166808845ed96
 +    expect(response).to have_http_status(:see_other)
 +    authorize_uri = URI.parse(response.location)
 +    query = Rack::Utils.parse_query(authorize_uri.query)
-+    expect(authorize_uri.to_s).to start_with(MaiocchiSso::Configuration::AUTHORIZE_URL)
++    expect(authorize_uri.to_s).to start_with(MaiocchiSso::Configuration.authorize_url)
 +    expect(query).to include(
 +      'response_type' => 'code',
 +      'client_id' => MaiocchiSso::Configuration::CLIENT_ID,
-+      'redirect_uri' => MaiocchiSso::Configuration::REDIRECT_URI,
++      'redirect_uri' => MaiocchiSso::Configuration.redirect_uri,
 +      'code_challenge_method' => 'S256',
 +      'scope' => MaiocchiSso::Configuration::SCOPE,
 +      'audience' => MaiocchiSso::Configuration::AUDIENCE

@@ -24,6 +24,13 @@ const [
   candidatePreflight,
   candidateComposeRunner,
   patchIndexValidator,
+  gatewayOverlay,
+  gatewayConfig,
+  docusealBootstrap,
+  e2eProbe,
+  pkiGenerator,
+  secretProvisioner,
+  runtimePreflight,
 ] = await Promise.all([
   readFile(new URL("../compliance/docuseal-maiocchi-3.0.1-maiocchi.14.tar.gz", import.meta.url)),
   readFile(new URL("../patches/docuseal/0009-maiocchi-uno-sso.patch", import.meta.url), "utf8"),
@@ -43,6 +50,13 @@ const [
   readFile(new URL("../scripts/validate-sso-candidate-images.sh", import.meta.url), "utf8"),
   readFile(new URL("../scripts/run-sso-candidate-compose.sh", import.meta.url), "utf8"),
   readFile(new URL("../scripts/validate-release-patch-indexes.sh", import.meta.url), "utf8"),
+  readFile(new URL("../deploy/sso-e2e-gateway.candidate.yml", import.meta.url), "utf8"),
+  readFile(new URL("../deploy/sso-e2e/gateway.conf", import.meta.url), "utf8"),
+  readFile(new URL("../deploy/sso-e2e/docuseal-sso-bootstrap.rb", import.meta.url), "utf8"),
+  readFile(new URL("../deploy/sso-e2e/sso-e2e-probe.rb", import.meta.url), "utf8"),
+  readFile(new URL("../scripts/generate-sso-e2e-canary-pki.sh", import.meta.url), "utf8"),
+  readFile(new URL("../scripts/provision-docuseal-sso-canary-secret.sh", import.meta.url), "utf8"),
+  readFile(new URL("../scripts/validate-sso-e2e-runtime.sh", import.meta.url), "utf8"),
 ]);
 
 const [portalPatch, portalBuild, portalOverlay, portalContract, portalPackage, portalLock, portalDockerfile, portalCompose, brand] = await Promise.all([
@@ -78,7 +92,7 @@ test("patch SSO deriva exclusivamente da fonte DocuSeal .14 aprovada", () => {
   );
   assert.equal(
     createHash("sha256").update(patch).digest("hex"),
-    "d37cc6334fc482a9f7a285601a7ec924541b87fe1e793686ba55f8fd3a4a4ffc",
+    "2339df1880f6fc2af3706c51d29fc158a7c592a50c0deba5771b5a6eca51d54c",
   );
   assert.match(buildScript, /git -C "\$candidate_work" apply --check "\$sso_patch"/);
   assert.match(buildScript, /git -C "\$candidate_work" apply --check "\$build_inputs_patch"/);
@@ -171,9 +185,25 @@ test("scanners candidatos usam configuração versionada, binários exatos e DB 
   assert.equal(docusealContract.recipe_implementation.candidate_preflight.sha256, createHash("sha256").update(candidatePreflight).digest("hex"));
   assert.equal(docusealContract.recipe_implementation.patch_index_audit.sha256, createHash("sha256").update(patchIndexValidator).digest("hex"));
   assert.equal(docusealContract.recipe_implementation.compose_runner.sha256, createHash("sha256").update(candidateComposeRunner).digest("hex"));
+  assert.equal(docusealContract.recipe_implementation.candidate_compose.sha256, createHash("sha256").update(overlay).digest("hex"));
+  assert.equal(portalContract.recipe_implementation.candidate_compose.sha256, createHash("sha256").update(portalOverlay).digest("hex"));
+  assert.deepEqual(Object.keys(docusealContract.endpoint_profiles).sort(), ["canary", "production", "selection"]);
+  assert.equal(docusealContract.endpoint_profiles.canary.issuer, "https://uno-canary.maiocchi.adv.br");
+  assert.equal(
+    docusealContract.endpoint_profiles.canary.redirect_uri,
+    "https://assinatura-canary.maiocchi.adv.br/sso/maiocchi/callback",
+  );
 });
 
 test("browser flow fixa endpoints, PKCE S256, state use-once e sessão host-only", () => {
+  assert.match(patch, /ENDPOINT_PROFILES = \{/);
+  assert.match(patch, /'production' => \{[\s\S]*issuer: 'https:\/\/www[.]maiocchi[.]adv[.]br'/);
+  assert.match(patch, /'canary' => \{[\s\S]*issuer: 'https:\/\/uno-canary[.]maiocchi[.]adv[.]br'/);
+  assert.match(patch, /ENV[.]fetch\('MAIOCCHI_SSO_PROFILE', 'production'\)/);
+  assert.match(patch, /Configuration[.]authorize_url/);
+  assert.match(patch, /Configuration[.]token_url/);
+  assert.match(patch, /Configuration[.]redirect_uri/);
+  assert.doesNotMatch(patch, /ENV\['MAIOCCHI_SSO_(?:ISSUER|AUTHORIZE_URL|TOKEN_URL|REDIRECT_URI)'\]/);
   assert.match(patch, /get 'sso\/maiocchi\/start'/);
   assert.match(patch, /get 'sso\/maiocchi\/callback'/);
   assert.match(patch, /SecureRandom[.]urlsafe_base64/);
@@ -223,7 +253,7 @@ test("hunk do request spec DocuSeal declara todas as 116 linhas e o blob integra
   assert.ok(requestSpecDiff, "o patch deve conter o request spec SSO completo");
   assert.match(
     requestSpecDiff,
-    /index 0000000000000000000000000000000000000000[.][.]e48c6931e33a16f3b1f166808845ed96a445a834/,
+    /index 0000000000000000000000000000000000000000[.][.]e4d951553a3f5563cda891201a7ec268e5a6b785/,
   );
   assert.match(requestSpecDiff, /@@ -0,0 \+1,116 @@/);
   const addedRequestSpecLines = requestSpecDiff
@@ -294,12 +324,74 @@ test("portal e roteamento tornam o SSO primário sem remover os fallbacks", () =
 test("canário DocuSeal não herda nomes, banco, volumes ou rede de produção", () => {
   assert.match(overlay, /^\s{2}docuseal-sso-candidate:/m);
   assert.match(overlay, /^\s{2}docuseal-sso-db-candidate:/m);
+  assert.match(overlay, /^\s{2}docuseal-sso-bootstrap-candidate:/m);
+  assert.match(overlay, /^\s{2}sso-e2e-probe-candidate:/m);
   assert.doesNotMatch(overlay, /^\s{2}docuseal:/m);
   assert.doesNotMatch(overlay, /^\s{2}docuseal-db:/m);
+  assert.doesNotMatch(overlay, /container_name:|^\s+name:\s+docuseal-sso-candidate/m);
   assert.match(overlay, /postgres:16-alpine@sha256:[0-9a-f]{64}/);
   assert.match(overlay, /DOCUSEAL_CANARY_SECRET_DIR:[?]/);
+  assert.match(overlay, /MAIOCCHI_SSO_PROFILE: canary/);
+  assert.equal((overlay.match(/- signature-sso-candidate/g) || []).length, 2);
+  assert.match(overlay, /condition: service_completed_successfully/);
+  assert.match(overlay, /MAIOCCHI_CANARY_ACCOUNT_UUID: "33333333-3333-4333-8333-333333333333"/);
+  assert.match(overlay, /APP_URL: https:\/\/assinatura-canary[.]maiocchi[.]adv[.]br/);
+  assert.match(overlay, /SSL_CERT_FILE: \/run\/sso-e2e-pki\/ca[.]crt/);
+  assert.match(overlay, /group_add:[\s\S]*DOCUSEAL_CANARY_SECRET_GID:-3400/);
+  assert.match(overlay, /mem_limit: 1536m/);
+  assert.match(overlay, /pids_limit: 384/);
+  assert.match(overlay, /max-size: 10m/);
   assert.match(overlay, /internal: true/);
   assert.doesNotMatch(overlay, /ports:|traefik-net|signature-internal|DOCUSEAL_DATA_DIR|DOCUSEAL_PGDATA_DIR/);
+});
+
+test("gateway TLS privado une somente os dois runtimes canário", () => {
+  assert.match(gatewayOverlay, /nginxinc\/nginx-unprivileged:1[.]30[.]3-alpine3[.]23-slim@sha256:[0-9a-f]{64}/);
+  assert.match(gatewayOverlay, /user: "0:0"/);
+  assert.match(gatewayOverlay, /cap_drop:[\s\S]*- ALL[\s\S]*cap_add:[\s\S]*- NET_BIND_SERVICE/);
+  assert.match(gatewayOverlay, /uno-canary[.]maiocchi[.]adv[.]br/);
+  assert.match(gatewayOverlay, /assinatura-canary[.]maiocchi[.]adv[.]br/);
+  assert.match(gatewayOverlay, /UNO_SSO_CANDIDATE_NETWORK:[?]/);
+  assert.match(gatewayOverlay, /external: true/);
+  assert.doesNotMatch(gatewayOverlay, /ports:|traefik[.]http|docker[.]sock/);
+  assert.match(gatewayConfig, /listen 443 ssl default_server/);
+  assert.match(gatewayConfig, /location \/ \{ return 444; \}/);
+  assert.match(gatewayConfig, /proxy_pass http:\/\/uno_canary_portal/);
+  assert.match(gatewayConfig, /proxy_pass http:\/\/signature_canary_docuseal/);
+  assert.match(gatewayConfig, /proxy_pass http:\/\/signature_canary_portal/);
+  assert.match(gatewayConfig, /X-Forwarded-Proto https/);
+});
+
+test("laboratório prova login, PKCE, vínculo persistente e dois anti-replays sem expor secrets", () => {
+  assert.match(docusealBootstrap, /candidate account drift detected/);
+  assert.match(docusealBootstrap, /Account[.]active[.]where\(uuid: expected_uuid\)[.]count == 1/);
+  assert.match(e2eProbe, /Entrar com Portal Maiocchi/);
+  assert.match(e2eProbe, /docuseal_pkce_start/);
+  assert.match(e2eProbe, /uno_synthetic_staff_login/);
+  assert.match(e2eProbe, /docuseal_code_exchange/);
+  assert.match(e2eProbe, /docuseal_callback_replay_rejected/);
+  assert.match(e2eProbe, /uno_token_replay_rejected/);
+  assert.match(e2eProbe, /MaiocchiSsoIdentity[.]find_by!/);
+  assert.match(e2eProbe, /maiocchi_sso_exchanges[.]count == 1/);
+  assert.match(e2eProbe, /private-ca-verify-peer/);
+  assert.match(e2eProbe, /File::CREAT \| File::EXCL/);
+  assert.doesNotMatch(e2eProbe, /puts.*password|puts.*client_secret|p\s+password|p\s+client_secret/);
+});
+
+test("PKI, cópia de secret e runtime são fail-closed e efêmeros", () => {
+  assert.match(pkiGenerator, /O diretório de PKI deve ser absoluto/);
+  assert.match(pkiGenerator, /DNS[.]1 = uno-canary[.]maiocchi[.]adv[.]br/);
+  assert.match(pkiGenerator, /DNS[.]2 = assinatura-canary[.]maiocchi[.]adv[.]br/);
+  assert.match(pkiGenerator, /extendedKeyUsage = critical,serverAuth/);
+  assert.match(pkiGenerator, /install -m 0400 "\$tmp_dir\/server[.]key"/);
+  assert.match(secretProvisioner, /install -o 0 -g "\$target_gid" -m 0440/);
+  assert.match(secretProvisioner, /cmp -s "\$source_file"/);
+  assert.match(runtimePreflight, /MAIOCCHI_CANARY_SSO_ENABLED deve ser exatamente true/);
+  assert.match(runtimePreflight, /UNO e DocuSeal|cópias governadas/);
+  assert.match(runtimePreflight, /openssl verify -CAfile/);
+  assert.match(runtimePreflight, /Certificado e chave TLS E2E não correspondem/);
+  assert.match(runtimePreflight, /maiocchi-uno-canary-\(blue\|green\)_canary-internal/);
+  assert.match(runtimePreflight, /true\|canary-internal\|maiocchi-uno-canary-\$slot/);
 });
 
 test("harness PG16 entrega tmpfs gravável somente ao usuário não-root da aplicação", () => {
@@ -691,42 +783,37 @@ test("auditoria de índices valida blobs antes e depois dos quatro patches da re
   assert.equal((patchIndexValidator.match(/^audit_patch_line_accounting "\$/gm) || []).length, 4);
 });
 
-test("wrapper executa o preflight imediatamente antes do compose sem hardcode de up", () => {
+test("wrapper expõe somente verbos governados e executa os dois preflights antes do up", () => {
   assert.match(candidateComposeRunner, /validate-sso-candidate-images[.]sh/);
+  assert.match(candidateComposeRunner, /validate-sso-e2e-runtime[.]sh/);
   assert.match(candidateComposeRunner, /export[^\n]*PORTAL_SSO_CANDIDATE_IMAGE_ID[^\n]*DOCUSEAL_SSO_CANDIDATE_IMAGE_ID/);
-  assert.match(candidateComposeRunner, /"\$validator"\nexec docker compose/);
-  assert.match(candidateComposeRunner, /-f\s*\|\s*-f[?][*]\s*\|\s*--file\s*\|\s*--file=[*]/);
-  assert.match(candidateComposeRunner, /--project-directory|--project-name|--env-file/);
-  assert.doesNotMatch(candidateComposeRunner, /exec docker compose[^\n]*\bup\b/);
+  assert.match(candidateComposeRunner, /"\$image_validator"[\s\S]*"\$runtime_validator"[\s\S]*compose config --quiet/);
+  assert.match(candidateComposeRunner, /--file "\$repo_dir\/deploy\/sso-e2e-gateway[.]candidate[.]yml"/);
+  assert.match(candidateComposeRunner, /--wait-timeout 900/);
+  assert.match(candidateComposeRunner, /--force-recreate/);
+  assert.match(candidateComposeRunner, /compose --profile e2e run --rm --no-deps sso-e2e-probe-candidate/);
+  assert.match(candidateComposeRunner, /compose down --remove-orphans --timeout 30/);
+  assert.doesNotMatch(candidateComposeRunner, /\$@/);
 });
 
-test("wrapper rejeita run e config --environment e exige config não interpolado", () => {
+test("wrapper rejeita argumentos livres antes de tocar Docker", () => {
   const runnerPath = fileURLToPath(new URL("../scripts/run-sso-candidate-compose.sh", import.meta.url));
   for (const [args, expectedError] of [
-    [["run"], /Subcomando Compose não permitido/],
-    [["config", "--environment", "json"], /Config só é permitido com --quiet e --no-interpolate/],
+    [["run"], /Subcomando inválido/],
+    [["config", "--environment", "json"], /Uso: run-sso-candidate-compose/],
   ]) {
     const result = spawnSync("/bin/sh", [runnerPath, ...args], { encoding: "utf8" });
     assert.notEqual(result.status, 0);
     assert.match(result.stderr, expectedError);
   }
-
-  const allowedCommands = candidateComposeRunner
-    .split("\n")
-    .find((line) => line.trimStart().startsWith("up | create |"));
-  assert.ok(allowedCommands, "a allowlist explícita de subcomandos deve existir");
-  assert.doesNotMatch(allowedCommands, /(?:^|\s)run(?:\s|$)/);
-  assert.match(candidateComposeRunner, /config\)[\s\S]*\[ "\$#" -eq 3 \][\s\S]*--quiet:--no-interpolate/);
-  assert.match(candidateComposeRunner, /--no-interpolate:--quiet/);
-  assert.match(candidateComposeRunner, /--environment\s*\|\s*--environment=[*]/);
 });
 
 test("canário do portal é privado e não substitui o container produtivo", () => {
   assert.match(portalOverlay, /portal-sso-candidate:/);
-  assert.match(portalOverlay, /container_name: assinatura-portal-sso-candidate/);
+  assert.doesNotMatch(portalOverlay, /container_name:|^\s+name:\s+signature-sso-candidate/m);
   assert.match(portalOverlay, /image: "\$\{PORTAL_SSO_CANDIDATE_IMAGE_ID:[?]defina o image ID sha256 validado pelo preflight\}"/);
   assert.doesNotMatch(portalOverlay, /\$\{PORTAL_SSO_CANDIDATE_IMAGE:[?:]/);
   assert.match(portalOverlay, /internal: true/);
-  assert.doesNotMatch(portalOverlay, /ports:|traefik[.]http|container_name: assinatura-portal\s/);
-  assert.equal(portalContract.gates.canary, "candidate service has a unique container name and an internal-only network; no public router");
+  assert.doesNotMatch(portalOverlay, /ports:|traefik[.]http/);
+  assert.equal(portalContract.gates.canary, "project-scoped candidate service on an internal-only network; no public router");
 });
