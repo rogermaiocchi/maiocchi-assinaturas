@@ -1,0 +1,178 @@
+diff --git a/app/controllers/certificate_auth/base_controller.rb b/app/controllers/certificate_auth/base_controller.rb
+index d7b8c5a..5ecfc80 100644
+--- a/app/controllers/certificate_auth/base_controller.rb
++++ b/app/controllers/certificate_auth/base_controller.rb
+@@ -75,13 +75,14 @@ module CertificateAuth
+       end
+     end
+ 
+-    def render_handoff(destination:, token_name:, handoff_code:, button_text:, explanation:)
++    def render_handoff(destination:, token_name:, handoff_code:, button_text:, explanation:, extra_fields: {})
+       render 'certificate_auth/handoff', locals: {
+         destination:,
+         token_name:,
+         handoff_code:,
+         button_text:,
+-        explanation:
++        explanation:,
++        extra_fields: extra_fields || {}
+       }
+     end
+ 
+diff --git a/app/controllers/certificate_auth/sessions_controller.rb b/app/controllers/certificate_auth/sessions_controller.rb
+index 4db6242..e11b775 100644
+--- a/app/controllers/certificate_auth/sessions_controller.rb
++++ b/app/controllers/certificate_auth/sessions_controller.rb
+@@ -17,7 +17,8 @@ module CertificateAuth
+         token_name: 'state',
+         handoff_code: raw_state,
+         button_text: 'Apresentar certificado digital',
+-        explanation: 'Seu navegador solicitará o certificado conectado. Nenhuma senha do token é enviada ao portal.'
++        explanation: 'Seu navegador solicitará o certificado conectado. Nenhuma senha do token é enviada ao portal.',
++        extra_fields: {}
+       )
+     end
+ 
+@@ -25,6 +26,7 @@ module CertificateAuth
+       challenge = find_challenge_by_state!('login')
+       client_certificate = read_client_certificate!
+       raw_callback = nil
++      return_to = MaiocchiUnoCertificateJoin.safe_return_to(params[:return_to])
+ 
+       CertificateAuthChallenge.transaction do
+         challenge.lock!
+@@ -38,7 +40,8 @@ module CertificateAuth
+         token_name: 'callback_token',
+         handoff_code: raw_callback,
+         button_text: 'Concluir acesso seguro',
+-        explanation: 'Certificado reconhecido. Retorne à área dos advogados para concluir o acesso.'
++        explanation: 'Certificado reconhecido. Retorne à área dos advogados para concluir o acesso.',
++        extra_fields: return_to.present? ? { return_to: return_to } : {}
+       )
+     end
+ 
+@@ -72,6 +75,27 @@ module CertificateAuth
+       end
+ 
+       user = identity.user
++      return_to = MaiocchiUnoCertificateJoin.safe_return_to(params[:return_to])
++
++      if return_to.present? && MaiocchiUnoCertificateJoin.enabled?
++        begin
++          code = MaiocchiUnoCertificateJoin.issue!(
++            email: user.email,
++            subject_dn: challenge.certificate_subject_summary
++          )
++          join_uri = URI.parse(return_to)
++          q = URI.decode_www_form(join_uri.query.to_s)
++          q.reject! { |k, _| k == 'code' }
++          q << ['code', code]
++          join_uri.query = URI.encode_www_form(q)
++          reset_session
++          redirect_to join_uri.to_s, allow_other_host: true, status: :see_other
++          return
++        rescue StandardError
++          # Fail-closed: não inventa sessão UNO; cai no fluxo DocuSeal local.
++        end
++      end
++
+       reset_session
+       sign_in(:user, user)
+       redirect_to dashboard_index_path, notice: 'Acesso realizado com certificado digital.'
+diff --git a/app/services/maiocchi_uno_certificate_join.rb b/app/services/maiocchi_uno_certificate_join.rb
+new file mode 100644
+index 0000000..1de0c80
+--- /dev/null
++++ b/app/services/maiocchi_uno_certificate_join.rb
+@@ -0,0 +1,77 @@
++# frozen_string_literal: true
++
++require 'net/http'
++require 'json'
++require 'uri'
++
++# Cliente HTTP: DocuSeal → API UNO POST /v1/auth/certificate/join-code
++module MaiocchiUnoCertificateJoin
++  module_function
++
++  ALLOWED_RETURN_TO_ORIGINS = %w[
++    https://www.maiocchi.adv.br
++    https://maiocchi.adv.br
++    https://app.maiocchi.adv.br
++  ].freeze
++
++  CALLBACK_PATH = '/api/auth/certificate/callback'
++
++  def enabled?
++    join_url.present? && internal_token.present?
++  end
++
++  def join_url
++    ENV.fetch('UNO_CERTIFICATE_JOIN_URL', '').to_s.strip.presence
++  end
++
++  def internal_token
++    ENV.fetch('UNO_INTERNAL_SERVICE_TOKEN', '').to_s.strip.presence
++  end
++
++  def safe_return_to(raw)
++    return nil if raw.blank? || raw.to_s.length > 4096
++
++    uri = URI.parse(raw.to_s)
++    return nil unless uri.is_a?(URI::HTTPS)
++    return nil if uri.userinfo.present?
++    return nil unless uri.port.nil? || uri.port == 443
++    origin = "#{uri.scheme}://#{uri.host}"
++    return nil unless ALLOWED_RETURN_TO_ORIGINS.include?(origin)
++    return nil unless uri.path == CALLBACK_PATH
++    return nil if uri.fragment.present?
++
++    params = URI.decode_www_form(uri.query.to_s).to_h
++    return nil if (params.keys - %w[next]).any?
++
++    uri.to_s
++  rescue URI::InvalidURIError
++    nil
++  end
++
++  def issue!(email:, subject_dn: nil)
++    raise ArgumentError, 'email required' if email.blank?
++    raise ArgumentError, 'join disabled' unless enabled?
++
++    uri = URI.parse(join_url)
++    raise ArgumentError, 'join url must be https' unless uri.is_a?(URI::HTTPS)
++
++    body = { email: email.to_s.strip }
++    body[:subject_dn] = subject_dn.to_s if subject_dn.present?
++
++    http = Net::HTTP.new(uri.host, uri.port)
++    http.use_ssl = true
++    http.open_timeout = 5
++    http.read_timeout = 10
++    req = Net::HTTP::Post.new(uri.request_uri)
++    req['Content-Type'] = 'application/json'
++    req['Accept'] = 'application/json'
++    req['X-Internal-Token'] = internal_token
++    req.body = JSON.generate(body)
++    res = http.request(req)
++    payload = JSON.parse(res.body.to_s)
++    raise "join mint failed: #{res.code}" unless res.is_a?(Net::HTTPSuccess) && payload['ok'] == true
++    raise 'join mint missing code' if payload['code'].to_s.blank?
++
++    payload['code'].to_s
++  end
++end
+diff --git a/app/views/certificate_auth/handoff.html.erb b/app/views/certificate_auth/handoff.html.erb
+index 7a1a52b..e842726 100644
+--- a/app/views/certificate_auth/handoff.html.erb
++++ b/app/views/certificate_auth/handoff.html.erb
+@@ -7,6 +7,9 @@
+       <%= form_with url: destination, method: :post, authenticity_token: false,
+                     html: { data: { turbo: false } } do |form| %>
+         <%= form.hidden_field token_name, value: handoff_code %>
++        <% (local_assigns[:extra_fields] || {}).each do |name, value| %>
++          <%= form.hidden_field name, value: value %>
++        <% end %>
+         <noscript>
+           <p class="mt-4 text-base-content/75"><%= explanation %></p>
+           <%= form.submit button_text, class: 'base-button w-full mt-6' %>
