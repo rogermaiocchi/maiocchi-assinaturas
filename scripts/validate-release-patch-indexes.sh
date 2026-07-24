@@ -10,6 +10,9 @@ docuseal_patch="$repo_dir/patches/docuseal/0009-maiocchi-uno-sso.patch"
 docuseal_build_inputs_patch="$repo_dir/patches/docuseal/0010-pin-build-inputs.patch"
 docuseal_native_security_patch="$repo_dir/patches/docuseal/0011-update-native-image-libraries.patch"
 docuseal_certificate_join_patch="$repo_dir/patches/docuseal/0012-uno-certificate-return-to-join.patch"
+docuseal_source_notice_patch="$repo_dir/patches/docuseal/0013-restore-agpl-network-source-notice.patch"
+docuseal_tiff_source="$repo_dir/compliance/sources/tiff-4.7.2.tar.gz"
+docuseal_corresponding_source="$repo_dir/public/legal/source/docuseal-maiocchi-3.0.1-maiocchi.15.tar.gz"
 
 audit_root=$(mktemp -d "${TMPDIR:-/tmp}/maiocchi-patch-indexes.XXXXXX")
 cleanup() {
@@ -216,7 +219,8 @@ audit_patch_hunks() {
 
 portal_source="$audit_root/portal-source"
 docuseal_source="$audit_root/docuseal-source"
-mkdir "$portal_source" "$docuseal_source"
+offered_source="$audit_root/offered-source"
+mkdir "$portal_source" "$docuseal_source" "$offered_source"
 
 git -C "$repo_dir" archive \
   --format=tar \
@@ -255,5 +259,40 @@ audit_patch_indexes "$docuseal_source" "$docuseal_certificate_join_patch" before
 git -C "$docuseal_source" apply --check "$docuseal_certificate_join_patch"
 git -C "$docuseal_source" apply "$docuseal_certificate_join_patch"
 audit_patch_indexes "$docuseal_source" "$docuseal_certificate_join_patch" after
+audit_patch_hunks "$docuseal_source_notice_patch"
+audit_patch_line_accounting "$docuseal_source_notice_patch"
+audit_patch_indexes "$docuseal_source" "$docuseal_source_notice_patch" before
+git -C "$docuseal_source" apply --check "$docuseal_source_notice_patch"
+git -C "$docuseal_source" apply "$docuseal_source_notice_patch"
+audit_patch_indexes "$docuseal_source" "$docuseal_source_notice_patch" after
 
-printf '%s\n' 'Metadados de blobs dos patches Portal, DocuSeal SSO, inputs de build, bibliotecas nativas e certificate join: PASS'
+cp "$docuseal_tiff_source" "$docuseal_source/build/tiff/tiff-4.7.2.tar.gz"
+tar -tzf "$docuseal_corresponding_source" >"$audit_root/offered-source.list"
+[ "$(wc -l <"$audit_root/offered-source.list" | tr -d '[:space:]')" -le 5000 ] || {
+  printf '%s\n' 'Archive de fonte correspondente excede 5.000 entradas.' >&2
+  exit 1
+}
+while IFS= read -r archive_entry; do
+  case "$archive_entry" in
+    ''|/*|../*|*/../*|*/..) printf '%s\n' 'Archive de fonte correspondente contém caminho inseguro.' >&2; exit 1 ;;
+  esac
+done <"$audit_root/offered-source.list"
+[ "$(tar -tvzf "$docuseal_corresponding_source" | cut -c1 | sort -u | tr -d '\n')" = '-' ] || {
+  printf '%s\n' 'Archive de fonte correspondente deve conter somente arquivos regulares.' >&2
+  exit 1
+}
+tar -xzf "$docuseal_corresponding_source" -C "$offered_source"
+(
+  cd "$docuseal_source"
+  find . -type f -print0 | LC_ALL=C sort -z | xargs -0 shasum -a 256
+) >"$audit_root/reconstructed.SHA256SUMS"
+(
+  cd "$offered_source"
+  find . -type f -print0 | LC_ALL=C sort -z | xargs -0 shasum -a 256
+) >"$audit_root/offered.SHA256SUMS"
+cmp -s "$audit_root/reconstructed.SHA256SUMS" "$audit_root/offered.SHA256SUMS" || {
+  printf '%s\n' 'Archive oferecido não corresponde byte a byte à fonte reconstruída.' >&2
+  exit 1
+}
+
+printf '%s\n' 'Metadados de blobs e fonte correspondente dos patches Portal/DocuSeal 0009-0013: PASS'

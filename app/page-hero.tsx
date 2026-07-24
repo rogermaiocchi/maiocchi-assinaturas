@@ -33,7 +33,7 @@ export function PageHero({
       aria-labelledby={titleId}
     >
       <div className="page-hero__media" aria-hidden="true">
-        <Image src={image} alt="" fill priority sizes="100vw" quality={92} />
+        <Image src={image} alt="Imagem de destaque da página" fill priority sizes="100vw" quality={92} />
       </div>
       <div className="page-hero__shade" aria-hidden="true" />
       <div className="shell page-hero__content">

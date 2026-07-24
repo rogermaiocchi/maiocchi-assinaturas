@@ -81,8 +81,8 @@ export function PortalHome() {
           <div className="hero__media" aria-hidden="true">
             <Image
               className="hero__image"
-              src="/hero-home-maiocchi.webp"
-              alt=""
+              src="/hero-assinaturas.webp"
+              alt="Página inicial do portal de assinatura digital"
               fill
               priority
               sizes="100vw"
@@ -134,7 +134,7 @@ export function PortalHome() {
         </section>
 
         <section className="portal-band portal-band--verification" id="validar">
-          <div className="portal-band__media" aria-hidden="true"><Image src="/hero-validation-glass.webp" alt="" fill sizes="100vw" quality={88} /></div>
+          <div className="portal-band__media" aria-hidden="true"><Image src="/hero-validation-glass.webp" alt="Validação integrada do portal" fill sizes="100vw" quality={88} /></div>
           <div className="portal-band__veil" aria-hidden="true" />
           <div className="shell portal-band__content">
             <div className="editorial-heading">
@@ -156,7 +156,7 @@ export function PortalHome() {
         </section>
 
         <section className="portal-band portal-band--process" id="como-funciona">
-          <div className="portal-band__media" aria-hidden="true"><Image src="/hero-evidence-gold.webp" alt="" fill sizes="100vw" quality={88} /></div>
+          <div className="portal-band__media" aria-hidden="true"><Image src="/hero-evidence-gold.webp" alt="Fluxo de evidência em assinatura" fill sizes="100vw" quality={88} /></div>
           <div className="portal-band__veil" aria-hidden="true" />
           <div className="shell portal-band__content">
             <FlowMap
@@ -175,7 +175,7 @@ export function PortalHome() {
         </section>
 
         <section className="portal-band portal-band--modalities" id="modalidades">
-          <div className="portal-band__media" aria-hidden="true"><Image src="/hero-courthouse-4k.webp" alt="" fill sizes="100vw" quality={86} /></div>
+          <div className="portal-band__media" aria-hidden="true"><Image src="/hero-courthouse-4k.webp" alt="Fluxo processual de assinatura e validação" fill sizes="100vw" quality={86} /></div>
           <div className="portal-band__veil" aria-hidden="true" />
           <div className="shell portal-band__content modalities-layout">
             <div className="modalities-layout__intro"><p className="eyebrow">Modalidade adequada</p><h2>Uma escolha jurídica, não apenas técnica.</h2><p>O portal mantém as alternativas no mesmo contexto e indica o percurso aplicável ao documento.</p></div>
@@ -192,7 +192,7 @@ export function PortalHome() {
         </section>
 
         <section className="help-cta" aria-labelledby="help-cta-title">
-          <div className="help-cta__media" aria-hidden="true"><Image src="/hero-support-maiocchi.jpg" alt="" fill sizes="100vw" quality={88} /></div>
+          <div className="help-cta__media" aria-hidden="true"><Image src="/hero-support-maiocchi.jpg" alt="Canal de ajuda e suporte do escritório" fill sizes="100vw" quality={88} /></div>
           <div className="help-cta__veil" aria-hidden="true" />
           <div className="shell help-cta__inner">
             <div className="help-cta__copy"><p className="eyebrow">Atendimento direto</p><h2 id="help-cta-title">Orientação para acessar, assinar e validar.</h2><p>Instruções objetivas sobre documentos recebidos, certificado digital, autenticidade e dificuldades de acesso.</p><Link className="hero-text-link" href="/ajuda/"><CircleHelp aria-hidden="true" size={19} /><span>Acessar central de ajuda</span><ArrowRight aria-hidden="true" size={16} /></Link></div>

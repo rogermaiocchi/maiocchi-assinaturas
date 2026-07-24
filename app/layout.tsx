@@ -1,6 +1,18 @@
 import type { Metadata } from "next";
+import localFont from "next/font/local";
 import "./globals.css";
 import "./glass-system.css";
+
+const inter = localFont({
+  src: [
+    { path: "./fonts/inter-latin-400-normal.woff", weight: "400", style: "normal" },
+    { path: "./fonts/inter-latin-700-normal.woff", weight: "700", style: "normal" },
+  ],
+  variable: "--font-inter",
+  display: "swap",
+  preload: true,
+  fallback: ["Arial", "sans-serif"],
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://assinatura.maiocchi.adv.br"),
@@ -40,7 +52,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" className={inter.variable}>
       <body>{children}</body>
     </html>
   );

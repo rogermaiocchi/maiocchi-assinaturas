@@ -63,6 +63,8 @@ ARG DOCUSEAL_BASE_SOURCE_SHA256
 ARG DOCUSEAL_SSO_PATCH_SHA256
 ARG DOCUSEAL_BUILD_INPUTS_PATCH_SHA256
 ARG DOCUSEAL_NATIVE_SECURITY_PATCH_SHA256
+ARG DOCUSEAL_CERTIFICATE_JOIN_PATCH_SHA256
+ARG DOCUSEAL_AGPL_SOURCE_PATCH_SHA256
 ARG TIFF_APKBUILD_SHA256
 ARG TIFF_SOURCE_SHA256
 ARG TIFF_VERSION
@@ -77,6 +79,8 @@ LABEL org.opencontainers.image.title="Maiocchi DocuSeal SSO PostgreSQL 16 test h
       br.adv.maiocchi.sso-patch-sha256="${DOCUSEAL_SSO_PATCH_SHA256}" \
       br.adv.maiocchi.build-inputs-patch-sha256="${DOCUSEAL_BUILD_INPUTS_PATCH_SHA256}" \
       br.adv.maiocchi.native-security-patch-sha256="${DOCUSEAL_NATIVE_SECURITY_PATCH_SHA256}" \
+      br.adv.maiocchi.certificate-join-patch-sha256="${DOCUSEAL_CERTIFICATE_JOIN_PATCH_SHA256}" \
+      br.adv.maiocchi.agpl-source-patch-sha256="${DOCUSEAL_AGPL_SOURCE_PATCH_SHA256}" \
       br.adv.maiocchi.tiff-apkbuild-sha256="${TIFF_APKBUILD_SHA256}" \
       br.adv.maiocchi.tiff-source-sha256="${TIFF_SOURCE_SHA256}" \
       br.adv.maiocchi.tiff-version="${TIFF_VERSION}" \

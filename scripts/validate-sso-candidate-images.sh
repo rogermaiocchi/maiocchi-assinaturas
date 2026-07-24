@@ -17,6 +17,10 @@ docuseal_native_security_patch="$repo_dir/patches/docuseal/0011-update-native-im
 docuseal_native_security_patch_sha256='83250e4672db3a4256d7ec44f04f621ef7c1ee178718d9831948f9261580c30c'
 docuseal_certificate_join_patch="$repo_dir/patches/docuseal/0012-uno-certificate-return-to-join.patch"
 docuseal_certificate_join_patch_sha256='54ef28c039597f4aec5521616d51a085d8c55b22199a04a989be858de98d2355'
+docuseal_agpl_source_patch="$repo_dir/patches/docuseal/0013-restore-agpl-network-source-notice.patch"
+docuseal_agpl_source_patch_sha256='cef160860b47ad29a75207f9cdb8883e26822311e05f1647ef3420a3288e30bb'
+docuseal_corresponding_source="$repo_dir/public/legal/source/docuseal-maiocchi-3.0.1-maiocchi.15.tar.gz"
+docuseal_corresponding_source_sha256='ccbddf305d162263b580d8aafbb4fd014b961bd4b6e8b2e0ce9f48d4ee31191c'
 docuseal_tiff_source="$repo_dir/compliance/sources/tiff-4.7.2.tar.gz"
 docuseal_tiff_source_sha256='672bd7d10aee4606171afb864f3570b83340f6a33e2c186dc0512f7145ffdf6a'
 docuseal_tiff_apkbuild_sha256='f7b0bdc5ae7c8340960afaeed18a1e1e09089a8ec99c2ac0335df70c4f046985'
@@ -429,7 +433,7 @@ validate_grype_binding() (
     --arg manifest_media_type "$manifest_media_type" \
     --arg recipe_revision "$recipe_revision" \
     --arg report_kind "$report_kind" '
-      def default_kernel_ignores:
+      def ignore_rule_shape:
         all(.[];
           (keys | sort) == ([
             "fix-state", "include-aliases", "match-type", "namespace", "package",
@@ -437,7 +441,9 @@ validate_grype_binding() (
           ] | sort) and
           (.package | keys | sort) == ([
             "language", "location", "name", "type", "upstream-name", "version"
-          ] | sort)) and
+          ] | sort));
+      def default_kernel_ignores:
+        ignore_rule_shape and
         (map({
             vulnerability,
             include_aliases: .["include-aliases"],
@@ -453,6 +459,22 @@ validate_grype_binding() (
             {vulnerability:"",include_aliases:false,reason:"",namespace:"",fix_state:"",package:{name:"linux(-.*)?-headers-.*",version:"",language:"",type:"deb",location:"","upstream-name":"linux.*"},vex_status:"",vex_justification:"",match_type:"exact-indirect-match"},
             {vulnerability:"",include_aliases:false,reason:"",namespace:"",fix_state:"",package:{name:"linux-libc-dev",version:"",language:"",type:"deb",location:"","upstream-name":"linux"},vex_status:"",vex_justification:"",match_type:"exact-indirect-match"},
             {vulnerability:"",include_aliases:false,reason:"",namespace:"",fix_state:"",package:{name:"linux-kbuild-.*",version:"",language:"",type:"deb",location:"","upstream-name":"linux.*"},vex_status:"",vex_justification:"",match_type:"exact-indirect-match"}
+          ]);
+      def vex_descriptor_ignores:
+        ignore_rule_shape and
+        (map({
+            vulnerability,
+            include_aliases: .["include-aliases"],
+            reason,
+            namespace,
+            fix_state: .["fix-state"],
+            package,
+            vex_status: .["vex-status"],
+            vex_justification: .["vex-justification"],
+            match_type: .["match-type"]
+          }) == [
+            {vulnerability:"",include_aliases:false,reason:"",namespace:"",fix_state:"",package:{name:"",version:"",language:"",type:"",location:"","upstream-name":""},vex_status:"not_affected",vex_justification:"",match_type:""},
+            {vulnerability:"",include_aliases:false,reason:"",namespace:"",fix_state:"",package:{name:"",version:"",language:"",type:"",location:"","upstream-name":""},vex_status:"fixed",vex_justification:"",match_type:""}
           ]);
       def secure_configuration:
         (keys | sort) == ([
@@ -476,7 +498,13 @@ validate_grype_binding() (
         .["ignore-wontfix"] == "" and
         .platform == "" and
         .search == {scope:"squashed","unindexed-archives":false,"indexed-archives":true} and
-        (.ignore | default_kernel_ignores) and
+        (if $report_kind == "raw" then
+          (.ignore | default_kernel_ignores)
+        else
+          (.ignore | length == 6) and
+          (.ignore[0:4] | default_kernel_ignores) and
+          (.ignore[4:6] | vex_descriptor_ignores)
+        end) and
         .exclude == [] and
         .externalSources == {
           enable:false,
@@ -954,6 +982,7 @@ expect_inspect "$portal_image_id" '{{ index .Config.Labels "org.opencontainers.i
 expect_inspect "$portal_image_id" '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$recipe_commit" 'Portal revisão'
 expect_inspect "$portal_image_id" '{{ index .Config.Labels "br.adv.maiocchi.base-commit" }}' "$portal_base_commit" 'Portal commit-base'
 expect_inspect "$portal_image_id" '{{ index .Config.Labels "br.adv.maiocchi.patch-sha256" }}' "$portal_patch_sha256" 'Portal patch'
+expect_inspect "$portal_image_id" '{{ index .Config.Labels "br.adv.maiocchi.docuseal-source-sha256" }}' "$docuseal_corresponding_source_sha256" 'Portal fonte DocuSeal'
 expect_inspect "$portal_image_id" '{{ index .Config.Labels "br.adv.maiocchi.recipe-commit" }}' "$recipe_commit" 'Portal receita'
 
 expect_inspect "$docuseal_image_id" '{{.Id}}' "$docuseal_image_id" 'DocuSeal image ID'
@@ -967,6 +996,8 @@ expect_inspect "$docuseal_image_id" '{{ index .Config.Labels "br.adv.maiocchi.pa
 expect_inspect "$docuseal_image_id" '{{ index .Config.Labels "br.adv.maiocchi.build-inputs-patch-sha256" }}' "$docuseal_build_inputs_sha256" 'DocuSeal inputs de build'
 expect_inspect "$docuseal_image_id" '{{ index .Config.Labels "br.adv.maiocchi.native-security-patch-sha256" }}' "$docuseal_native_security_patch_sha256" 'DocuSeal patch de segurança nativa'
 expect_inspect "$docuseal_image_id" '{{ index .Config.Labels "br.adv.maiocchi.certificate-join-patch-sha256" }}' "$docuseal_certificate_join_patch_sha256" 'DocuSeal patch certificate join'
+expect_inspect "$docuseal_image_id" '{{ index .Config.Labels "br.adv.maiocchi.agpl-source-patch-sha256" }}' "$docuseal_agpl_source_patch_sha256" 'DocuSeal patch de oferta AGPL'
+expect_inspect "$docuseal_image_id" '{{ index .Config.Labels "br.adv.maiocchi.corresponding-source-sha256" }}' "$docuseal_corresponding_source_sha256" 'DocuSeal fonte correspondente'
 expect_inspect "$docuseal_image_id" '{{ index .Config.Labels "br.adv.maiocchi.tiff-apkbuild-sha256" }}' "$docuseal_tiff_apkbuild_sha256" 'DocuSeal APKBUILD TIFF'
 expect_inspect "$docuseal_image_id" '{{ index .Config.Labels "br.adv.maiocchi.tiff-source-sha256" }}' "$docuseal_tiff_source_sha256" 'DocuSeal fonte TIFF'
 expect_inspect "$docuseal_image_id" '{{ index .Config.Labels "br.adv.maiocchi.tiff-version" }}' "$docuseal_tiff_version" 'DocuSeal versão TIFF'

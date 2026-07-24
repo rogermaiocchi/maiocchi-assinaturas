@@ -22,6 +22,7 @@ type AccessMethod = "certificate" | "password";
 
 const certificateRelayOrigin = "https://certificado.assinatura.maiocchi.adv.br";
 const certificateRelayPath = "/certificate_auth/login/present";
+const integratedAccessEnabled = process.env.NEXT_PUBLIC_MAIOCCHI_SSO_ENABLED === "true";
 
 type PortalSession =
   | { kind: "authenticated" }
@@ -220,14 +221,18 @@ export function LawyerAccess() {
       </div>
 
       <div className="lawyer-access__panel">
-        <button className="integrated-access" type="button" onClick={startIntegratedAccess} disabled={busy}>
-          {busy ? <LoaderCircle className="spin" aria-hidden="true" size={22} /> : <LogIn aria-hidden="true" size={22} />}
-          <span>
-            <strong>Entrar com Portal Maiocchi</strong>
-            <small>Uma sessão para clientes, processos, notícias e assinaturas.</small>
-          </span>
-        </button>
-        <div className="access-divider" aria-hidden="true"><span>Alternativas de acesso</span></div>
+        {integratedAccessEnabled ? (
+          <>
+            <button className="integrated-access" type="button" onClick={startIntegratedAccess} disabled={busy}>
+              {busy ? <LoaderCircle className="spin" aria-hidden="true" size={22} /> : <LogIn aria-hidden="true" size={22} />}
+              <span>
+                <strong>Entrar com Portal Maiocchi</strong>
+                <small>Uma sessão para clientes, processos, publicações e assinaturas.</small>
+              </span>
+            </button>
+            <div className="access-divider" aria-hidden="true"><span>Alternativas de acesso</span></div>
+          </>
+        ) : null}
 
         <div className="access-methods" role="tablist" aria-label="Método de acesso" aria-orientation="horizontal" onKeyDown={handleTabKeyDown}>
           <button ref={certificateTab} id="certificate-access-tab" type="button" role="tab" tabIndex={accessMethod === "certificate" ? 0 : -1} aria-selected={accessMethod === "certificate"} aria-controls="certificate-access-panel" onClick={() => selectAccessMethod("certificate")}>

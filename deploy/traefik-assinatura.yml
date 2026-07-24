@@ -60,6 +60,18 @@ http:
           Permissions-Policy: "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
 
   routers:
+    assinatura-legal-source:
+      entryPoints: [websecure]
+      priority: 340
+      rule: >-
+        Host(`assinatura.maiocchi.adv.br`) &&
+        (Path(`/legal/LICENSE.txt`) ||
+        Path(`/legal/source/docuseal-maiocchi-3.0.1-maiocchi.15.tar.gz`))
+      service: assinatura-portal-svc
+      middlewares: [assinatura-security]
+      tls:
+        certResolver: le
+
     portal-auth-session:
       entryPoints: [websecure]
       priority: 330
@@ -81,7 +93,7 @@ http:
     legacy-sign-in:
       entryPoints: [websecure]
       priority: 320
-      rule: Host(`assinatura.maiocchi.adv.br`) && Path(`/sign_in`) && Method(`GET`)
+      rule: Host(`assinatura.maiocchi.adv.br`) && (Path(`/sign_in`) || Path(`/sign_in/`)) && Method(`GET`)
       service: assinatura-portal-svc
       middlewares: [sign-in-to-home, assinatura-security]
       tls:

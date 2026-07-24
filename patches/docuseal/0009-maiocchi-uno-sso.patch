@@ -482,7 +482,7 @@ index 0000000000000000000000000000000000000000..3432ff1e2cc3b64d26f388ff811b7764
 +end
 diff --git a/lib/maiocchi_sso/configuration.rb b/lib/maiocchi_sso/configuration.rb
 new file mode 100644
-index 0000000000000000000000000000000000000000..8c1323a3fa3b0fa1ba36e7f1daa38b00d230e7d2
+index 0000000000000000000000000000000000000000..b62d479c5d889bc4a6c2c0d3b42298624b02e439
 --- /dev/null
 +++ b/lib/maiocchi_sso/configuration.rb
 @@ -0,0 +1,122 @@
@@ -496,9 +496,9 @@ index 0000000000000000000000000000000000000000..8c1323a3fa3b0fa1ba36e7f1daa38b00
 +    CLIENT_ID = 'maiocchi-signature'
 +    ENDPOINT_PROFILES = {
 +      'production' => {
-+        issuer: 'https://www.maiocchi.adv.br',
-+        authorize_url: 'https://www.maiocchi.adv.br/api/auth/sso/authorize',
-+        token_url: 'https://www.maiocchi.adv.br/api/auth/sso/token',
++        issuer: 'https://maiocchi.adv.br',
++        authorize_url: 'https://maiocchi.adv.br/api/auth/sso/authorize',
++        token_url: 'https://maiocchi.adv.br/api/auth/sso/token',
 +        redirect_uri: 'https://assinatura.maiocchi.adv.br/sso/maiocchi/callback'
 +      }.freeze,
 +      'canary' => {
@@ -862,7 +862,7 @@ index 0000000000000000000000000000000000000000..51466b66574ea3e75862732a29e8e24e
 +end
 diff --git a/spec/lib/maiocchi_sso_configuration_spec.rb b/spec/lib/maiocchi_sso_configuration_spec.rb
 new file mode 100644
-index 0000000000000000000000000000000000000000..5ba298ea12a8a81bd1fac6066308811bedefa685
+index 0000000000000000000000000000000000000000..228ddf86c0b235ad1779f5f95195a8a638dbc621
 --- /dev/null
 +++ b/spec/lib/maiocchi_sso_configuration_spec.rb
 @@ -0,0 +1,63 @@
@@ -914,7 +914,7 @@ index 0000000000000000000000000000000000000000..5ba298ea12a8a81bd1fac6066308811b
 +  end
 +
 +  it 'selects only the exact production or canary endpoint profile' do
-+    expect(described_class.issuer).to eq('https://www.maiocchi.adv.br')
++    expect(described_class.issuer).to eq('https://maiocchi.adv.br')
 +    expect(described_class.redirect_uri)
 +      .to eq('https://assinatura.maiocchi.adv.br/sso/maiocchi/callback')
 +

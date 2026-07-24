@@ -1,6 +1,6 @@
 # ADR 0005 — SSO host-only entre Portal Maiocchi e DocuSeal
 
-- Estado: candidato implementado; ativação bloqueada até os gates finais
+- Estado: fundação transitória superseded; ativação de produção proibida
 - Data: 2026-07-18
 - Fonte do fork: `compliance/docuseal-maiocchi-3.0.1-maiocchi.14.tar.gz`
 - SHA-256 da fonte: `e8f3b6e8ba3a8e70c7ea66846b57f6c0bddcd582be87bd4ae3ee074c2f9ff26c`
@@ -10,10 +10,17 @@
 
 ## Decisão
 
-O `www.maiocchi.adv.br` autentica a pessoa e emite um authorization code de uso
-único. O DocuSeal continua sendo responsável pela própria sessão, sempre em
-cookie host-only. Não há cookie com `Domain=.maiocchi.adv.br`, token reutilizável
-no navegador nem compartilhamento de sessão entre hosts.
+Esta fundação transitória usa o apex canônico `maiocchi.adv.br` para emitir um
+authorization code de uso único. `www` é redirect-only e nunca pode atuar como
+issuer, authorize endpoint ou token endpoint. O DocuSeal continua responsável
+pela própria sessão, sempre em cookie host-only. Não há cookie com
+`Domain=.maiocchi.adv.br`, token reutilizável no navegador nem compartilhamento
+de sessão entre hosts.
+
+O desenho foi superseded como alvo de produção pela ADR de identidade OIDC
+central em `id.maiocchi.adv.br`. O código permanece somente como fundação de
+transição e ensaio isolado; enquanto o issuer OIDC e seus gates G0-G8 não forem
+materializados, os gates públicos de SSO permanecem desligados.
 
 O fluxo usa `/sso/maiocchi/start` e `/sso/maiocchi/callback`, `state`, `nonce` e
 PKCE S256 gerados por `SecureRandom`. O callback consome o estado da sessão antes

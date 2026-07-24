@@ -34,7 +34,9 @@ test("ambas as imagens-base estão fixadas por digest", () => {
   for (const line of fromLines) assert.match(line, /@sha256:[0-9a-f]{64}/);
 });
 
-test("botão SSO é primário e certificado/senha continuam disponíveis", () => {
+test("botão SSO depende de gate público explícito e certificado/senha continuam disponíveis", () => {
+  assert.match(access, /NEXT_PUBLIC_MAIOCCHI_SSO_ENABLED === "true"/);
+  assert.match(dockerfile, /ARG NEXT_PUBLIC_MAIOCCHI_SSO_ENABLED=false/);
   assert.match(access, /Entrar com Portal Maiocchi/);
   assert.match(access, /window[.]location[.]assign\("\/sso\/maiocchi\/start"\)/);
   assert.match(access, /Entrar com certificado/);

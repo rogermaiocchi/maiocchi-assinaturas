@@ -35,6 +35,7 @@ services:
       CERTIFICATE_AUTH_TRUST_BUNDLE_FILE: /run/icp-trust/icp-client-roots.crt
       MAIOCCHI_HOME_URL: https://assinatura.maiocchi.adv.br
       MAIOCCHI_LICENSE_URL: https://assinatura.maiocchi.adv.br/legal/LICENSE.txt
+      MAIOCCHI_SOURCE_URL: https://assinatura.maiocchi.adv.br/legal/source/docuseal-maiocchi-3.0.1-maiocchi.15.tar.gz
       PRIVATE_PADES_BRIDGE_URL: http://pki-bridge-internal:3401/internal/pades/tickets
       PRIVATE_EVIDENCE_COMPOSER_URL: http://pki-bridge-internal:3401/internal/evidence/compose
       AUTHENTICITY_INTERNAL_HMAC_KEY_FILE: /run/signature-secrets/internal-hmac.key

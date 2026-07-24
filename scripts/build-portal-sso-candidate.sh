@@ -5,9 +5,19 @@ umask 077
 repo_dir=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 base_commit='7e864d548b39ff3bbdcc6693f0bc05b3a72ed44d'
 portal_patch="$repo_dir/patches/portal/0001-maiocchi-sso-portal-1.15.1.patch"
+license_file="$repo_dir/public/legal/LICENSE.txt"
+docuseal_source_archive="$repo_dir/public/legal/source/docuseal-maiocchi-3.0.1-maiocchi.15.tar.gz"
+font_license="$repo_dir/app/fonts/FONT-LICENSE-Inter.txt"
+font_regular="$repo_dir/app/fonts/inter-latin-400-normal.woff"
+font_bold="$repo_dir/app/fonts/inter-latin-700-normal.woff"
 syft_config="$repo_dir/compliance/config/syft-candidate.yaml"
 grype_config="$repo_dir/compliance/config/grype-candidate.yaml"
-expected_patch_sha='d088a5a8fdcde66e12ab747dad9a4477de39513f168dbb61bad264a92e19be66'
+expected_patch_sha='72153f666d10440e72ac096893336b2d0fa8e8fd4f1f4d119cf1576ef7451c88'
+expected_license_sha='76a97c878c9c7a8321bb395c2b44d3fe2f8d81314d219b20138ed0e2dddd5182'
+expected_docuseal_source_sha='ccbddf305d162263b580d8aafbb4fd014b961bd4b6e8b2e0ce9f48d4ee31191c'
+expected_font_license_sha='3b0a5fca3d17942cde889069889dedbbbd075e9b599968c82a95f4d944e9b345'
+expected_font_regular_sha='e20fa0b4fd2dd26e4d14b3ac3cc922509c3a63fa5e910e90c614544aa042dd45'
+expected_font_bold_sha='7c5ed5655730de337704d3fc94628515cd7e3d8d32368871709bf56ac0397e7a'
 expected_syft_config_sha='8d154f9e73d36bc74ae76d45b76020ec3ad591e81325f0a626ec2d9f67d0b893'
 expected_grype_config_sha='50b1ced07b248a9044339b243c85957608de3ed8869f296ec8ed58ef21b11d8d'
 expected_syft_version='1.46.0'
@@ -51,6 +61,31 @@ actual_patch_sha=$(shasum -a 256 "$portal_patch" | awk '{print $1}')
   printf '%s\n' 'Patch do portal SSO divergiu do hash aprovado.' >&2
   exit 1
 }
+actual_license_sha=$(shasum -a 256 "$license_file" | awk '{print $1}')
+actual_docuseal_source_sha=$(shasum -a 256 "$docuseal_source_archive" | awk '{print $1}')
+actual_font_license_sha=$(shasum -a 256 "$font_license" | awk '{print $1}')
+actual_font_regular_sha=$(shasum -a 256 "$font_regular" | awk '{print $1}')
+actual_font_bold_sha=$(shasum -a 256 "$font_bold" | awk '{print $1}')
+[ "$actual_license_sha" = "$expected_license_sha" ] || {
+  printf '%s\n' 'Texto da licença AGPL divergiu do hash aprovado.' >&2
+  exit 1
+}
+[ "$actual_docuseal_source_sha" = "$expected_docuseal_source_sha" ] || {
+  printf '%s\n' 'Archive de fonte DocuSeal divergiu do hash aprovado.' >&2
+  exit 1
+}
+[ "$actual_font_license_sha" = "$expected_font_license_sha" ] || {
+  printf '%s\n' 'Licença da fonte Inter divergiu do hash aprovado.' >&2
+  exit 1
+}
+[ "$actual_font_regular_sha" = "$expected_font_regular_sha" ] || {
+  printf '%s\n' 'Inter regular divergiu do hash aprovado.' >&2
+  exit 1
+}
+[ "$actual_font_bold_sha" = "$expected_font_bold_sha" ] || {
+  printf '%s\n' 'Inter bold divergiu do hash aprovado.' >&2
+  exit 1
+}
 for scanner_config in "$syft_config" "$grype_config"; do
   [ -f "$scanner_config" ] && [ ! -L "$scanner_config" ] || {
     printf '%s\n' 'Configuração de scanner deve ser arquivo regular versionado, não link simbólico.' >&2
@@ -82,6 +117,13 @@ git -C "$repo_dir" archive --format=tar --output="$base_archive" "$base_commit"
 tar -xf "$base_archive" -C "$source_dir"
 git -C "$source_dir" apply --check "$portal_patch"
 git -C "$source_dir" apply "$portal_patch"
+mkdir -p "$source_dir/app/fonts"
+install -m 0644 "$font_license" "$source_dir/app/fonts/FONT-LICENSE-Inter.txt"
+install -m 0644 "$font_regular" "$source_dir/app/fonts/inter-latin-400-normal.woff"
+install -m 0644 "$font_bold" "$source_dir/app/fonts/inter-latin-700-normal.woff"
+mkdir -p "$source_dir/public/legal/source"
+install -m 0644 "$license_file" "$source_dir/public/legal/LICENSE.txt"
+install -m 0644 "$docuseal_source_archive" "$source_dir/public/legal/source/docuseal-maiocchi-3.0.1-maiocchi.15.tar.gz"
 
 source_node_bin="${PORTAL_SSO_NODE_BIN:-}"
 if [ -z "$source_node_bin" ]; then
@@ -124,6 +166,7 @@ grep -Fq 'org.opencontainers.image.version="1.15.1"' "$source_dir/Dockerfile"
 grep -Fq 'image: maiocchi/assinatura-portal:1.15.1' "$source_dir/compose.yml"
 grep -Fq 'Entrar com Portal Maiocchi' "$source_dir/app/lawyer-access.tsx"
 grep -Fq 'window.location.assign("/sso/maiocchi/start")' "$source_dir/app/lawyer-access.tsx"
+grep -Fq 'NEXT_PUBLIC_MAIOCCHI_SSO_ENABLED === "true"' "$source_dir/app/lawyer-access.tsx"
 
 if [ "${PORTAL_SSO_VERIFY_ONLY:-false}" = 'true' ]; then
   printf '%s\n' "Fonte candidata verificável: $base_commit + $actual_patch_sha"
@@ -158,6 +201,8 @@ evidence_dir="${PORTAL_SSO_EVIDENCE_DIR:-}"
     process.exit(major === 22 && minor >= 13 ? 0 : 1);
   '
   npm ci
+  npm audit --audit-level=high
+  npm --prefix services/pki-bridge audit --package-lock-only --audit-level=high
   npm run build
   node --test tests/*.test.mjs
   npm run lint
@@ -306,8 +351,10 @@ docker build \
   --platform linux/amd64 \
   --provenance=false \
   --build-arg "SOURCE_REVISION=$recipe_commit" \
+  --build-arg "NEXT_PUBLIC_MAIOCCHI_SSO_ENABLED=true" \
   --label "br.adv.maiocchi.base-commit=$base_commit" \
   --label "br.adv.maiocchi.patch-sha256=$actual_patch_sha" \
+  --label "br.adv.maiocchi.docuseal-source-sha256=$actual_docuseal_source_sha" \
   --label "br.adv.maiocchi.recipe-commit=$recipe_commit" \
   --tag "$candidate_image" \
   "$source_dir"
@@ -319,6 +366,7 @@ printf '%s\n' "$candidate_image_id" | grep -Eq '^sha256:[0-9a-f]{64}$'
 [ "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$candidate_image_id")" = "$recipe_commit" ]
 [ "$(docker image inspect --format '{{ index .Config.Labels "br.adv.maiocchi.base-commit" }}' "$candidate_image_id")" = "$base_commit" ]
 [ "$(docker image inspect --format '{{ index .Config.Labels "br.adv.maiocchi.patch-sha256" }}' "$candidate_image_id")" = "$actual_patch_sha" ]
+[ "$(docker image inspect --format '{{ index .Config.Labels "br.adv.maiocchi.docuseal-source-sha256" }}' "$candidate_image_id")" = "$actual_docuseal_source_sha" ]
 [ "$(docker image inspect --format '{{ index .Config.Labels "br.adv.maiocchi.recipe-commit" }}' "$candidate_image_id")" = "$recipe_commit" ]
 
 printf '%s\n' "$candidate_image_id" >"$evidence_dir/portal-$candidate_version.image-id.txt"

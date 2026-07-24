@@ -5,11 +5,11 @@
   "base_commit": "7e864d548b39ff3bbdcc6693f0bc05b3a72ed44d",
   "source_patch": {
     "path": "patches/portal/0001-maiocchi-sso-portal-1.15.1.patch",
-    "sha256": "d088a5a8fdcde66e12ab747dad9a4477de39513f168dbb61bad264a92e19be66"
+    "sha256": "72153f666d10440e72ac096893336b2d0fa8e8fd4f1f4d119cf1576ef7451c88"
   },
   "build_script": {
     "path": "scripts/build-portal-sso-candidate.sh",
-    "sha256": "cbcf33db50c1f1e3e24f617b71a79d163e83048089eb863c864dd7f5da010c63"
+    "sha256": "76bf3e353d6e405e819aac65d3167952b64083bdce1f9babb733043846c4581b"
   },
   "scanner_policy": {
     "syft": {
@@ -44,15 +44,15 @@
   "recipe_implementation": {
     "builder": {
       "path": "scripts/build-portal-sso-candidate.sh",
-      "sha256": "cbcf33db50c1f1e3e24f617b71a79d163e83048089eb863c864dd7f5da010c63"
+      "sha256": "76bf3e353d6e405e819aac65d3167952b64083bdce1f9babb733043846c4581b"
     },
     "candidate_preflight": {
       "path": "scripts/validate-sso-candidate-images.sh",
-      "sha256": "261e0f00f7fe44e257e690f9999c7560737a399b493c697e32d01661647023e9"
+      "sha256": "8ea2f1e54f68a5ec736203bbfd7e099c1a3bce7c5fd16d40ee8f8c4b5a5aa630"
     },
     "patch_index_audit": {
       "path": "scripts/validate-release-patch-indexes.sh",
-      "sha256": "a8c226386dcadb2510c341a617651c191b70c7a8fde73fa53d535b4b40823fd4"
+      "sha256": "414d1f284c769ecb17b3e76eda00c1e0b7bdcd87e63182775786aeecb2d5a4bc"
     },
     "compose_runner": {
       "path": "scripts/run-sso-candidate-compose.sh",

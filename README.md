@@ -19,10 +19,15 @@ A marca `m.` é renderizada em CSS no portal para manter fundo transparente e ba
 
 ```bash
 npm ci
+npm --prefix services/pki-bridge ci
 npm run dev
 npm run test
 npm run lint
 ```
+
+A suíte completa requer Node.js 24.18 ou superior, alinhado ao runtime do PKI
+Bridge. O build do portal permanece validado também em Node.js 22, usado pela
+imagem de produção.
 
 ## Implantação
 
@@ -30,11 +35,19 @@ O projeto gera uma exportação estática do Next.js e a serve com Nginx sem pri
 
 O compose reproduzível do motor documental fica em `deploy/docuseal.yml`; valores sensíveis permanecem exclusivamente no `.env` da VPS.
 
+### Alvos de hospedagem
+
+- Produção: `npm run build` gera `out/`; Nginx na VPS serve o portal e o Traefik compõe DocuSeal, SSO e PKI Bridge no mesmo domínio.
+- Sites: `npm run build:sites` gera somente um espelho privado de preview. O Worker Vinext não substitui os proxies operacionais do Traefik e recusa o hostname de produção.
+- `.openai/hosting.json` identifica o projeto do espelho Sites; sua presença não define o alvo de produção.
+
 Variáveis públicas de build:
 
 - `NEXT_PUBLIC_DOCUMENTS_URL`: origem do DocuSeal para links de documentos.
 - `NEXT_PUBLIC_ICP_URL`: entrada da área dos advogados que oferece autenticação por certificado cliente.
 - `NEXT_PUBLIC_PKI_BRIDGE_URL`: origem pública do `pki-bridge`; vazio usa o mesmo domínio do portal.
+- `NEXT_PUBLIC_MAIOCCHI_SSO_ENABLED`: gate público do SSO; o default é `false`
+  e só pode mudar depois dos gates OIDC, canário e rollback.
 
 O agente macOS privado fica em `clients/pades-token-agent`. O motor DSS fica em `services/pades-provider` e não possui rota pública.
 

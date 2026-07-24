@@ -1,0 +1,70 @@
+diff --git a/app/views/layouts/application.html.erb b/app/views/layouts/application.html.erb
+index fd2d621..bcdfd6b 100644
+--- a/app/views/layouts/application.html.erb
++++ b/app/views/layouts/application.html.erb
+@@ -39,7 +39,10 @@
+         <a href="<%= MaiocchiBrand::HELP_URL %>">Ajuda</a>
+         <a href="<%= MaiocchiBrand::PRIVACY_URL %>">Privacidade</a>
+         <a href="<%= MaiocchiBrand::TERMS_URL %>">Termos de Uso</a>
++        <a href="<%= MaiocchiBrand::SOURCE_URL %>">Fonte correspondente (AGPL)</a>
++        <a href="<%= MaiocchiBrand::LICENSE_URL %>">Licença</a>
+       </nav>
++      <small><%= MaiocchiBrand::OPEN_SOURCE_NOTICE %></small>
+     </footer>
+     <%= render 'shared/body_scripts' %>
+   </body>
+diff --git a/app/views/shared/_powered_by.html.erb b/app/views/shared/_powered_by.html.erb
+index c70c134..e3dba43 100644
+--- a/app/views/shared/_powered_by.html.erb
++++ b/app/views/shared/_powered_by.html.erb
+@@ -4,4 +4,9 @@
+   <a href="<%= MaiocchiBrand::PRIVACY_URL %>">Privacidade</a>
+   <span aria-hidden="true">·</span>
+   <a href="<%= MaiocchiBrand::TERMS_URL %>">Termos de Uso</a>
++  <span aria-hidden="true">·</span>
++  <a href="<%= MaiocchiBrand::SOURCE_URL %>">Fonte correspondente (AGPL)</a>
++  <span aria-hidden="true">·</span>
++  <a href="<%= MaiocchiBrand::LICENSE_URL %>">Licença</a>
++  <span><%= MaiocchiBrand::OPEN_SOURCE_NOTICE %></span>
+ </div>
+diff --git a/lib/maiocchi_brand.rb b/lib/maiocchi_brand.rb
+index 662477f..46fcedf 100644
+--- a/lib/maiocchi_brand.rb
++++ b/lib/maiocchi_brand.rb
+@@ -15,10 +15,17 @@ module MaiocchiBrand
+   HELP_URL = "#{HOME_URL}/ajuda/".freeze
+   PRIVACY_URL = "#{HOME_URL}/privacidade/".freeze
+   TERMS_URL = "#{HOME_URL}/termos/".freeze
++  SOURCE_URL = ENV.fetch(
++    'MAIOCCHI_SOURCE_URL',
++    "#{HOME_URL}/legal/source/docuseal-maiocchi-3.0.1-maiocchi.15.tar.gz"
++  )
+   LICENSE_URL = ENV.fetch(
+     'MAIOCCHI_LICENSE_URL',
+     'https://assinatura.maiocchi.adv.br/legal/LICENSE.txt'
+   )
++  OPEN_SOURCE_NOTICE =
++    '© DocuSeal contributors; modificações Maiocchi sob AGPL-3.0, sem garantia, ' \
++    'na extensão permitida por lei.'
+ 
+   COLORS = {
+     ink: '#0a0a0a',
+diff --git a/spec/requests/maiocchi_brand_spec.rb b/spec/requests/maiocchi_brand_spec.rb
+index 21796d6..acfcfba 100644
+--- a/spec/requests/maiocchi_brand_spec.rb
++++ b/spec/requests/maiocchi_brand_spec.rb
+@@ -16,9 +16,12 @@ RSpec.describe 'Maiocchi portal branding' do
+     expect(response.body.index('Acesso com certificado digital'))
+       .to be < response.body.index('Acesso com usuário e senha')
+     expect(response.body).to include('Responsável: Roger Maiocchi, OAB/DF 31.249.')
+-    expect(response.body).not_to include('DocuSeal')
++    expect(response.body).to include('© DocuSeal contributors')
+     expect(response.body).not_to include('github.com')
+-    expect(response.body).not_to include('Fonte correspondente')
++    expect(response.body).to include('Fonte correspondente (AGPL)')
++    expect(response.body).to include('legal/source/docuseal-maiocchi-3.0.1-maiocchi.15.tar.gz')
++    expect(response.body).to include('Licença')
++    expect(response.body).to include('sem garantia')
+     expect(response.body).not_to include('contato@maiocchi.adv.br')
+     expect(response.body).not_to include('Maiocchi Advocacia')
+   end

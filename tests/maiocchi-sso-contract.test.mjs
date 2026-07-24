@@ -100,7 +100,7 @@ test("patch SSO deriva exclusivamente da fonte DocuSeal .14 aprovada", () => {
   );
   assert.equal(
     createHash("sha256").update(patch).digest("hex"),
-    "2339df1880f6fc2af3706c51d29fc158a7c592a50c0deba5771b5a6eca51d54c",
+    "67e91ff282018997abf440637b7134bf8086954537de22095fa696c00b9d9eba",
   );
   assert.match(buildScript, /git -C "\$candidate_work" apply --check "\$sso_patch"/);
   assert.match(buildScript, /git -C "\$candidate_work" apply --check "\$build_inputs_patch"/);
@@ -205,6 +205,9 @@ test("scanners candidatos usam configuração versionada, binários exatos e DB 
   assert.equal(docusealContract.recipe_implementation.candidate_compose.sha256, createHash("sha256").update(overlay).digest("hex"));
   assert.equal(portalContract.recipe_implementation.candidate_compose.sha256, createHash("sha256").update(portalOverlay).digest("hex"));
   assert.deepEqual(Object.keys(docusealContract.endpoint_profiles).sort(), ["canary", "production", "selection"]);
+  assert.equal(docusealContract.endpoint_profiles.production.issuer, "https://maiocchi.adv.br");
+  assert.equal(docusealContract.endpoint_profiles.production.authorize_url, "https://maiocchi.adv.br/api/auth/sso/authorize");
+  assert.equal(docusealContract.endpoint_profiles.production.token_url, "https://maiocchi.adv.br/api/auth/sso/token");
   assert.equal(docusealContract.endpoint_profiles.canary.issuer, "https://uno-canary.maiocchi.adv.br");
   assert.equal(
     docusealContract.endpoint_profiles.canary.redirect_uri,
@@ -214,7 +217,8 @@ test("scanners candidatos usam configuração versionada, binários exatos e DB 
 
 test("browser flow fixa endpoints, PKCE S256, state use-once e sessão host-only", () => {
   assert.match(patch, /ENDPOINT_PROFILES = \{/);
-  assert.match(patch, /'production' => \{[\s\S]*issuer: 'https:\/\/www[.]maiocchi[.]adv[.]br'/);
+  assert.match(patch, /'production' => \{[\s\S]*issuer: 'https:\/\/maiocchi[.]adv[.]br'/);
+  assert.doesNotMatch(patch, /https:\/\/www[.]maiocchi[.]adv[.]br/);
   assert.match(patch, /'canary' => \{[\s\S]*issuer: 'https:\/\/uno-canary[.]maiocchi[.]adv[.]br'/);
   assert.match(patch, /ENV[.]fetch\('MAIOCCHI_SSO_PROFILE', 'production'\)/);
   assert.match(patch, /Configuration[.]authorize_url/);
@@ -434,14 +438,15 @@ test("harness PG16 carrega PDFium pelo mesmo release e hash do candidato", () =>
   assert.doesNotMatch(docusealPg16Dockerfile, /releases\/latest|refs\/heads\/(?:main|master)/);
 });
 
-test("harness valida sintaxe Ruby do conjunto fechado de quatro specs antes do build", () => {
-  const specsDeclaration = docusealPg16Harness.match(/readonly -a sso_specs=\(([\s\S]*?)\n\)/)?.[1];
-  assert.ok(specsDeclaration, "o harness deve declarar o conjunto fechado de specs SSO");
+test("harness valida sintaxe Ruby do conjunto fechado de cinco specs antes do build", () => {
+  const specsDeclaration = docusealPg16Harness.match(/readonly -a focused_specs=\(([\s\S]*?)\n\)/)?.[1];
+  assert.ok(specsDeclaration, "o harness deve declarar o conjunto fechado de specs focados");
   const expectedSpecs = [
     "spec/lib/maiocchi_sso_configuration_spec.rb",
     "spec/lib/maiocchi_sso_identity_resolver_spec.rb",
     "spec/lib/maiocchi_sso_token_exchange_spec.rb",
     "spec/requests/maiocchi_sso_spec.rb",
+    "spec/requests/maiocchi_brand_spec.rb",
   ];
   const declaredSpecs = [...specsDeclaration.matchAll(/'([^']+)'/g)].map((match) => match[1]);
   assert.deepEqual(declaredSpecs, expectedSpecs);
@@ -456,7 +461,7 @@ test("harness valida sintaxe Ruby do conjunto fechado de quatro specs antes do b
   assert.match(docusealPg16Harness, /--user "\$host_uid:\$host_gid"/);
   assert.doesNotMatch(docusealPg16Harness, /--user '65534:65534'/);
   assert.match(docusealPg16Harness, /--volume "\$candidate_source:\/source:ro"/);
-  assert.match(docusealPg16Harness, /ruby -c "\$ruby_file"[\s\S]*"\$\{sso_specs\[@\]\}"/);
+  assert.match(docusealPg16Harness, /ruby -c "\$ruby_file"[\s\S]*"\$\{focused_specs\[@\]\}"/);
   const syntaxRun = docusealPg16Harness.indexOf('docker run --rm \\\n  --name "$syntax_container"');
   const imageBuild = docusealPg16Harness.indexOf("docker build \\");
   assert.ok(syntaxRun >= 0 && syntaxRun < imageBuild);
@@ -479,7 +484,7 @@ test("harness vincula o ensaio ao commit assinado e à árvore rastreada limpa",
 test("portal estático possui candidato 1.15.1 derivado de snapshot imutável", () => {
   const patchSha = createHash("sha256").update(portalPatch).digest("hex");
   const buildScriptSha = createHash("sha256").update(portalBuild).digest("hex");
-  assert.equal(patchSha, "d088a5a8fdcde66e12ab747dad9a4477de39513f168dbb61bad264a92e19be66");
+  assert.equal(patchSha, "72153f666d10440e72ac096893336b2d0fa8e8fd4f1f4d119cf1576ef7451c88");
   assert.equal(portalContract.source_patch.sha256, patchSha);
   assert.equal(portalContract.build_script.sha256, buildScriptSha);
   assert.equal(portalContract.base_commit, "7e864d548b39ff3bbdcc6693f0bc05b3a72ed44d");
@@ -503,7 +508,10 @@ test("build do portal exclui worktree suja e exige SBOM e scan antes de promoç�
   assert.match(portalBuild, /git -C "\$repo_dir" diff --cached --quiet/);
   assert.match(portalBuild, /git -C "\$repo_dir" verify-commit "\$recipe_commit"/);
   assert.match(portalBuild, /git -C "\$source_dir" apply --check "\$portal_patch"/);
-  assert.match(portalBuild, /npm run build[\s\S]*node --test tests\/\*[.]test[.]mjs[\s\S]*npm run lint/);
+  assert.match(
+    portalBuild,
+    /npm ci[\s\S]*npm audit --audit-level=high[\s\S]*npm --prefix services\/pki-bridge audit --package-lock-only --audit-level=high[\s\S]*npm run build[\s\S]*node --test tests\/\*[.]test[.]mjs[\s\S]*npm run lint/,
+  );
   assert.match(portalBuild, /candidate_image_id=\$\(docker image inspect --format '\{\{[.]Id\}\}' "\$candidate_image"\)/);
   assert.match(portalBuild, /docker image inspect "\$candidate_image_id" >"\$evidence_dir\/portal-\$candidate_version[.]image-inspect[.]json"/);
   assert.match(portalBuild, /docker image save --output "\$evidence_dir\/portal-\$candidate_version[.]docker-image[.]tar" "\$candidate_image_id"/);
@@ -706,6 +714,8 @@ test("preflight vincula IDs imutáveis ao commit assinado, arquitetura e labels 
   assert.match(candidatePreflight, /\(\$raw_hc \| length\) == 2/);
   assert.match(candidatePreflight, /\["CVE-2023-52356", "CVE-2026-4775"\]/);
   assert.match(candidatePreflight, /def normalized_matches:[\s\S]*map\(del\([.]appliedIgnoreRules\)\)/);
+  assert.match(candidatePreflight, /def vex_descriptor_ignores:/);
+  assert.match(candidatePreflight, /[.]ignore\[4:6\] \| vex_descriptor_ignores/);
   assert.match(candidatePreflight, /artifact[.]purl == "pkg:apk\/alpine\/tiff@4[.]7[.]2-r0/);
   assert.match(candidatePreflight, /[.]match == \{[\s\S]*stock:\{"using-cpes":true\}/);
   assert.match(candidatePreflight, /\$vex_at <= \$raw_at[\s\S]*\$raw_at <= \$filtered_at/);
@@ -740,12 +750,13 @@ test("preflight fecha TOCTOU relendo os IDs depois de validar o manifesto", () =
   }
 });
 
-test("auditoria de índices valida blobs antes e depois dos cinco patches da receita", () => {
+test("auditoria de índices valida blobs antes e depois dos seis patches da receita", () => {
   assert.match(patchIndexValidator, /patches\/portal\/0001-maiocchi-sso-portal-1[.]15[.]1[.]patch/);
   assert.match(patchIndexValidator, /patches\/docuseal\/0009-maiocchi-uno-sso[.]patch/);
   assert.match(patchIndexValidator, /patches\/docuseal\/0010-pin-build-inputs[.]patch/);
   assert.match(patchIndexValidator, /patches\/docuseal\/0011-update-native-image-libraries[.]patch/);
   assert.match(patchIndexValidator, /patches\/docuseal\/0012-uno-certificate-return-to-join[.]patch/);
+  assert.match(patchIndexValidator, /patches\/docuseal\/0013-restore-agpl-network-source-notice[.]patch/);
   assert.match(patchIndexValidator, /actual_hash=\$\(git hash-object "\$source_dir\/\$old_path"\)/);
   assert.match(patchIndexValidator, /actual_hash=\$\(git hash-object "\$source_dir\/\$new_path"\)/);
   for (const counter of ["diff_count", "index_count", "index_seen"]) {
@@ -763,6 +774,7 @@ test("auditoria de índices valida blobs antes e depois dos cinco patches da rec
     ["docuseal_source", "docuseal_build_inputs_patch"],
     ["docuseal_source", "docuseal_native_security_patch"],
     ["docuseal_source", "docuseal_certificate_join_patch"],
+    ["docuseal_source", "docuseal_source_notice_patch"],
   ]) {
     for (const phase of ["before", "after"]) {
       assert.match(
@@ -771,8 +783,8 @@ test("auditoria de índices valida blobs antes e depois dos cinco patches da rec
       );
     }
   }
-  assert.equal((patchIndexValidator.match(/^audit_patch_indexes "\$/gm) || []).length, 10);
-  assert.ok((patchIndexValidator.match(/git -C "\$docuseal_source" apply --check/g) || []).length >= 4);
+  assert.equal((patchIndexValidator.match(/^audit_patch_indexes "\$/gm) || []).length, 12);
+  assert.ok((patchIndexValidator.match(/git -C "\$docuseal_source" apply --check/g) || []).length >= 5);
   assert.match(patchIndexValidator, /audit_patch_hunks\(\)/);
   for (const counter of ["old_remaining", "new_remaining", "hunk_count"]) {
     assert.match(patchIndexValidator, new RegExp(`\\b${counter}\\b`));
@@ -794,6 +806,7 @@ test("auditoria de índices valida blobs antes e depois dos cinco patches da rec
     "docuseal_build_inputs_patch",
     "docuseal_native_security_patch",
     "docuseal_certificate_join_patch",
+    "docuseal_source_notice_patch",
   ]) {
     assert.match(
       patchIndexValidator,
@@ -801,8 +814,8 @@ test("auditoria de índices valida blobs antes e depois dos cinco patches da rec
     );
     assert.match(patchIndexValidator, new RegExp(`audit_patch_line_accounting "\\$${patchVariable}"`));
   }
-  assert.equal((patchIndexValidator.match(/^audit_patch_hunks "\$/gm) || []).length, 5);
-  assert.equal((patchIndexValidator.match(/^audit_patch_line_accounting "\$/gm) || []).length, 5);
+  assert.equal((patchIndexValidator.match(/^audit_patch_hunks "\$/gm) || []).length, 6);
+  assert.equal((patchIndexValidator.match(/^audit_patch_line_accounting "\$/gm) || []).length, 6);
 });
 
 test("wrapper expõe somente verbos governados e executa os dois preflights antes do up", () => {

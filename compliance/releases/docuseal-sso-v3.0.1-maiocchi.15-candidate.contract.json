@@ -12,7 +12,7 @@
     {
       "sequence": 9,
       "path": "patches/docuseal/0009-maiocchi-uno-sso.patch",
-      "sha256": "2339df1880f6fc2af3706c51d29fc158a7c592a50c0deba5771b5a6eca51d54c"
+      "sha256": "67e91ff282018997abf440637b7134bf8086954537de22095fa696c00b9d9eba"
     },
     {
       "sequence": 10,
@@ -33,9 +33,9 @@
   "endpoint_profiles": {
     "selection": "MAIOCCHI_SSO_PROFILE accepts only production or canary; default is production and arbitrary endpoint environment variables are not read",
     "production": {
-      "issuer": "https://www.maiocchi.adv.br",
-      "authorize_url": "https://www.maiocchi.adv.br/api/auth/sso/authorize",
-      "token_url": "https://www.maiocchi.adv.br/api/auth/sso/token",
+      "issuer": "https://maiocchi.adv.br",
+      "authorize_url": "https://maiocchi.adv.br/api/auth/sso/authorize",
+      "token_url": "https://maiocchi.adv.br/api/auth/sso/token",
       "redirect_uri": "https://assinatura.maiocchi.adv.br/sso/maiocchi/callback"
     },
     "canary": {
@@ -108,21 +108,21 @@
   "recipe_implementation": {
     "builder": {
       "path": "scripts/build-docuseal-sso-candidate.sh",
-      "sha256": "3921ef76519938b3cfe15986b1b4622de8e64bf1db5d5ac76ece4bd2b083e3a7"
+      "sha256": "2cd40ebab1843dcc5d579f96b5455a7fe24a0bb8e9380dea9a035fdca0e2fe13"
     },
     "postgres_harness": {
       "path": "scripts/test-docuseal-sso-pg16-isolated.sh",
-      "sha256": "59ed99986a76a58cb3b8b0e2851de031ccc0ed06ab52e15dcccabc39c6a661ef",
+      "sha256": "bb44f20f1bcf2a4ed913deff8cc83acbafc27d53efa55ec7b5a47924eb5ab198",
       "dockerfile_path": "tests/docuseal-sso-pg16/Dockerfile",
-      "dockerfile_sha256": "95c14b2db45e9fa198809fd56bd4664d9256773f4423349c2393cb88058c826d"
+      "dockerfile_sha256": "b0e269d199b6b75e0ee5902f91c8d45166af753e1e77eba0c7fc3b5e863f588a"
     },
     "candidate_preflight": {
       "path": "scripts/validate-sso-candidate-images.sh",
-      "sha256": "261e0f00f7fe44e257e690f9999c7560737a399b493c697e32d01661647023e9"
+      "sha256": "8ea2f1e54f68a5ec736203bbfd7e099c1a3bce7c5fd16d40ee8f8c4b5a5aa630"
     },
     "patch_index_audit": {
       "path": "scripts/validate-release-patch-indexes.sh",
-      "sha256": "a8c226386dcadb2510c341a617651c191b70c7a8fde73fa53d535b4b40823fd4"
+      "sha256": "414d1f284c769ecb17b3e76eda00c1e0b7bdcd87e63182775786aeecb2d5a4bc"
     },
     "compose_runner": {
       "path": "scripts/run-sso-candidate-compose.sh",

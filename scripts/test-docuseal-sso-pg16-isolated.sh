@@ -9,19 +9,23 @@ base_archive="$repo_dir/compliance/docuseal-maiocchi-3.0.1-maiocchi.14.tar.gz"
 sso_patch="$repo_dir/patches/docuseal/0009-maiocchi-uno-sso.patch"
 build_inputs_patch="$repo_dir/patches/docuseal/0010-pin-build-inputs.patch"
 native_security_patch="$repo_dir/patches/docuseal/0011-update-native-image-libraries.patch"
+certificate_join_patch="$repo_dir/patches/docuseal/0012-uno-certificate-return-to-join.patch"
+source_notice_patch="$repo_dir/patches/docuseal/0013-restore-agpl-network-source-notice.patch"
 tiff_source="$repo_dir/compliance/sources/tiff-4.7.2.tar.gz"
 harness_dockerfile="$repo_dir/tests/docuseal-sso-pg16/Dockerfile"
 
 readonly expected_base_sha='e8f3b6e8ba3a8e70c7ea66846b57f6c0bddcd582be87bd4ae3ee074c2f9ff26c'
-readonly expected_sso_patch_sha='2339df1880f6fc2af3706c51d29fc158a7c592a50c0deba5771b5a6eca51d54c'
+readonly expected_sso_patch_sha='67e91ff282018997abf440637b7134bf8086954537de22095fa696c00b9d9eba'
 readonly expected_build_inputs_patch_sha='0e36b9a594e3da75f64c3c37909be5fa9f57e3eefeeed2d21d993590496a5987'
 readonly expected_native_security_patch_sha='83250e4672db3a4256d7ec44f04f621ef7c1ee178718d9831948f9261580c30c'
+readonly expected_certificate_join_patch_sha='54ef28c039597f4aec5521616d51a085d8c55b22199a04a989be858de98d2355'
+readonly expected_source_notice_patch_sha='cef160860b47ad29a75207f9cdb8883e26822311e05f1647ef3420a3288e30bb'
 readonly expected_tiff_source_sha='672bd7d10aee4606171afb864f3570b83340f6a33e2c186dc0512f7145ffdf6a'
 readonly expected_tiff_source_sha512='bad66954a7e7e158c6dcbfc0e2d0032b8f3e2a354b6d0fdbb8038a7963e36c5b8a433dd4ee81c6c4dabfb50094152d440aa1f32b5299098c9ae29e55de2e41fc'
 readonly expected_tiff_apkbuild_sha='f7b0bdc5ae7c8340960afaeed18a1e1e09089a8ec99c2ac0335df70c4f046985'
 readonly expected_tiff_version='4.7.2-r0'
 readonly expected_openexr_version='3.4.13-r0'
-readonly expected_harness_dockerfile_sha='95c14b2db45e9fa198809fd56bd4664d9256773f4423349c2393cb88058c826d'
+readonly expected_harness_dockerfile_sha='b0e269d199b6b75e0ee5902f91c8d45166af753e1e77eba0c7fc3b5e863f588a'
 readonly ruby_image='ruby:4.0.5-alpine@sha256:f48938e9ae72a4d32e728b03c306e7a7ff21f0cb6c2ed33f44a078c700b2aea6'
 readonly postgres_image='pgvector/pgvector:pg16@sha256:00ba258a66dac104fd5171074a0084462a64a1369d8513f3d0a634e2f24d15bc'
 readonly postgres_user='docuseal_sso_test'
@@ -148,7 +152,7 @@ readonly host_uid host_gid
 
 docker info >/dev/null 2>&1 || fail 'Docker Engine não está disponível.'
 
-for input_file in "$base_archive" "$sso_patch" "$build_inputs_patch" "$native_security_patch" "$tiff_source" "$harness_dockerfile"; do
+for input_file in "$base_archive" "$sso_patch" "$build_inputs_patch" "$native_security_patch" "$certificate_join_patch" "$source_notice_patch" "$tiff_source" "$harness_dockerfile"; do
   [[ -f "$input_file" && ! -L "$input_file" ]] || fail "Input ausente, não regular ou simbólico: $input_file"
 done
 
@@ -156,6 +160,8 @@ actual_base_sha="$(shasum -a 256 "$base_archive" | awk '{print $1}')"
 actual_sso_patch_sha="$(shasum -a 256 "$sso_patch" | awk '{print $1}')"
 actual_build_inputs_patch_sha="$(shasum -a 256 "$build_inputs_patch" | awk '{print $1}')"
 actual_native_security_patch_sha="$(shasum -a 256 "$native_security_patch" | awk '{print $1}')"
+actual_certificate_join_patch_sha="$(shasum -a 256 "$certificate_join_patch" | awk '{print $1}')"
+actual_source_notice_patch_sha="$(shasum -a 256 "$source_notice_patch" | awk '{print $1}')"
 actual_tiff_source_sha="$(shasum -a 256 "$tiff_source" | awk '{print $1}')"
 actual_tiff_source_sha512="$(shasum -a 512 "$tiff_source" | awk '{print $1}')"
 actual_harness_dockerfile_sha="$(shasum -a 256 "$harness_dockerfile" | awk '{print $1}')"
@@ -164,6 +170,8 @@ actual_harness_dockerfile_sha="$(shasum -a 256 "$harness_dockerfile" | awk '{pri
 [[ "$actual_sso_patch_sha" == "$expected_sso_patch_sha" ]] || fail 'Patch SSO 0009 divergiu do hash aprovado.'
 [[ "$actual_build_inputs_patch_sha" == "$expected_build_inputs_patch_sha" ]] || fail 'Patch de inputs 0010 divergiu do hash aprovado.'
 [[ "$actual_native_security_patch_sha" == "$expected_native_security_patch_sha" ]] || fail 'Patch de bibliotecas nativas 0011 divergiu do hash aprovado.'
+[[ "$actual_certificate_join_patch_sha" == "$expected_certificate_join_patch_sha" ]] || fail 'Patch certificate join 0012 divergiu do hash aprovado.'
+[[ "$actual_source_notice_patch_sha" == "$expected_source_notice_patch_sha" ]] || fail 'Patch de oferta AGPL 0013 divergiu do hash aprovado.'
 [[ "$actual_tiff_source_sha" == "$expected_tiff_source_sha" ]] || fail 'Fonte vendorizada TIFF divergiu do SHA-256 aprovado.'
 [[ "$actual_tiff_source_sha512" == "$expected_tiff_source_sha512" ]] || fail 'Fonte vendorizada TIFF divergiu do SHA-512 upstream aprovado.'
 [[ "$actual_harness_dockerfile_sha" == "$expected_harness_dockerfile_sha" ]] || fail 'Dockerfile do harness divergiu do hash aprovado.'
@@ -217,6 +225,10 @@ git -C "$candidate_source" apply --check "$build_inputs_patch"
 git -C "$candidate_source" apply "$build_inputs_patch"
 git -C "$candidate_source" apply --check "$native_security_patch"
 git -C "$candidate_source" apply "$native_security_patch"
+git -C "$candidate_source" apply --check "$certificate_join_patch"
+git -C "$candidate_source" apply "$certificate_join_patch"
+git -C "$candidate_source" apply --check "$source_notice_patch"
+git -C "$candidate_source" apply "$source_notice_patch"
 
 candidate_tiff_apkbuild="$candidate_source/build/tiff/APKBUILD"
 candidate_tiff_source="$candidate_source/build/tiff/tiff-4.7.2.tar.gz"
@@ -258,23 +270,24 @@ if grep -Fq -- '--allow-untrusted' "$candidate_source/Dockerfile" "$harness_dock
   fail 'Instalação APK sem validação de assinatura foi recusada.'
 fi
 
-readonly -a sso_specs=(
+readonly -a focused_specs=(
   'spec/lib/maiocchi_sso_configuration_spec.rb'
   'spec/lib/maiocchi_sso_identity_resolver_spec.rb'
   'spec/lib/maiocchi_sso_token_exchange_spec.rb'
   'spec/requests/maiocchi_sso_spec.rb'
+  'spec/requests/maiocchi_brand_spec.rb'
 )
-for spec_file in "${sso_specs[@]}"; do
+for spec_file in "${focused_specs[@]}"; do
   [[ -f "$candidate_source/$spec_file" ]] || fail "Spec SSO esperado não existe: $spec_file"
 done
-discovered_sso_specs=()
+discovered_focused_specs=()
 while IFS= read -r discovered_spec; do
-  discovered_sso_specs+=("$discovered_spec")
-done < <(CDPATH='' cd -- "$candidate_source" && find spec -type f -name '*maiocchi_sso*spec.rb' -print | LC_ALL=C sort)
-[[ "${#discovered_sso_specs[@]}" == "${#sso_specs[@]}" ]] || fail 'Conjunto de specs SSO divergiu do conjunto fechado.'
-for spec_index in "${!sso_specs[@]}"; do
-  [[ "${discovered_sso_specs[$spec_index]}" == "${sso_specs[$spec_index]}" ]] || \
-    fail 'Conjunto de specs SSO divergiu do conjunto fechado.'
+  discovered_focused_specs+=("$discovered_spec")
+done < <(CDPATH='' cd -- "$candidate_source" && find spec -type f \( -name '*maiocchi_sso*spec.rb' -o -name 'maiocchi_brand_spec.rb' \) -print | LC_ALL=C sort)
+[[ "${#discovered_focused_specs[@]}" == "${#focused_specs[@]}" ]] || fail 'Conjunto de specs focados divergiu do conjunto fechado.'
+for spec_index in "${!focused_specs[@]}"; do
+  [[ "${discovered_focused_specs[$spec_index]}" == "${focused_specs[$spec_index]}" ]] || \
+    fail 'Conjunto de specs focados divergiu do conjunto fechado.'
 done
 
 docker pull --platform linux/amd64 "$ruby_image" >/dev/null
@@ -291,7 +304,7 @@ docker run --rm \
   --workdir /source \
   --tmpfs /tmp:rw,noexec,nosuid,nodev,size=16777216,mode=1777 \
   "$ruby_image" \
-  sh -eu -c 'for ruby_file do ruby -c "$ruby_file" >/dev/null; done' sh "${sso_specs[@]}"
+  sh -eu -c 'for ruby_file do ruby -c "$ruby_file" >/dev/null; done' sh "${focused_specs[@]}"
 
 docker pull --platform linux/amd64 "$postgres_image" >/dev/null
 
@@ -307,6 +320,8 @@ docker build \
   --build-arg "DOCUSEAL_SSO_PATCH_SHA256=$actual_sso_patch_sha" \
   --build-arg "DOCUSEAL_BUILD_INPUTS_PATCH_SHA256=$actual_build_inputs_patch_sha" \
   --build-arg "DOCUSEAL_NATIVE_SECURITY_PATCH_SHA256=$actual_native_security_patch_sha" \
+  --build-arg "DOCUSEAL_CERTIFICATE_JOIN_PATCH_SHA256=$actual_certificate_join_patch_sha" \
+  --build-arg "DOCUSEAL_AGPL_SOURCE_PATCH_SHA256=$actual_source_notice_patch_sha" \
   --build-arg "TIFF_APKBUILD_SHA256=$actual_tiff_apkbuild_sha" \
   --build-arg "TIFF_SOURCE_SHA256=$actual_tiff_source_sha" \
   --build-arg "TIFF_VERSION=$expected_tiff_version" \
@@ -328,6 +343,10 @@ image_is_owned || fail 'Imagem do harness não recebeu o marcador exclusivo do e
   fail 'Label de proveniência do patch de build divergiu.'
 [[ "$(docker image inspect --format '{{ index .Config.Labels "br.adv.maiocchi.native-security-patch-sha256" }}' "$harness_image")" == "$actual_native_security_patch_sha" ]] || \
   fail 'Label de proveniência do patch de bibliotecas nativas divergiu.'
+[[ "$(docker image inspect --format '{{ index .Config.Labels "br.adv.maiocchi.certificate-join-patch-sha256" }}' "$harness_image")" == "$actual_certificate_join_patch_sha" ]] || \
+  fail 'Label de proveniência do patch certificate join divergiu.'
+[[ "$(docker image inspect --format '{{ index .Config.Labels "br.adv.maiocchi.agpl-source-patch-sha256" }}' "$harness_image")" == "$actual_source_notice_patch_sha" ]] || \
+  fail 'Label de proveniência do patch de oferta AGPL divergiu.'
 [[ "$(docker image inspect --format '{{ index .Config.Labels "br.adv.maiocchi.tiff-apkbuild-sha256" }}' "$harness_image")" == "$actual_tiff_apkbuild_sha" ]] || \
   fail 'Label de proveniência do APKBUILD TIFF divergiu.'
 [[ "$(docker image inspect --format '{{ index .Config.Labels "br.adv.maiocchi.tiff-source-sha256" }}' "$harness_image")" == "$actual_tiff_source_sha" ]] || \
@@ -484,7 +503,7 @@ docker run --rm \
   --label "$ownership_label=$run_id" \
   "${rails_environment[@]}" \
   "${ephemeral_app_storage[@]}" \
-  "$harness_image" rspec --format progress "${sso_specs[@]}"
+  "$harness_image" rspec --format progress "${focused_specs[@]}"
 
 docker run --detach \
   --name "$app_container" \
@@ -534,5 +553,5 @@ printf '%s\n' \
   "Commit de receita assinado: $recipe_commit" \
   "Pacotes nativos: tiff=$expected_tiff_version; openexr-lib*=$expected_openexr_version (4/4)" \
   'Pacotes nativos/linkage: APK ownership, ldd e round-trip TIFF via Ruby/Vips validados antes dos specs.' \
-  "Specs executados: ${#sso_specs[@]} (conjunto fechado)" \
+  "Specs executados: ${#focused_specs[@]} (conjunto fechado)" \
   'Portas publicadas: 0; volumes persistentes/binds: 0; health interno: 200.'

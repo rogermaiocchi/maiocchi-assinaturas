@@ -10,8 +10,9 @@
     "build": "next build",
     "build:sites": "NEXT_PUBLIC_AUTHENTICITY_API_BASE=${NEXT_PUBLIC_AUTHENTICITY_API_BASE:-https://assinatura.maiocchi.adv.br} SITES_BUILD=1 WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext build",
     "start": "npx serve out",
-    "test": "npm run build && node --test tests/*.test.mjs services/pki-bridge/test/*.test.mjs",
-    "test:pki": "node --test services/pki-bridge/test/*.test.mjs",
+    "test": "npm run test:portal && npm run test:pki",
+    "test:portal": "npm run build && node --test tests/*.test.mjs",
+    "test:pki": "npm --prefix services/pki-bridge test",
     "lint": "eslint . --ignore-pattern out --ignore-pattern .next --ignore-pattern work --ignore-pattern tools/pades-visual-editor/dist --ignore-pattern tools/pades-visual-editor/output"
   },
   "dependencies": {
@@ -39,7 +40,15 @@
     "wrangler": "^4.110.0"
   },
   "overrides": {
-    "postcss": "8.5.16"
+    "postcss": "8.5.16",
+    "sharp": "0.35.3",
+    "fast-uri": "3.1.4",
+    "minimatch@3.1.5": {
+      "brace-expansion": "1.1.16"
+    },
+    "minimatch@10.2.5": {
+      "brace-expansion": "5.0.7"
+    }
   },
   "type": "module"
 }

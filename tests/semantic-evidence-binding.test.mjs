@@ -45,6 +45,27 @@ function defaultKernelIgnores() {
   }));
 }
 
+function vexDescriptorIgnores() {
+  return ["not_affected", "fixed"].map((vexStatus) => ({
+    vulnerability: "",
+    "include-aliases": false,
+    reason: "",
+    namespace: "",
+    "fix-state": "",
+    package: {
+      name: "",
+      version: "",
+      language: "",
+      type: "",
+      location: "",
+      "upstream-name": "",
+    },
+    "vex-status": vexStatus,
+    "vex-justification": "",
+    "match-type": "",
+  }));
+}
+
 function scannerConfiguration() {
   return {
     output: ["json"],
@@ -348,6 +369,7 @@ function buildFixture(
   filteredGrypeReport.descriptor.configuration["vex-documents"] = [
     "/tmp/docuseal-3.0.1-maiocchi.15.openvex.json",
   ];
+  filteredGrypeReport.descriptor.configuration.ignore.push(...vexDescriptorIgnores());
   filteredGrypeReport.descriptor.configuration["fail-on-severity"] = "high";
   writeJson(filteredGrype, filteredGrypeReport);
 
@@ -549,6 +571,37 @@ test("evidência semântica liga ID, archive, inspect, SBOM, Grype e config", ()
     const positiveFiltered = validate(candidate, {}, true);
     assert.equal(positiveFiltered.status, 0, positiveFiltered.stderr || positiveFiltered.stdout);
 
+    const mutateFilteredConfiguration = (name, transform) => {
+      const targetPath = join(candidate.fixtureDir, name);
+      const value = JSON.parse(readFileSync(candidate.filteredGrype, "utf8"));
+      transform(value.descriptor.configuration.ignore);
+      writeJson(targetPath, value);
+      return targetPath;
+    };
+    const badFilteredConfigurations = [
+      [
+        "regra VEX de descriptor ausente",
+        mutateFilteredConfiguration("filtered.missing-vex-rule.json", (ignore) => ignore.pop()),
+      ],
+      [
+        "regra VEX de descriptor excedente",
+        mutateFilteredConfiguration("filtered.extra-vex-rule.json", (ignore) => {
+          ignore.push(structuredClone(ignore[4]));
+        }),
+      ],
+      [
+        "status VEX de descriptor divergente",
+        mutateFilteredConfiguration("filtered.bad-vex-status.json", (ignore) => {
+          ignore[4]["vex-status"] = "under_investigation";
+        }),
+      ],
+    ];
+    for (const [description, filteredGrype] of badFilteredConfigurations) {
+      const result = validate(candidate, { filteredGrype }, true);
+      assert.notEqual(result.status, 0, `${description} deveria ser rejeitado`);
+      assert.match(result.stderr, /Fixture:/, `${description}: diagnóstico ausente`);
+    }
+
     const badMatching = join(candidate.fixtureDir, "grype.bad-matching.json");
     const badMatchingReport = JSON.parse(readFileSync(candidate.rawGrype, "utf8"));
     badMatchingReport.descriptor.configuration.match.stock["using-cpes"] = false;
@@ -644,7 +697,6 @@ test("conjunto DocuSeal conserva exatamente SBOM, OpenVEX e dois achados TIFF", 
         }),
       },
     ]);
-
     for (const [description, overrides] of mutations) {
       const result = validateDocusealReports(candidate, overrides);
       assert.notEqual(result.status, 0, `${description} deveria ser rejeitado`);

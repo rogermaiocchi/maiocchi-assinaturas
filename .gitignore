@@ -55,3 +55,13 @@ next-env.d.ts
 # local browser QA artifacts
 /.playwright-mcp/
 /portal-desktop.png
+
+# conflict copies produced by local sync; canonical files remain unignored
+/app/globals [0-9].css
+/clients/*/README [0-9].md
+/compliance/SHA256SUMS [0-9]
+/compliance/* [0-9].tar.gz
+
+# historical local scanner outputs; current release evidence is 1.3.25+
+/compliance/sbom/pki-bridge-1.3.23.cdx.json
+/compliance/vulnerability/pki-bridge-1.3.23.grype.json
